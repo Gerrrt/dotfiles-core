@@ -10,7 +10,14 @@ zsh/tools.zsh
 zsh/aliases.zsh
 zsh/functions.zsh
 
-# ── promote these up from dotfiles-MacBook / dotfiles-Debian (not re-derived) ─
-# tmux/tmux.conf
-# nvim/init.lua
-# git/gitconfig          # delta config lives here; it's identical everywhere
+# ── cross-OS helper scripts (called by zsh, tmux, AND nvim) ───────────────────
+bin/clip
+bin/clip-paste
+
+# ── tmux (PROMOTED) — your real tmux.conf, clipboard binding made portable ────
+tmux/tmux.conf
+
+# ── still to promote from dotfiles-MacBook / dotfiles-Debian ──────────────────
+# nvim/init.lua          # lazy.nvim is portable; wire its clipboard to `clip` on WSL
+# git/gitconfig          # delta is portable; split out OS-specific credential.helper
+
