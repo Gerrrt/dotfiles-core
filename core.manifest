@@ -17,7 +17,9 @@ bin/clip-paste
 # ── tmux (PROMOTED) — your real tmux.conf, clipboard binding made portable ────
 tmux/tmux.conf
 
+# ── git (PROMOTED) — portable config; credential helper split to OS layer ─────
+git/gitconfig
+git/local.gitconfig.example
+
 # ── still to promote from dotfiles-MacBook / dotfiles-Debian ──────────────────
 # nvim/init.lua          # lazy.nvim is portable; wire its clipboard to `clip` on WSL
-# git/gitconfig          # delta is portable; split out OS-specific credential.helper
-

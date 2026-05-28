@@ -1,0 +1,73 @@
+# core/git/gitconfig  → symlinked to ~/.gitconfig
+# ──────────────────────────────────────────────────────────────────────────────
+# The PORTABLE git config — identical on every machine. OS-specific bits
+# (credential helper) and private bits (identity, signing key) are layered in via
+# the [include] directives at the bottom. Git processes includes in order (later
+# wins) and SILENTLY IGNORES any that are missing, so this file is safe to
+# symlink everywhere, even before the OS/local layers exist.
+# ──────────────────────────────────────────────────────────────────────────────
+
+[core]
+	editor = nvim
+	pager = delta
+	autocrlf = false
+	whitespace = fix,-indent-with-non-tab,trailing-space,cr-at-eol
+
+[init]
+	defaultBranch = main
+
+[pull]
+	rebase = true
+
+[push]
+	autoSetupRemote = true
+
+[rebase]
+	autoStash = true
+
+[merge]
+	conflictstyle = diff3
+
+[rerere]
+	enabled = true        # record conflict resolutions and auto-replay them
+
+[diff]
+	colorMoved = default
+
+[interactive]
+	diffFilter = delta --color-only
+
+[delta]
+	navigate = true
+	side-by-side = true
+	line-numbers = true
+	dark = true
+
+[alias]
+	lg        = log --oneline --graph --decorate --all
+	ll        = log --stat --oneline
+	aliases   = config --get-regexp alias
+	undo      = reset --soft HEAD~1
+	amend     = commit --amend --no-edit
+	save      = stash push -m
+	sl        = stash list
+	st        = status -sb
+	last      = diff HEAD~1 HEAD --name-only
+	discard   = checkout --
+	clean-all = clean -fdx
+	brs       = branch --sort=-committerdate --format='%(committerdate:short) %(refname:short)'
+
+# ── layered includes (later overrides earlier; missing files are ignored) ─────
+# OS-specific (credential helper, etc.) — provided by each OS repo's os/*.gitconfig:
+[include]
+	path = ~/.config/git/os.gitconfig
+
+# Private / per-machine (your identity + GPG signing key) — NEVER committed.
+# bootstrap.sh seeds this from core/git/local.gitconfig.example on first run:
+[include]
+	path = ~/.config/git/local.gitconfig
+
+# Optional: per-directory identity (e.g. a separate work identity under ~/work/).
+# Uncomment, then create ~/.config/git/work.gitconfig with its own [user] block:
+# [includeIf "gitdir:~/work/"]
+# 	path = ~/.config/git/work.gitconfig

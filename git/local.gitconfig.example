@@ -1,0 +1,19 @@
+# core/git/local.gitconfig.example
+# ──────────────────────────────────────────────────────────────────────────────
+# bootstrap.sh copies this to ~/.config/git/local.gitconfig on first run (only if
+# that file doesn't already exist). The real file is PRIVATE and never tracked by
+# any repo — safe to put your actual email here.
+#
+# Set your identity by editing the copy, or:
+#   git config -f ~/.config/git/local.gitconfig user.name  "Your Name"
+#   git config -f ~/.config/git/local.gitconfig user.email "you@example.com"
+# ──────────────────────────────────────────────────────────────────────────────
+
+[user]
+	name  = Your Name
+	email = you@example.com
+	# signingkey = <gpg-key-id>     # gpg --list-secret-keys --keyid-format=long
+
+# Sign all commits by default (only if you set a signingkey above):
+# [commit]
+# 	gpgsign = true
