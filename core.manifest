@@ -1,0 +1,16 @@
+# core.manifest — the canonical inventory of the Core layer.
+# Every path here is authored ONCE in this repo and vendored into each OS repo
+# under core/. If a file isn't listed here, it isn't Core — it belongs to an
+# OS repo (OS-native) or to dotfiles-Kali (offensive).
+#
+# This list is the contract. Audit scripts and the promotion checklist read it.
+
+# ── zsh (load order: tools -> aliases -> functions, then OS repo's os.zsh) ────
+zsh/tools.zsh
+zsh/aliases.zsh
+zsh/functions.zsh
+
+# ── promote these up from dotfiles-MacBook / dotfiles-Debian (not re-derived) ─
+# tmux/tmux.conf
+# nvim/init.lua
+# git/gitconfig          # delta config lives here; it's identical everywhere

@@ -1,0 +1,8 @@
+# dotfiles-core/.gitignore — Core is config only; never machine state or secrets.
+*.log
+*.bak
+.DS_Store
+zsh/local.zsh          # machine-specific overrides never sync up to Core
+.env
+.env.*
+!.env.example
