@@ -21,5 +21,9 @@ tmux/tmux.conf
 git/gitconfig
 git/local.gitconfig.example
 
-# ── still to promote from dotfiles-MacBook / dotfiles-Debian ──────────────────
-# nvim/init.lua          # lazy.nvim is portable; wire its clipboard to `clip` on WSL
+# ── nvim (PROMOTED) — entire lazy.nvim tree; portable, clipboard via `clip` ───
+nvim/                    # whole directory: lua/gerrrt/{config,plugins,servers,utils}
+
+# ── Core is now complete: zsh + clip + tmux + git + nvim. Nothing left to promote.
+
+
