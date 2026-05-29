@@ -1,73 +1,192 @@
 # core/git/gitconfig  → symlinked to ~/.gitconfig
 # ──────────────────────────────────────────────────────────────────────────────
-# The PORTABLE git config — identical on every machine. OS-specific bits
-# (credential helper) and private bits (identity, signing key) are layered in via
-# the [include] directives at the bottom. Git processes includes in order (later
-# wins) and SILENTLY IGNORES any that are missing, so this file is safe to
-# symlink everywhere, even before the OS/local layers exist.
+# The PORTABLE git config — identical on every machine. The two OS/private bits
+# layer in via the [include] directives at the very bottom:
+#   • credential helper, global excludesfile, gpg program  -> os/<distro>.gitconfig
+#   • identity (name/email/signingkey)                      -> local.gitconfig (never tracked)
+# Git applies includes in order (later wins) and SILENTLY IGNORES missing ones,
+# so this file is safe to symlink everywhere even before those layers exist.
 # ──────────────────────────────────────────────────────────────────────────────
-
-[core]
-	editor = nvim
-	pager = delta
-	autocrlf = false
-	whitespace = fix,-indent-with-non-tab,trailing-space,cr-at-eol
 
 [init]
 	defaultBranch = main
 
-[pull]
-	rebase = true
+[core]
+	editor = nvim
+	pager = delta
+	autocrlf = input
+	ignorecase = false            # force case-sensitivity (APFS/NTFS are not)
+	preloadindex = true
+	commitGraph = true
+	whitespace = fix,-indent-with-non-tab,trailing-space,cr-at-eol
+	# excludesfile (global gitignore) is OS-specific — set in os/<distro>.gitconfig
 
-[push]
-	autoSetupRemote = true
+[commit]
+	verbose = true
+	# gpgsign = true              # enable after setting a signingkey in local.gitconfig
 
-[rebase]
-	autoStash = true
+# ── Diff ──────────────────────────────────────────────────────────────────────
+[diff]
+	algorithm = histogram
+	colorMoved = default
+	mnemonicPrefix = true
+	renames = copies
+	submodule = log
+	tool = nvimdiff
+[difftool]
+	prompt = false
+[difftool "nvimdiff"]
+	cmd = nvim -d \"$LOCAL\" \"$REMOTE\"
 
+# ── Merge ─────────────────────────────────────────────────────────────────────
 [merge]
-	conflictstyle = diff3
+	conflictstyle = zdiff3        # shows the base block in conflicts (git >= 2.35)
+	tool = nvimdiff
+	autoStash = true
+[mergetool]
+	prompt = false
+	keepBackup = false
+[mergetool "nvimdiff"]
+	cmd = nvim -d \"$LOCAL\" \"$MERGED\" \"$REMOTE\" -c '$wincmd w' -c 'wincmd J'
 
 [rerere]
-	enabled = true        # record conflict resolutions and auto-replay them
+	enabled = true                # record conflict resolutions and auto-replay them
+	autoupdate = true
 
-[diff]
-	colorMoved = default
+# ── Pull / Push / Fetch ───────────────────────────────────────────────────────
+[pull]
+	rebase = true
+[push]
+	default = current
+	autoSetupRemote = true
+	followTags = true
+[fetch]
+	prune = true
+	pruneTags = false
+	parallel = 0                  # let git decide
 
+# ── Branch / Tag / Log / Status ───────────────────────────────────────────────
+[branch]
+	sort = -committerdate
+[tag]
+	sort = version:refname
+[log]
+	date = iso
+	abbrevCommit = true
+	follow = true
+[status]
+	branch = true
+	short = false
+	showStash = true
+	showUntrackedFiles = all
+[column]
+	ui = auto
+[help]
+	autocorrect = prompt
+
+# ── Submodule / LFS / Maintenance ─────────────────────────────────────────────
+[submodule]
+	recurse = true
+	fetchJobs = 4
+[maintenance]
+	auto = false
+	strategy = incremental
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+
+# ── delta pager ───────────────────────────────────────────────────────────────
 [interactive]
-	diffFilter = delta --color-only
-
+	diffFilter = delta --color-only --features=interactive
 [delta]
-	navigate = true
-	side-by-side = true
+	features = decorations
+	navigate = true               # n/N to move between diff sections
+	light = false
 	line-numbers = true
-	dark = true
+	side-by-side = false          # toggle on the fly with --side-by-side
+	syntax-theme = TwoDark
+	hyperlinks = true
+	true-color = always
+	tabs = 2
+	width = "variable"
+[delta "decorations"]
+	commit-decoration-style = bold yellow box ul
+	file-decoration-style = bold yellow ul
+	file-style = bold yellow
+	hunk-header-style = bold cyan ul
+	hunk-header-decoration-style = cyan box
+	minus-style = syntax "#3f1f1f"
+	minus-emph-style = syntax "#8a2a2a"
+	plus-style = syntax "#1f3f1f"
+	plus-emph-style = syntax "#2a8a2a"
+[delta "interactive"]
+	keep-plus-minus-markers = false
 
+# ── URL rewrites — push via SSH, clone via HTTPS ──────────────────────────────
+[url "git@github.com:"]
+	pushInsteadOf = https://github.com/
+
+# ── Aliases ───────────────────────────────────────────────────────────────────
 [alias]
-	lg        = log --oneline --graph --decorate --all
-	ll        = log --stat --oneline
-	aliases   = config --get-regexp alias
-	undo      = reset --soft HEAD~1
-	amend     = commit --amend --no-edit
-	save      = stash push -m
-	sl        = stash list
-	st        = status -sb
-	last      = diff HEAD~1 HEAD --name-only
-	discard   = checkout --
+	# status / log
+	st = status -sb
+	lg = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset)%C(auto)%d%C(reset)%n''          %C(white)%s%C(reset) %C(dim white)- %an%C(reset)' --all
+	ll = log --stat --oneline
+	last = log -1 HEAD --stat
+	graph = log --graph --oneline --decorate --all
+	aliases = config --get-regexp alias
+	# diff / show
+	d = diff
+	ds = diff --stat
+	dc = diff --cached
+	dw = diff --word-diff
+	# branch / commit
+	co = checkout
+	br = branch -vv
+	brs = branch --sort=-committerdate --format='%(committerdate:short) %(refname:short)'
+	cm = commit -m
+	ca = commit --amend
+	can = commit --amend --no-edit
+	wip = !git add -A && git commit -m 'wip'
+	unwip = reset HEAD~1
+	# reset / undo
+	undo = reset --soft HEAD~1
+	uncommit = reset --mixed HEAD~1
+	discard = checkout --
 	clean-all = clean -fdx
-	brs       = branch --sort=-committerdate --format='%(committerdate:short) %(refname:short)'
+	nuke = !git clean -fd && git reset --hard
+	# remote
+	pushf = push --force-with-lease
+	prune-branches = !git remote prune origin && git branch --merged | egrep -v '(^\\*|main|master|develop)' | xargs -r git branch -d
+	# stash
+	sl = stash list
+	sp = stash pop
+	ss = stash save
+	save = stash push -m
+	# find
+	find = !git ls-files | grep -i
+	grep-log = log --all --source --remotes --pretty=format:'%h %s' --grep
+	grep-code = !git rev-list --all | xargs git grep
+	# worktrees
+	wt = worktree
+	wa = worktree add
+	wl = worktree list
+	# stats
+	contributors = shortlog --summary --numbered --email
+	mine = !git log --author=\"$(git config user.email)\" --oneline
 
-# ── layered includes (later overrides earlier; missing files are ignored) ─────
-# OS-specific (credential helper, etc.) — provided by each OS repo's os/*.gitconfig:
+# ── Per-directory work identity (create the file; missing = silently ignored) ─
+[includeIf "gitdir:~/work/"]
+	path = ~/.config/git/config-work
+[includeIf "gitdir:~/clients/"]
+	path = ~/.config/git/config-work
+
+# ── Layered includes (later overrides earlier; missing files are ignored) ─────
+# OS-specific (credential helper, excludesfile, gpg program) — each OS repo's os/*.gitconfig:
 [include]
 	path = ~/.config/git/os.gitconfig
-
-# Private / per-machine (your identity + GPG signing key) — NEVER committed.
-# bootstrap.sh seeds this from core/git/local.gitconfig.example on first run:
+# Private identity (name/email/signingkey) — seeded from local.gitconfig.example, NEVER tracked:
 [include]
 	path = ~/.config/git/local.gitconfig
-
-# Optional: per-directory identity (e.g. a separate work identity under ~/work/).
-# Uncomment, then create ~/.config/git/work.gitconfig with its own [user] block:
-# [includeIf "gitdir:~/work/"]
-# 	path = ~/.config/git/work.gitconfig

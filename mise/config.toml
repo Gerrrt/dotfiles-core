@@ -2,7 +2,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # Global runtime versions, managed by mise (https://mise.jdx.dev). Portable —
 # identical on every machine. Per-project versions live in a project-local
-# mise.toml / .tool-versions and override these globals automatically.
+# mise.toml / legacy .nvmrc/.python-version and override these automatically.
 #
 #   mise install              # install everything declared here
 #   mise use -g node@22       # change a global (rewrites this file)
@@ -10,14 +10,31 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 [tools]
-node = "lts"        # clean Linux node — replaces whatever's leaking via interop
-python = "latest"   # your interactive/project python (system /usr/bin/python3 is
-                    #   left alone for Neovim's provider — see notes)
-go = "latest"       # lots of security tooling is `go install`-able; enables gopls
+node   = "lts"
+pnpm   = "latest"     # faster than npm/yarn, less disk; npm/npx still ship with node
+python = "3.12"       # many pentest tools (impacket, bloodhound-python) want a real Python
+ruby   = "3.3"        # evil-winrm, some Metasploit modules, web tooling
+go     = "latest"     # lots of security tooling is `go install`-able; enables gopls
+rust   = "stable"     # see distro note below
+java   = "temurin-21" # Burp Suite, BloodHound legacy — recent LTS
+lua    = "5.4"        # handy when hacking on the Neovim config
 
-# Add as you need them. Rust is intentionally omitted by default so it doesn't
-# shadow the dnf `cargo` already used for yazi/dust — uncomment to let mise own
-# the whole Rust toolchain instead:
-# rust = "latest"
-# ruby = "latest"
-# zig = "latest"
+# Distro note: on boxes where bootstrap installs `cargo` via the package manager
+# (e.g. Fedora, for building yazi/dust), mise's `rust` here will take PATH
+# precedence — which is fine (mise's toolchain is newer). If you'd rather the
+# distro own Rust on a given machine, drop the `rust` line in a local override.
+
+[settings]
+auto_install = false        # explicit installs only; don't fetch on directory entry
+legacy_version_file = true  # honor .nvmrc/.ruby-version/.python-version so repos "just work"
+experimental = true         # native shims (faster than the shell wrapper)
+paranoid = false            # set true to verify checksums on every download (slower)
+quiet = false
+# trusted_config_paths is machine-specific (the dotfiles dir differs per OS), so
+# keep only portable roots here and add the per-box path in a local override —
+# e.g. on the Mac: ['~/code', '~/dotfiles-MacBook'].
+trusted_config_paths = ['~/code']
+
+[alias]
+# Custom shorthand plugin sources, e.g.:
+# node-alpha = "node@nightly"
