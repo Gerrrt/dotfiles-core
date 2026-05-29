@@ -31,6 +31,7 @@ require("gerrrt.config.options")
 require("gerrrt.config.keymaps")
 require("gerrrt.config.autocmds")
 require("gerrrt.config.clipboard")
+require("gerrrt.config.providers")
 
 require("lazy").setup({
 	spec = {

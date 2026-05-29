@@ -6,3 +6,4 @@ zsh/local.zsh          # machine-specific overrides never sync up to Core
 .env
 .env.*
 !.env.example
+
