@@ -77,7 +77,7 @@ zle -N _fzf_history_clean
 _tmux_sessionizer() {
   local selected
   selected=$(find \
-    "$HOME/Projects" "$HOME/dev" "$HOME/work" \
+    "$HOME/Projects" "$HOME/dev" "$HOME/work" "$HOME/.config" \
     -mindepth 1 -maxdepth 2 -type d 2>/dev/null \
     | fzf --preview "eza --icons --tree --level=1 {} | head -20")
 

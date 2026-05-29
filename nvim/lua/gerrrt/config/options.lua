@@ -9,7 +9,7 @@ vim.opt.relativenumber = true -- Relative line numbers
 vim.opt.cursorline = true -- Highlight current line
 vim.opt.scrolloff = 10 -- Keep 10 lines above/below cursor
 vim.opt.sidescrolloff = 8 -- Keep 8 columns left/right of cursor
-vim.opt.wrap = true -- Don't wrap lines
+vim.opt.wrap = false -- Don't wrap lines
 vim.opt.cmdheight = 1 -- Command line height
 vim.opt.spelllang = { "en", "de" } -- Set language for spellchecking
 
@@ -26,7 +26,7 @@ vim.opt.grepformat = "%f:%l:%c:%m" -- filename, line number, column, content
 -- Search Settings
 vim.opt.ignorecase = true -- Case-insensitive search
 vim.opt.smartcase = true -- Case-sensitive if uppercase in search
-vim.opt.hlsearch = true -- Don't highlight search results
+vim.opt.hlsearch = false -- Don't highlight search results
 vim.opt.incsearch = true -- Show matches as you type
 
 -- Visual Settings

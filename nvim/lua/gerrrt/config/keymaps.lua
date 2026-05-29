@@ -2,9 +2,6 @@
 -- TITLE: NeoVim keymaps
 -- ABOUT: sets some quality-of-life keymaps
 -- ================================================================================================
-vim.g.mapleader = " "
-vim.g.maplocalleader = " "
-
 -- Quick config editing
 vim.keymap.set("n", "<leader>rc", "<Cmd>e ~/.config/nvim/init.lua<CR>", { desc = "Edit config" })
 
