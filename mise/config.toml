@@ -1,0 +1,23 @@
+# core/mise/config.toml  → symlinked to ~/.config/mise/config.toml
+# ──────────────────────────────────────────────────────────────────────────────
+# Global runtime versions, managed by mise (https://mise.jdx.dev). Portable —
+# identical on every machine. Per-project versions live in a project-local
+# mise.toml / .tool-versions and override these globals automatically.
+#
+#   mise install              # install everything declared here
+#   mise use -g node@22       # change a global (rewrites this file)
+#   mise ls                   # show installed + active versions
+# ──────────────────────────────────────────────────────────────────────────────
+
+[tools]
+node = "lts"        # clean Linux node — replaces whatever's leaking via interop
+python = "latest"   # your interactive/project python (system /usr/bin/python3 is
+                    #   left alone for Neovim's provider — see notes)
+go = "latest"       # lots of security tooling is `go install`-able; enables gopls
+
+# Add as you need them. Rust is intentionally omitted by default so it doesn't
+# shadow the dnf `cargo` already used for yazi/dust — uncomment to let mise own
+# the whole Rust toolchain instead:
+# rust = "latest"
+# ruby = "latest"
+# zig = "latest"

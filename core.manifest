@@ -14,6 +14,9 @@ zsh/functions.zsh
 bin/clip
 bin/clip-paste
 
+# ── mise — polyglot runtime manager; global tool versions (portable) ──────────
+mise/config.toml
+
 # ── tmux (PROMOTED) — your real tmux.conf, clipboard binding made portable ────
 tmux/tmux.conf
 
@@ -25,5 +28,4 @@ git/local.gitconfig.example
 nvim/                    # whole directory: lua/gerrrt/{config,plugins,servers,utils}
 
 # ── Core is now complete: zsh + clip + tmux + git + nvim. Nothing left to promote.
-
 

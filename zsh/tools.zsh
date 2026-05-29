@@ -19,6 +19,10 @@
 # Only set up interactive niceties in interactive shells. Scripts get raw POSIX.
 [[ $- == *i* ]] || return 0
 
+# user-local bin (where mise/starship/atuin/clip install) must be on PATH BEFORE
+# we probe for those tools below, or they won't be detected on a fresh shell.
+[[ -d "$HOME/.local/bin" && ":$PATH:" != *":$HOME/.local/bin:"* ]] && export PATH="$HOME/.local/bin:$PATH"
+
 _have() { command -v "$1" >/dev/null 2>&1; }
 
 # ── Resolve binaries that ship under alternate names on some distros ──────────
@@ -41,10 +45,12 @@ _have yazi     && HAVE_YAZI=1
 _have btop     && HAVE_BTOP=1
 _have dust     && HAVE_DUST=1
 _have procs    && HAVE_PROCS=1
+_have mise     && HAVE_MISE=1
 [[ -n ${FD_BIN:-}  ]] && HAVE_FD=1
 [[ -n ${BAT_BIN:-} ]] && HAVE_BAT=1
 
 # ── Initialize tools that hook the shell (guarded so a missing tool is silent)─
+[[ -n ${HAVE_MISE:-}     ]] && eval "$(mise activate zsh)"
 [[ -n ${HAVE_ZOXIDE:-}   ]] && eval "$(zoxide init zsh)"
 [[ -n ${HAVE_STARSHIP:-} ]] && eval "$(starship init zsh)"
 [[ -n ${HAVE_ATUIN:-}    ]] && eval "$(atuin init zsh --disable-up-arrow)"
