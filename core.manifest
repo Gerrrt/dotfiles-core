@@ -17,7 +17,11 @@ zsh/fzf.zsh            # fzf env + zle widgets (Ctrl-F/R, Alt-Z, Ctrl-G) + fif/f
 zsh/bindings.zsh       # vi-mode keybindings (zvm_after_init hook)
 zsh/plugins.zsh        # lightweight plugin loader + plugin list
 zsh/op.zsh             # 1Password CLI helpers (macOS agent socket -> os layer)
-zsh/starship.toml      # prompt theme (STARSHIP_CONFIG points here)
+
+# ── starship — prompt theme; symlinked to the DEFAULT ~/.config/starship.toml ─
+# (so no STARSHIP_CONFIG needed). Not a .zsh module, so bootstrap links it
+# explicitly rather than via the core/zsh/*.zsh loop.
+starship/starship.toml
 
 # ── cross-OS helper scripts (called by zsh, tmux, AND nvim) ───────────────────
 bin/clip
@@ -38,3 +42,4 @@ git/local.gitconfig.example
 nvim/                    # whole directory: lua/gerrrt/{config,plugins,servers,utils}
 
 # ── Core layers: zsh + clip + mise + tmux + git + nvim. ───────────────────────
+

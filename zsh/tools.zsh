@@ -51,9 +51,8 @@ _have mise     && HAVE_MISE=1
 [[ -n ${BAT_BIN:-} ]] && HAVE_BAT=1
 
 # ── Tool env — set BEFORE the init evals below ────────────────────────────────
-# starship reads its theme from the Core-provided config (bootstrap symlinks
-# core/zsh/starship.toml -> ~/.config/zsh/starship.toml).
-export STARSHIP_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/starship.toml"
+# starship reads its theme from the default ~/.config/starship.toml (bootstrap
+# symlinks core/starship/starship.toml there), so no STARSHIP_CONFIG is needed.
 # starship already renders the active venv, so silence Python's own prefix.
 export VIRTUAL_ENV_DISABLE_PROMPT=1
 # atuin binds NOTHING automatically — bindings.zsh owns Ctrl+E (atuin TUI) and
