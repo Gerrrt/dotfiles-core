@@ -47,7 +47,8 @@ To update every OS repo after a Core change, run the loop helper from this repo:
 ```
 
 The OS repo's `bootstrap.sh` then symlinks `core/zsh/*.zsh`, `core/tmux/`,
-`core/nvim/`, `core/git/` into place alongside its own OS-native files.
+`core/nvim/`, `core/git/`, `core/starship/`, `core/mise/`, and `core/bin/` into
+place alongside its own OS-native files.
 
 ---
 
@@ -66,28 +67,54 @@ The OS repo's `bootstrap.sh` then symlinks `core/zsh/*.zsh`, `core/tmux/`,
 
 ## Layout
 
+Core is fully populated — every layer below is authored here and synced out to
+each OS repo's vendored `core/`. The canonical inventory is `core.manifest`;
+this tree is the human-readable version of it.
+
 ```
 bin/
-  sync-core.sh        loop git-subtree pull across all OS repos (the maintain button)
-zsh/
-  tools.zsh           tool detection + the POSIX-vs-modern guard (load FIRST)
-  aliases.zsh         modern-CLI aliases, each guarded by tools.zsh detection
-  functions.zsh       cross-OS shell functions (mkcd, extract, up, ...)
-core.manifest         the canonical list of Core files (drives sync + audits)
+  clip                    cross-OS "copy to clipboard"   (WSL/macOS/Wayland/X11)
+  clip-paste              cross-OS "paste from clipboard"
+  sync-core.sh            loop git-subtree pull across all OS repos (the maintain button)
+zsh/                      sourced by each OS repo's .zshrc loader, IN THIS ORDER:
+  tools.zsh               detection + single init point (zoxide/starship/atuin/mise) — load FIRST
+  aliases.zsh             modern-CLI aliases, each guarded by tools.zsh detection
+  functions.zsh           cross-OS shell functions (mkcd, extract, up, ...)
+  fzf.zsh                 fzf env + zle widgets (Ctrl-F/R, Alt-Z, Ctrl-G) + fif/fbr
+  bindings.zsh            vi-mode keybindings (zvm_after_init hook)
+  plugins.zsh             lightweight plugin loader + plugin list
+  op.zsh                  1Password CLI helpers
+starship/
+  starship.toml           prompt theme -> symlinked to ~/.config/starship.toml
+mise/
+  config.toml             global runtime versions (node/python/ruby/go/rust/java/lua)
+tmux/
+  tmux.conf               portable base config (OS bits -> os/<os>.conf)
+  scripts/                popup scripts: tmux-menu / tmux-scratch / tmux-sessionizer
+git/
+  gitconfig               portable git config (OS + identity layered via [include])
+  local.gitconfig.example identity template — seeded by bootstrap, never tracked
+nvim/                     entire lazy.nvim tree: lua/gerrrt/{config,plugins,servers,utils}
+core.manifest             the canonical list of Core files (drives sync + audits)
 ```
 
-> `tmux/`, `nvim/`, and `git/` are intentionally not re-derived here yet —
-> promote your battle-tested versions up from `dotfiles-MacBook`/`dotfiles-Debian`
-> into this repo so the canonical copy is the one you already trust.
+> Load order is load-bearing: `tools` inits atuin (registers its widget) and
+> `fzf` defines its zle widgets BEFORE `plugins` loads zsh-vi-mode, whose init
+> fires the keybinding hook in `bindings`. Each OS repo's `.zshrc` sources them
+> as `tools → aliases → functions → fzf → bindings → plugins → op → os → local`.
 
 ---
 
-## Promotion checklist (moving existing Core in)
+## Adding a new file to Core
 
-1. Pick the most current copy of each Core file (likely MacBook or Debian).
-2. Drop it into the matching path here (`zsh/`, `tmux/`, `nvim/`, `git/`).
-3. Strip anything OS-specific into the OS repo (clipboard, paths, pkg manager).
-4. Strip anything offensive into `dotfiles-Kali`.
-5. Add the path to `core.manifest`.
-6. `git subtree add` this repo into each OS repo, wire the symlinks in bootstrap.
-7. From then on: edit here → `./bin/sync-core.sh` → done.
+Core is already complete (zsh, tmux, nvim, git, starship, mise, and the clip
+scripts are all here). The promotion from the old per-repo copies is done — so
+this is now just the procedure for the occasional **new** Core file:
+
+1. Confirm it's actually Core: identical on every machine, **not** OS-specific,
+   **not** offensive. (OS-specific → the OS repo; offensive → `dotfiles-Kali`.)
+2. Drop it into the matching path here.
+3. Strip anything OS-specific out into the OS repo (clipboard, paths, pkg mgr).
+4. Add the path to `core.manifest` — that's the contract the audits read.
+5. Wire the symlink into each OS repo's `bootstrap.sh` if the file needs one.
+6. `./bin/sync-core.sh` to push it into every OS repo's vendored `core/`.

@@ -22,7 +22,13 @@ zvm_after_init() {
   bindkey -M viins '^[[1;5D' backward-word          # Ctrl+Left
   bindkey -M viins '^F'      _fzf_file_no_hidden    # Ctrl+F  → file picker
   bindkey -M viins '^R'      _fzf_history_clean     # Ctrl+R  → history
-  bindkey -M viins '^E'      _atuin_search_widget   # Ctrl+E  → Atuin TUI
+  # Ctrl+E → Atuin TUI. GUARDED: atuin registers _atuin_search_widget only when
+  # it's installed (tools.zsh runs `atuin init zsh` earlier in load order). On a
+  # bare box without atuin the widget doesn't exist, and binding it
+  # unconditionally makes zsh warn "no such widget" on every shell start. Every
+  # other widget here is always defined (fzf.zsh / the vendored plugins), so this
+  # is the only line that needs the guard.
+  (( $+widgets[_atuin_search_widget] )) && bindkey -M viins '^E' _atuin_search_widget
   bindkey -M viins '^\'      autosuggest-toggle     # Ctrl+\  → toggle suggestions
   bindkey -M viins '^[[A'    history-substring-search-up
   bindkey -M viins '^[[B'    history-substring-search-down
