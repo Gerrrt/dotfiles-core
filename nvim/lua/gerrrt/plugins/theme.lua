@@ -28,7 +28,7 @@ return {
 		config = function()
 			require("tokyonight").setup({
 				style = "storm", -- Options: storm, moon, night, day
-				transparent = false, -- Enables transparency for background elements
+				transparent = true, -- Enables transparency for background elements
 				styles = {
 					sidebars = "normal", -- Ensures file trees stay transparent
 					floats = "normal", -- Ensures floating windows stay transparent
