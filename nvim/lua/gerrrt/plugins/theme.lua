@@ -30,8 +30,8 @@ return {
 				style = "storm", -- Options: storm, moon, night, day
 				transparent = true, -- Enables transparency for background elements
 				styles = {
-					sidebars = "normal", -- Ensures file trees stay transparent
-					floats = "normal", -- Ensures floating windows stay transparent
+					sidebars = "transparent", -- Ensures file trees stay transparent
+					floats = "transparent", -- Ensures floating windows stay transparent
 				},
 				on_highlights = function(hl, c)
 					-- Example: Make visual selections pop out more using the theme's palette
