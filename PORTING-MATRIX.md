@@ -118,16 +118,17 @@ engagement data in `~/engagements` (outside the repo); the repo ships a paranoid
 
 ### Repo status
 
-- **Built:** `core`, `Fedora` (template), `MacBook`, `Arch`, **`Kali`**.
-- **Stamp-pending (this doc):** `openSUSE` → `Alpine` → `Gentoo`.
+- **Built:** `core`, `Fedora` (template), `MacBook`, `Arch`, `openSUSE`,
+  `Alpine`, `Gentoo`, `Kali`.
+- **Stamp-pending (this doc):** none — all four template stamps are complete.
 - `Kali` (apt + offensive layer) and `MacBook` (Homebrew) are their own lineages,
   built directly rather than stamped from Fedora. `Debian` and `Windows` are
   tracked separately from this matrix.
 
-### Suggested stamping order (easiest learning curve → hardest)
+### Stamping order (all complete — kept as the recommended sequence for reference)
 
-1. **Arch** — almost everything is in-repo; closest to Fedora effort.
-2. **openSUSE** — straightforward once you internalize `dup` vs `up`.
-3. **Alpine** — forces you to reason about musl and minimalism (great for the
+1. **Arch** ✓ — almost everything is in-repo; closest to Fedora effort.
+2. **openSUSE** ✓ — straightforward once you internalize `dup` vs `up`.
+3. **Alpine** ✓ — forces you to reason about musl and minimalism (great for the
    container/rescue skills a red-teamer wants).
-4. **Gentoo** — the capstone; USE flags + source builds teach you the most.
+4. **Gentoo** ✓ — the capstone; USE flags + source builds teach you the most.
