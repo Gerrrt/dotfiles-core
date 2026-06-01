@@ -1,5 +1,5 @@
 return function(capabilities)
-	vim.lsp.config("solidity", {
+	vim.lsp.config("solidity_ls_nomicfoundation", {
 		capabilities = capabilities,
 		single_file_support = true,
 		cmd = { "nomicfoundation-solidity-language-server", "--stdio" },

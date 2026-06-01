@@ -25,6 +25,14 @@ M.on_attach = function(event)
 		client.server_capabilities.hoverProvider = false
 	end
 
+	-- Neovim 0.11+/0.12 ships default LSP maps grn/gra/grr/gri. Our `gr`=references
+	-- below is a *complete* mapping, so leaving these in place makes `gr` wait
+	-- timeoutlen (500ms) before firing. We have <leader>rn / <leader>ca / gr / gi
+	-- for these already, so clear the defaults to make `gr` instant.
+	for _, lhs in ipairs({ "grn", "gra", "grr", "gri" }) do
+		pcall(vim.keymap.del, "n", lhs, { buffer = bufnr })
+	end
+
 	local keymap = vim.keymap.set
 	local function opts(desc)
 		return { noremap = true, silent = true, buffer = bufnr, desc = desc }

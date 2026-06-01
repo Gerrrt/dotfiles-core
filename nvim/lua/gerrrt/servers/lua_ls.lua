@@ -7,7 +7,10 @@ return function(capabilities)
 				workspace = {
 					library = {
 						vim.fn.expand("$VIMRUNTIME/lua"),
-						vim.fn.expand("$XDG_CONFIG_HOME") .. "/nvim/lua",
+						-- stdpath("config") resolves to ~/.config/nvim even when
+						-- $XDG_CONFIG_HOME isn't exported (common), so lua_ls reliably
+						-- indexes your own gerrrt.* modules for completion.
+						vim.fn.stdpath("config") .. "/lua",
 					},
 				},
 			},
