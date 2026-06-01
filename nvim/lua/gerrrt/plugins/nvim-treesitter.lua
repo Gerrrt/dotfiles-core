@@ -1,17 +1,14 @@
 -- ================================================================================================
--- TITLE : nvim-treesitter
--- ABOUT : Treesitter configurations and abstraction layer for Neovim.
--- NOTES : this has been updated for the latest treesitter api using branch "main"
--- LINKS :
---   > github : https://github.com/nvim-treesitter/nvim-treesitter
+-- TITLE : nvim-treesitter (main branch — new API)
+-- LINKS : https://github.com/nvim-treesitter/nvim-treesitter
+-- NOTE  : Dropped lazy=false so the BufReadPost/BufNewFile event actually governs loading
+--         (the two were fighting before).
 -- ================================================================================================
-
 return {
 	"nvim-treesitter/nvim-treesitter",
 	branch = "main",
 	build = ":TSUpdate",
 	event = { "BufReadPost", "BufNewFile" },
-	lazy = false,
 	config = function()
 		local treesitter = require("nvim-treesitter")
 		treesitter.setup({})
@@ -39,13 +36,11 @@ return {
 		local config = require("nvim-treesitter.config")
 		local already_installed = config.get_installed()
 		local parsers_to_install = {}
-
 		for _, parser in ipairs(ensure_installed) do
 			if not vim.tbl_contains(already_installed, parser) then
 				table.insert(parsers_to_install, parser)
 			end
 		end
-
 		if #parsers_to_install > 0 then
 			treesitter.install(parsers_to_install)
 		end

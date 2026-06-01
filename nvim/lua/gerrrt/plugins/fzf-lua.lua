@@ -1,14 +1,14 @@
 -- ================================================================================================
--- TITLE : fzf-lua
--- LINKS :
---   > github : https://github.com/ibhagwan/fzf-lua
--- ABOUT : lua-based fzf wrapper and integration.
+-- TITLE : fzf-lua | fuzzy finder
+-- LINKS : https://github.com/ibhagwan/fzf-lua
+-- NOTE  : LSP-specific pickers (definitions/refs/symbols) live in utils/lsp.lua on_attach,
+--         so they're buffer-local and only active when a server is attached. This file
+--         keeps the general finders.
 -- ================================================================================================
-
 return {
 	"ibhagwan/fzf-lua",
-	lazy = false,
 	dependencies = { "nvim-tree/nvim-web-devicons" },
+	cmd = "FzfLua",
 	keys = {
 		{
 			"<leader>ff",
@@ -39,34 +39,33 @@ return {
 			desc = "FZF Help Tags",
 		},
 		{
+			"<leader>fr",
+			function()
+				require("fzf-lua").oldfiles()
+			end,
+			desc = "FZF Recent Files",
+		},
+		{
+			"<leader>fk",
+			function()
+				require("fzf-lua").keymaps()
+			end,
+			desc = "FZF Keymaps",
+		},
+		{
 			"<leader>fx",
 			function()
 				require("fzf-lua").diagnostics_document()
 			end,
-			desc = "FZF Diagnostics Document",
+			desc = "FZF Diagnostics (doc)",
 		},
 		{
 			"<leader>fX",
 			function()
 				require("fzf-lua").diagnostics_workspace()
 			end,
-			desc = "FZF Diagnostics Workspace",
-		},
-		{
-			"<leader>fs",
-			function()
-				require("fzf-lua").lsp_document_symbols()
-			end,
-			desc = "FZF Document Symbols",
-		},
-		{
-			"<leader>fS",
-			function()
-				require("fzf-lua").lsp_workspace_symbols()
-			end,
-			desc = "FZF Workspace Symbols",
+			desc = "FZF Diagnostics (workspace)",
 		},
 	},
-
 	opts = {},
 }

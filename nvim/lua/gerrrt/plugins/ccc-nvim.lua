@@ -1,19 +1,15 @@
 -- ================================================================================================
--- TITLE : ccc.nvim
--- LINKS :
---   > github : https://github.com/uga-rosa/ccc.nvim
--- ABOUT : colour picker & highlighter for neovim
+-- TITLE : ccc.nvim  | colour picker & highlighter
+-- LINKS : https://github.com/uga-rosa/ccc.nvim
 -- ================================================================================================
-
 return {
 	"uga-rosa/ccc.nvim",
+	event = { "BufReadPost", "BufNewFile" },
+	cmd = { "CccPick", "CccConvert", "CccHighlighterToggle" },
 	config = function()
 		require("ccc").setup({
-			highlighter = {
-				auto_enable = true, -- enable highlight automatically
-				lsp = true, -- highlight colors from LSP too
-			},
-			highlight_mode = "virtual", -- small circles with colour next to the declaration
+			highlighter = { auto_enable = true, lsp = true },
+			highlight_mode = "virtual",
 		})
 	end,
 }

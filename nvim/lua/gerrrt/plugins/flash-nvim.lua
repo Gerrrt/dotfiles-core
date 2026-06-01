@@ -1,24 +1,14 @@
 -- ================================================================================================
--- TITLE : flash.nvim
--- ABOUT : Navigate your code with search labels, enhanced character motions and Treesitter
--- LINKS :
---   > github : https://github.com/folke/flash.nvim
+-- TITLE : flash.nvim | search-label motions
+-- LINKS : https://github.com/folke/flash.nvim
 -- ================================================================================================
-
 return {
 	"folke/flash.nvim",
 	event = "VeryLazy",
 	opts = {
 		modes = {
-			-- Use flash for / and ? searches
-			search = {
-				enabled = true,
-			},
-			-- Flash labels on f/t/F/T motions
-			char = {
-				enabled = true,
-				jump_labels = true,
-			},
+			search = { enabled = true },
+			char = { enabled = true, jump_labels = true },
 		},
 	},
 	keys = {

@@ -1,15 +1,16 @@
 -- ================================================================================================
--- TITLE : tokyonight-nvim
--- ABOUT : A clean Neovim theme written in Lua, celebrating the lights of a futuristic Tokyo.
--- LINKS :
---   > github : https://github.com/folke/tokyonight.nvim
+-- TITLE : tokyonight + transparency
+-- ABOUT : a clean dark theme with soft color — kept as-is, it fits the brief well.
+-- LINKS : https://github.com/folke/tokyonight.nvim
+-- SWAP  : prefer something else? tokyonight ships "storm" (current), "moon", "night", "day".
+--         Change `style` below. Or drop in catppuccin / kanagawa / rose-pine and swap the
+--         colorscheme() call.
 -- ================================================================================================
-
 return {
 	{
 		"xiyaowong/nvim-transparent",
 		lazy = false,
-		priority = 999,
+		priority = 1000,
 		opts = {
 			extra_groups = {
 				"NvimTreeNormal",
@@ -20,23 +21,17 @@ return {
 			},
 		},
 	},
-
 	{
 		"folke/tokyonight.nvim",
 		lazy = false,
-		priority = 999,
+		priority = 1000,
 		config = function()
 			require("tokyonight").setup({
-				style = "storm", -- Options: storm, moon, night, day
-				transparent = true, -- Enables transparency for background elements
-				styles = {
-					sidebars = "transparent", -- Ensures file trees stay transparent
-					floats = "transparent", -- Ensures floating windows stay transparent
-				},
+				style = "storm",
+				transparent = true,
+				styles = { sidebars = "transparent", floats = "transparent" },
 				on_highlights = function(hl, c)
-					-- Example: Make visual selections pop out more using the theme's palette
 					hl.Visual = { bg = c.bg_visual }
-					-- Example: Force comments to be italicized
 					hl.Comment = { fg = c.comment, italic = true }
 				end,
 			})

@@ -6,8 +6,8 @@
 -- not a workaround. It also makes startup marginally faster (no probe spawn).
 -- ─────────────────────────────────────────────────────────────────────────────
 
-vim.g.loaded_perl_provider = 0   -- almost never needed
-vim.g.loaded_ruby_provider = 0   -- enable only if some plugin actually needs ruby
+vim.g.loaded_perl_provider = 0 -- almost never needed
+vim.g.loaded_ruby_provider = 0 -- enable only if some plugin actually needs ruby
 
 -- Node + Python providers are LEFT ENABLED on purpose — a few plugins use them,
 -- and the install notes get them healthy. If you later decide you don't need

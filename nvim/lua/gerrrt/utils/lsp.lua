@@ -1,3 +1,12 @@
+-- ================================================================================================
+-- TITLE : LSP on_attach
+-- ABOUT : buffer-local keymaps bound whenever a language server attaches.
+-- NOTE  : Neovim 0.12 ships capable native LSP, so this uses vim.lsp.buf.* directly
+--         (hover / rename / code action / signature) and fzf-lua for the picker-style
+--         lookups (definitions / references / symbols). lspsaga was removed — it only
+--         duplicated what's now built in. DAP keymaps live in the nvim-dap plugin spec,
+--         not here, so they aren't gated behind an LSP attach.
+-- ================================================================================================
 local M = {}
 
 M.on_attach = function(event)
@@ -6,68 +15,57 @@ M.on_attach = function(event)
 	end
 
 	local ok, client = pcall(vim.lsp.get_client_by_id, event.data.client_id)
-
 	if not ok or not client then
 		return
 	end
+
 	local bufnr = event.buf
+	-- Astral: let ty own hover on Python; ruff's hover is minimal and would clash.
+	if client.name == "ruff" then
+		client.server_capabilities.hoverProvider = false
+	end
+
 	local keymap = vim.keymap.set
+	local function opts(desc)
+		return { noremap = true, silent = true, buffer = bufnr, desc = desc }
+	end
 
-	local opts = {
-		noremap = true, -- prevent recursive mapping
-		silent = true, -- don't print the command to the cli
-		buffer = bufnr, -- restrict the keymap to the local buffer number
-	}
+	-- ── Native LSP (built into Neovim 0.12) ──────────────────────────────────
+	keymap("n", "K", vim.lsp.buf.hover, opts("Hover documentation"))
+	keymap("n", "gD", vim.lsp.buf.declaration, opts("Go to declaration"))
+	keymap("n", "<leader>rn", vim.lsp.buf.rename, opts("Rename symbol"))
+	keymap({ "n", "v" }, "<leader>ca", vim.lsp.buf.code_action, opts("Code action"))
+	keymap("i", "<C-s>", vim.lsp.buf.signature_help, opts("Signature help"))
 
-	-- native neovim keymaps
-	keymap("n", "<leader>gd", "<cmd>Lspsaga peek_definition<CR>", opts) -- goto definition
-	keymap("n", "<leader>gD", "<cmd>Lspsaga goto_definition<CR>", opts) -- goto definition
-	keymap("n", "<leader>gS", "<cmd>vsplit | Lspsaga goto_definition<CR>", opts) -- goto definition in split
-	keymap("n", "<leader>ca", "<cmd>Lspsaga code_action<CR>", opts) -- Code actions
-	keymap("n", "<leader>rn", "<cmd>Lspsaga rename<CR>", opts) -- Rename symbol
-	keymap("n", "<leader>D", "<cmd>Lspsaga show_line_diagnostics<CR>", opts) -- Line diagnostics (float)
-	keymap("n", "<leader>d", "<cmd>Lspsaga show_cursor_diagnostics<CR>", opts) -- Cursor diagnostics
-	keymap("n", "<leader>pd", "<cmd>Lspsaga diagnostic_jump_prev<CR>", opts) -- previous diagnostic
-	keymap("n", "<leader>nd", "<cmd>Lspsaga diagnostic_jump_next<CR>", opts) -- next diagnostic
-	keymap("n", "K", "<cmd>Lspsaga hover_doc<CR>", opts) -- hover documentation
+	-- ── Diagnostics (native) ─────────────────────────────────────────────────
+	keymap("n", "<leader>cd", vim.diagnostic.open_float, opts("Line diagnostics"))
+	keymap("n", "[d", function()
+		vim.diagnostic.jump({ count = -1, float = true })
+	end, opts("Previous diagnostic"))
+	keymap("n", "]d", function()
+		vim.diagnostic.jump({ count = 1, float = true })
+	end, opts("Next diagnostic"))
 
-	-- fzf-lua keymaps
-	keymap("n", "<leader>fd", "<cmd>FzfLua lsp_finder<CR>", opts) -- LSP Finder (definition + references)
-	keymap("n", "<leader>fr", "<cmd>FzfLua lsp_references<CR>", opts) -- Show all references to the symbol under the cursor
-	keymap("n", "<leader>ft", "<cmd>FzfLua lsp_typedefs<CR>", opts) -- Jump to the type definition of the symbol under the cursor
-	keymap("n", "<leader>fs", "<cmd>FzfLua lsp_document_symbols<CR>", opts) -- List all symbols (functions, classes, etc.) in the current file
-	keymap("n", "<leader>fw", "<cmd>FzfLua lsp_workspace_symbols<CR>", opts) -- Search for any symbol across the entire project/workspace
-	keymap("n", "<leader>fi", "<cmd>FzfLua lsp_implementations<CR>", opts) -- Go to implementation
+	-- ── fzf-lua pickers (nice fuzzy UI for the list-style lookups) ───────────
+	keymap("n", "gd", "<cmd>FzfLua lsp_definitions<CR>", opts("Definitions"))
+	keymap("n", "gr", "<cmd>FzfLua lsp_references<CR>", opts("References"))
+	keymap("n", "gi", "<cmd>FzfLua lsp_implementations<CR>", opts("Implementations"))
+	keymap("n", "gy", "<cmd>FzfLua lsp_typedefs<CR>", opts("Type definitions"))
+	keymap("n", "<leader>fs", "<cmd>FzfLua lsp_document_symbols<CR>", opts("Document symbols"))
+	keymap("n", "<leader>fw", "<cmd>FzfLua lsp_workspace_symbols<CR>", opts("Workspace symbols"))
 
-	-- Order Imports (if supported by the client LSP)
+	-- ── Organize imports (if the server supports it) ─────────────────────────
 	if client:supports_method("textDocument/codeAction", bufnr) then
 		keymap("n", "<leader>oi", function()
 			vim.lsp.buf.code_action({
-				context = {
-					only = { "source.organizeImports" },
-					diagnostics = {},
-				},
+				context = { only = { "source.organizeImports" }, diagnostics = {} },
 				apply = true,
-				bufnr = bufnr,
 			})
-			-- format after changing import order
 			vim.defer_fn(function()
 				vim.lsp.buf.format({ bufnr = bufnr })
-			end, 50) -- slight delay to allow for the import order to go first
-		end, opts)
-	end
-
-	-- === DAP keymaps ===
-	if client.name == "rust-analyzer" then -- debugging only configured for Rust
-		local dap = require("dap")
-		keymap("n", "<leader>dc", dap.continue, opts) -- Continue / Start
-		keymap("n", "<leader>do", dap.step_over, opts) -- Step over
-		keymap("n", "<leader>di", dap.step_into, opts) -- Step into
-		keymap("n", "<leader>du", dap.step_out, opts) -- Step out
-		keymap("n", "<leader>db", dap.toggle_breakpoint, opts) -- Toggle breakpoint
-		keymap("n", "<leader>dr", dap.repl.open, opts) -- Open DAP REPL
+			end, 50)
+		end, opts("Organize imports"))
 	end
 end
 
 return M
-

@@ -30,17 +30,15 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 	end,
 })
 
--- format on save using efm langserver and configured formatters
+-- Format on save: trim trailing whitespace, then run conform.
+-- lsp_format = "fallback" means filetypes without a conform formatter still get
+-- formatted by their LSP (e.g. gopls), and filetypes with neither are left alone.
 local lsp_fmt_group = vim.api.nvim_create_augroup("FormatOnSaveGroup", {})
 vim.api.nvim_create_autocmd("BufWritePre", {
 	group = lsp_fmt_group,
-	callback = function()
+	callback = function(args)
 		require("mini.trailspace").trim()
-		local efm = vim.lsp.get_clients({ name = "efm" })
-		if vim.tbl_isempty(efm) then
-			return
-		end
-		vim.lsp.buf.format({ name = "efm", async = true })
+		require("conform").format({ bufnr = args.buf, lsp_format = "fallback", timeout_ms = 1500 })
 	end,
 })
 
@@ -66,4 +64,3 @@ vim.api.nvim_create_autocmd("FileType", {
 		vim.opt_local.signcolumn = "no"
 	end,
 })
-

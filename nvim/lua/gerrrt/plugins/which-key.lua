@@ -1,14 +1,23 @@
 -- ================================================================================================
--- TITLE : which-key
--- ABOUT : WhichKey helps you remember your Neovim keymaps, by showing keybindings as you type.
--- LINKS :
---   > github : https://github.com/folke/which-key.nvim
+-- TITLE : which-key | shows your keybindings as you type the leader
+-- LINKS : https://github.com/folke/which-key.nvim
 -- ================================================================================================
-
 return {
 	"folke/which-key.nvim",
 	event = "VeryLazy",
-	opts = {},
+	opts = {
+		spec = {
+			{ "<leader>b", group = "buffer" },
+			{ "<leader>c", group = "code / LSP" },
+			{ "<leader>d", group = "debug (DAP)" },
+			{ "<leader>f", group = "find (fzf)" },
+			{ "<leader>g", group = "git" },
+			{ "<leader>h", group = "harpoon" },
+			{ "<leader>s", group = "split" },
+			{ "<leader>S", group = "search & replace" },
+			{ "<leader>x", group = "trouble / lists" },
+		},
+	},
 	keys = {
 		{
 			"<leader>?",

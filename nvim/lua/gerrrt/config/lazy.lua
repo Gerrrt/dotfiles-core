@@ -51,6 +51,7 @@ require("lazy").setup({
 	rocks = {
 		enabled = false,
 	},
-	checker = { enabled = true },
+	-- Auto-check for updates, but don't spam notifications on every startup.
+	checker = { enabled = true, notify = false },
+	change_detection = { notify = false },
 })
-

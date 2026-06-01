@@ -17,8 +17,9 @@ M.setup = function()
 				[vim.diagnostic.severity.HINT] = diagnostic_signs.Hint,
 			},
 		},
+		severity_sort = true,
+		float = { border = "rounded", source = true },
 	})
 end
 
 return M
-
