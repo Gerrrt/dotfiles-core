@@ -14,6 +14,9 @@
 --   The Python config below runs YOUR code with the project's uv virtualenv interpreter:
 --   it prefers $VIRTUAL_ENV, then ./.venv/bin/python (uv's default), then system python.
 --   debugpy itself runs from its isolated Mason env, separate from your project venv.
+-- ICONS :
+--   The breakpoint/stopped signs use \u{XXXX} escapes (Nerd Font codepoints) so the glyphs
+--   survive transfer — raw private-use glyphs get silently stripped. Requires a Nerd Font.
 -- ================================================================================================
 return {
 	"rcarriga/nvim-dap-ui",
@@ -178,7 +181,11 @@ return {
 			dapui.close()
 		end
 
-		vim.fn.sign_define("DapBreakpoint", { text = "", texthl = "DiagnosticError", linehl = "", numhl = "" })
-		vim.fn.sign_define("DapStopped", { text = "", texthl = "DiagnosticWarn", linehl = "Visual", numhl = "" })
+		-- Signs (Nerd Font glyphs as escapes so they don't get stripped):
+		vim.fn.sign_define("DapBreakpoint", { text = "\u{f111}", texthl = "DiagnosticError", linehl = "", numhl = "" }) -- f111 nf-fa-circle
+		vim.fn.sign_define(
+			"DapStopped",
+			{ text = "\u{f061}", texthl = "DiagnosticWarn", linehl = "Visual", numhl = "" }
+		) -- f061 nf-fa-arrow_right
 	end,
 }
