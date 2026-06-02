@@ -30,19 +30,19 @@ $time\
 [ ](fg:color_bg1)\
 $line_break$character"""
 
-palette = 'gruvbox_dark'
+palette = 'tokyonight_storm'
 
-[palettes.gruvbox_dark]
-color_fg0 = '#fbf1c7'
-color_bg1 = '#3c3836'
-color_bg3 = '#665c54'
-color_blue = '#458588'
-color_aqua = '#689d6a'
-color_green = '#98971a'
-color_orange = '#d65d0e'
-color_purple = '#b16286'
-color_red = '#cc241d'
-color_yellow = '#d79921'
+[palettes.tokyonight_storm]
+color_fg0    = '#c0caf5'   # fg
+color_bg1    = '#1f2335'   # bg_dark   (was gruvbox bg)
+color_bg3    = '#414868'   # bg3 / terminal black
+color_blue   = '#7aa2f7'
+color_aqua   = '#7dcfff'   # cyan
+color_green  = '#9ece6a'
+color_orange = '#ff9e64'
+color_purple = '#bb9af7'   # magenta
+color_red    = '#f7768e'
+color_yellow = '#e0af68'
 
 [os]
 disabled = false

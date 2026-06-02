@@ -5,13 +5,13 @@
 --         enabling happens via vim.lsp.enable() in gerrrt/servers/init.lua. Mason installs
 --         the server binaries (run :Mason to add/remove). Formatting/linting is handled by
 --         conform.nvim + nvim-lint, not an LSP, so efmls-configs is no longer a dependency.
+--         2026: cmp-nvim-lsp dropped — capabilities now come from blink.cmp (servers/init.lua).
 -- ================================================================================================
 return {
 	"neovim/nvim-lspconfig",
 	event = { "BufReadPre", "BufNewFile" },
 	dependencies = {
 		{ "mason-org/mason.nvim", opts = {} },
-		"hrsh7th/cmp-nvim-lsp",
 	},
 	config = function()
 		require("gerrrt.utils.diagnostics").setup()

@@ -1,4 +1,7 @@
-local capabilities = require("cmp_nvim_lsp").default_capabilities()
+-- LSP client capabilities now come from blink.cmp (was: cmp_nvim_lsp). blink
+-- advertises the completion capabilities its sources support; get_lsp_capabilities
+-- merges them onto Neovim's defaults. (Migration: see plugins/blink-cmp.lua.)
+local capabilities = require("blink.cmp").get_lsp_capabilities()
 
 -- Language Server Protocol (LSP)
 require("gerrrt.servers.lua_ls")(capabilities)

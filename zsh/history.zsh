@@ -1,0 +1,35 @@
+# core/zsh/history.zsh
+# ──────────────────────────────────────────────────────────────────────────────
+# Portable zsh history config. NEW in the 2026 refresh, and it matters even with
+# atuin: atuin IMPORTS from and (by default) shadows zsh history, and
+# zsh-history-substring-search (bound to the arrow keys in bindings.zsh) reads the
+# in-memory history list — both need HISTFILE/SAVEHIST set sanely. Previously this
+# lived (if at all) in each OS .zshrc; centralizing it here removes that drift.
+#
+# LOAD ORDER: source THIRD, after options.zsh, before aliases.zsh.
+# ──────────────────────────────────────────────────────────────────────────────
+
+[[ $- == *i* ]] || return 0
+
+HISTFILE="${ZDOTDIR:-$HOME/.config/zsh}/.zsh_history"
+HISTSIZE=200000 # lines kept in memory
+SAVEHIST=200000 # lines written to $HISTFILE
+[[ -d ${HISTFILE:h} ]] || mkdir -p "${HISTFILE:h}"
+
+setopt EXTENDED_HISTORY     # write :start:elapsed;command (atuin import-friendly)
+setopt INC_APPEND_HISTORY   # append as you go, not just at shell exit
+setopt SHARE_HISTORY        # share across live sessions
+setopt HIST_IGNORE_ALL_DUPS # drop older dup when a command repeats
+setopt HIST_IGNORE_DUPS
+setopt HIST_FIND_NO_DUPS # don't show dups when searching
+setopt HIST_IGNORE_SPACE # a leading space keeps a command out of history
+setopt HIST_REDUCE_BLANKS
+setopt HIST_VERIFY   # expand !! to the line for review, don't run blind
+setopt HIST_NO_STORE # don't store the `history`/`fc` calls themselves
+setopt HIST_SAVE_NO_DUPS
+
+# Never record obviously sensitive one-liners to the plaintext HISTFILE. atuin
+# has its own richer filtering (history_filter in config.toml) — this is the
+# belt-and-suspenders for the flat file. Operator habit: prefix anything spicy
+# with a space (HIST_IGNORE_SPACE) and it never lands anywhere.
+HISTORY_IGNORE='(pass *|*--password *|*--token *|*API_KEY*|*SECRET*|op read*)'

@@ -34,8 +34,8 @@ export FZF_ALT_C_OPTS="--preview 'eza --icons=always --tree --level=1 {}'"
 _fzf_file_no_hidden() {
   local cmd result
   cmd="${FZF_DEFAULT_COMMAND/--hidden /}"
-  result=$(eval "${cmd:-find . -type f}" | fzf --preview "$_FZF_PREVIEW_CMD") \
-    && LBUFFER+="$result"
+  result=$(eval "${cmd:-find . -type f}" | fzf --preview "$_FZF_PREVIEW_CMD") &&
+    LBUFFER+="$result"
   zle reset-prompt
 }
 zle -N _fzf_file_no_hidden
@@ -45,7 +45,6 @@ zle -N _fzf_file_no_hidden
 # =========================================================
 _fzf_zoxide_jump() {
   local result
-  # zoxide query -l returns plain paths — use $result directly
   result=$(zoxide query -l | fzf \
     --no-sort \
     --prompt="Jump to Folder ❯ " \
@@ -62,8 +61,8 @@ zle -N _fzf_zoxide_jump
 # =========================================================
 _fzf_history_clean() {
   local result
-  result=$(fc -rl 1 | awk '{$1=""; print substr($0,2)}' \
-    | fzf --prompt="History ❯ " --query="$LBUFFER")
+  result=$(fc -rl 1 | awk '{$1=""; print substr($0,2)}' |
+    fzf --prompt="History ❯ " --query="$LBUFFER")
   if [[ -n "$result" ]]; then
     LBUFFER="$result"
   fi
@@ -72,28 +71,29 @@ _fzf_history_clean() {
 zle -N _fzf_history_clean
 
 # =========================================================
-# Widget: Ctrl+G — tmux sessionizer
+# Widget: Ctrl+G — session picker (sesh, with graceful fallback)
+# 2026 refresh: was a hand-rolled find+fzf sessionizer; now delegates to the same
+# tmux-sesh.sh that prefix+f uses, so shell and tmux share one picker. sesh is
+# zoxide-aware and names sessions from the git repo; the script falls back to the
+# old find+fzf behaviour if sesh isn't installed yet.
 # =========================================================
 _tmux_sessionizer() {
-  local selected
-  selected=$(find \
-    "$HOME/Projects" "$HOME/dev" "$HOME/work" "$HOME/.config" \
-    -mindepth 1 -maxdepth 2 -type d 2>/dev/null \
-    | fzf --preview "eza --icons --tree --level=1 {} | head -20")
-
-  [[ -z "$selected" ]] && zle reset-prompt && return
-
-  local session_name
-  session_name=$(basename "$selected" | tr '.' '_')
-
-  if ! tmux has-session -t "$session_name" 2>/dev/null; then
-    tmux new-session -ds "$session_name" -c "$selected"
-  fi
-
-  if [[ -n "$TMUX" ]]; then
-    tmux switch-client -t "$session_name"
-  else
-    tmux attach-session -t "$session_name"
+  local picker="$HOME/.config/tmux/scripts/tmux-sesh.sh"
+  if command -v sesh >/dev/null 2>&1; then
+    local selected
+    selected=$(sesh list --icons | fzf --reverse --prompt='⚡  ' --preview 'sesh preview {}')
+    [[ -z "$selected" ]] && {
+      zle reset-prompt
+      return
+    }
+    if [[ -n "$TMUX" ]]; then
+      sesh connect "$selected"
+    else
+      BUFFER="sesh connect \"$selected\""
+      zle accept-line
+    fi
+  elif [[ -x "$picker" ]]; then
+    "$picker"
   fi
   zle reset-prompt
 }
@@ -123,8 +123,8 @@ fif() {
 # =========================================================
 fbr() {
   local branch
-  branch=$(git branch --all 2>/dev/null | grep -v HEAD \
-    | fzf --preview 'git log --oneline --color=always {1} | head -20' \
-    | sed 's/.* //' | sed 's#remotes/[^/]*/##')
+  branch=$(git branch --all 2>/dev/null | grep -v HEAD |
+    fzf --preview 'git log --oneline --color=always {1} | head -20' |
+    sed 's/.* //' | sed 's#remotes/[^/]*/##')
   [[ -n "$branch" ]] && git checkout "$branch"
 }

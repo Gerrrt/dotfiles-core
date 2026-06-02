@@ -19,6 +19,8 @@
 	preloadindex = true
 	commitGraph = true
 	whitespace = fix,-indent-with-non-tab,trailing-space,cr-at-eol
+	fsmonitor = true              # 2026: background file-system monitor — fast status on big repos
+	untrackedCache = true         # 2026: cache untracked-file scans (pairs with fsmonitor)
 	# excludesfile (global gitignore) is OS-specific — set in os/<distro>.gitconfig
 
 [commit]
@@ -53,7 +55,7 @@
 	enabled = true                # record conflict resolutions and auto-replay them
 	autoupdate = true
 
-# ── Pull / Push / Fetch ───────────────────────────────────────────────────────
+# ── Pull / Push / Fetch / Rebase ──────────────────────────────────────────────
 [pull]
 	rebase = true
 [push]
@@ -64,6 +66,10 @@
 	prune = true
 	pruneTags = false
 	parallel = 0                  # let git decide
+[rebase]
+	autoStash = true              # 2026: stash/pop a dirty tree around a rebase
+	autosquash = true             # 2026: fixup!/squash! commits reorder automatically
+	updateRefs = true             # 2026: keep stacked-branch refs in sync on rebase (git >= 2.38)
 
 # ── Branch / Tag / Log / Status ───────────────────────────────────────────────
 [branch]
@@ -91,6 +97,8 @@
 [maintenance]
 	auto = false
 	strategy = incremental
+	# Enable background maintenance per-repo with: git maintenance start
+	# (registers commit-graph / gc / prefetch tasks; nicer than gc on the fly)
 [filter "lfs"]
 	clean = git-lfs clean -- %f
 	smudge = git-lfs smudge -- %f
@@ -149,6 +157,7 @@
 	cm = commit -m
 	ca = commit --amend
 	can = commit --amend --no-edit
+	fix = commit --fixup           # pairs with rebase.autosquash above
 	wip = !git add -A && git commit -m 'wip'
 	unwip = reset HEAD~1
 	# reset / undo

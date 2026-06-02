@@ -14,7 +14,7 @@ if [[ -n ${HAVE_EZA:-} ]]; then
   alias lt='eza --tree --level=2 --icons=auto'
   alias llt='eza --tree --level=3 -l --icons=auto'
   alias tree='eza --tree --icons=auto'
-  (( $+functions[compdef] )) && compdef eza=ls   # reuse ls completion for eza
+  (($+functions[compdef])) && compdef eza=ls # reuse ls completion for eza
 else
   alias ll='ls -lah'
   alias la='ls -A'
@@ -23,8 +23,8 @@ fi
 # ── cat -> bat (resolved name from tools.zsh) ────────────────────────────────
 if [[ -n ${HAVE_BAT:-} ]]; then
   alias cat="$BAT_BIN --paging=never"
-  alias catp="$BAT_BIN"                 # paged, full bat
-  export BAT_THEME="ansi"               # follow the terminal palette (tokyonight via ghostty)
+  alias catp="$BAT_BIN"   # paged, full bat
+  export BAT_THEME="ansi" # follow the terminal palette (tokyonight via ghostty)
   export MANPAGER="sh -c 'col -bx | $BAT_BIN -l man -p'"
 fi
 
@@ -42,12 +42,27 @@ fi
 alias -- -='cd -'
 
 # ── disk / process / monitor ──────────────────────────────────────────────────
-[[ -n ${HAVE_DUST:-}  ]] && alias du='dust'
+[[ -n ${HAVE_DUST:-} ]] && alias du='dust'
 [[ -n ${HAVE_PROCS:-} ]] && alias ps='procs'
-[[ -n ${HAVE_BTOP:-}  ]] && alias top='btop' && alias htop='btop'
+[[ -n ${HAVE_BTOP:-} ]] && alias top='btop' && alias htop='btop'
 
 # ── file manager ──────────────────────────────────────────────────────────────
-[[ -n ${HAVE_YAZI:-} ]] && { alias fm='yazi'; alias y='yazi'; }
+[[ -n ${HAVE_YAZI:-} ]] && {
+  alias fm='yazi'
+  alias y='yazi'
+}
+
+# ── 2026 modern stack additions (all guarded; classics untouched) ────────────
+# xh: Rust HTTPie — for poking APIs / web targets. curl stays for scripts.
+[[ -n ${HAVE_XH:-} ]] && {
+  alias http='xh'
+  alias https='xh --https'
+}
+# glow: render markdown in the terminal (engagement notes, READMEs)
+[[ -n ${HAVE_GLOW:-} ]] && alias md='glow --pager'
+# doggo: modern dig (DNS recon). dig stays as-is; this is a distinct verb.
+[[ -n ${HAVE_DOGGO:-} ]] && alias dns='doggo'
+# gron / sd are their own commands (no alias — never shadow sed in scripts).
 
 # ── editor + misc QoL ─────────────────────────────────────────────────────────
 alias vim='nvim'
@@ -80,4 +95,5 @@ alias mkdir='mkdir -p'
 # ── network conveniences (stay in Core; anything engagement-flavored -> Kali)─
 alias myip='curl -fsS https://ifconfig.me 2>/dev/null && echo'
 alias ports='ss -tulpn 2>/dev/null || netstat -tulpn'
-alias serve='python3 -m http.server'
+# NOTE: `serve` is now a function in functions.zsh (prints the reachable URL and
+# takes an optional port), replacing the old `python3 -m http.server` alias.
