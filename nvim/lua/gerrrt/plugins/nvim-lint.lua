@@ -1,7 +1,7 @@
 -- ================================================================================================
 -- TITLE : nvim-lint | standalone linter runner
 -- LINKS : https://github.com/mfussenegger/nvim-lint
--- ABOUT : Runs a filetype's linter on read / write / leaving insert mode, surfacing results as
+-- ABOUT : Runs a filetype's linter on write / leaving insert mode, surfacing results as
 --         normal diagnostics (Trouble, <leader>cd, [d/]d all work). Binaries installed by
 --         mason-tool-installer in conform.lua.
 -- ASTRAL: Python is intentionally NOT here — the ruff language server (servers/ruff.lua)
@@ -10,7 +10,7 @@
 -- ================================================================================================
 return {
 	"mfussenegger/nvim-lint",
-	event = { "BufReadPost", "BufNewFile", "BufWritePost" },
+	event = { "BufReadPost", "BufNewFile" },
 	config = function()
 		local lint = require("lint")
 		lint.linters_by_ft = {
@@ -31,7 +31,7 @@ return {
 		}
 
 		local grp = vim.api.nvim_create_augroup("NvimLint", { clear = true })
-		vim.api.nvim_create_autocmd({ "BufWritePost", "BufReadPost", "InsertLeave" }, {
+		vim.api.nvim_create_autocmd({ "BufWritePost", "InsertLeave" }, {
 			group = grp,
 			callback = function()
 				require("lint").try_lint()

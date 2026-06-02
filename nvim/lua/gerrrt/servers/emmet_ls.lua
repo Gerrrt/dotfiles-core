@@ -12,5 +12,8 @@ return function(capabilities)
 			"svelte",
 			"vue",
 		},
+		root_dir = function(fname)
+			return vim.fs.root(fname, { "package.json", ".git" })
+		end,
 	})
 end

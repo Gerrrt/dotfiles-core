@@ -4,7 +4,7 @@
 -- ================================================================================================
 return {
 	"uga-rosa/ccc.nvim",
-	event = { "BufReadPost", "BufNewFile" },
+	ft = { "css", "scss", "sass", "less", "html", "javascript", "javascriptreact", "typescript", "typescriptreact", "svelte", "vue" },
 	cmd = { "CccPick", "CccConvert", "CccHighlighterToggle" },
 	config = function()
 		require("ccc").setup({
