@@ -1,18 +1,23 @@
 -- ================================================================================================
 -- TITLE : mini.nvim modules | small, focused editing upgrades
 -- LINKS : https://github.com/echasnovski/mini.nvim
--- NOTE  : Removed mini.comment (Neovim ships native gc/gcc since 0.10) and mini.icons
---         (nvim-web-devicons already covers icons and several plugins depend on it).
+-- NOTE  : Removed mini.comment (Neovim ships native gc/gcc since 0.10).
+--         Consolidated from separate per-module specs into a single spec so lazy.nvim only
+--         tracks one plugin entry and runtime/lockfile overhead is minimized.
 --         mini.move owns <A-h/j/k/l> line moving; mini.bufremove backs <leader>bd.
 -- ================================================================================================
 return {
-	{ "echasnovski/mini.ai", version = "*", opts = {} },
-	{ "echasnovski/mini.move", version = "*", opts = {} },
-	{ "echasnovski/mini.surround", version = "*", opts = {} },
-	{ "echasnovski/mini.cursorword", version = "*", opts = {} },
-	{ "echasnovski/mini.indentscope", version = "*", opts = {} },
-	{ "echasnovski/mini.pairs", version = "*", opts = {} },
-	{ "echasnovski/mini.trailspace", version = "*", opts = {} },
-	{ "echasnovski/mini.bufremove", version = "*", opts = {} },
-	{ "echasnovski/mini.notify", version = "*", opts = {} },
+	"echasnovski/mini.nvim",
+	version = "*",
+	config = function()
+		require("mini.ai").setup({})
+		require("mini.move").setup({})
+		require("mini.surround").setup({})
+		require("mini.cursorword").setup({})
+		require("mini.indentscope").setup({})
+		require("mini.pairs").setup({})
+		require("mini.trailspace").setup({})
+		require("mini.bufremove").setup({})
+		require("mini.notify").setup({})
+	end,
 }
