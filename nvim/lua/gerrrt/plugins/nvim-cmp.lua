@@ -4,6 +4,9 @@
 -- NOTE  : Neovim 0.12 has native insert-mode autocomplete now; nvim-cmp is kept because your
 --         snippet + lspkind setup is richer. If you ever want to go fully native, this is the
 --         file to retire.
+-- LAZYDEV: the `lazydev` source (group_index = 0) gives completion for the Neovim lua API and
+--         `require` paths when editing your config. group_index 0 puts it in its own priority
+--         group so it supersedes the LuaLS source for those completions instead of duplicating.
 -- ================================================================================================
 return {
 	"hrsh7th/nvim-cmp",
@@ -33,7 +36,17 @@ return {
 			formatting = {
 				format = lspkind.cmp_format({
 					mode = "symbol_text",
-					menu = { luasnip = "", buffer = "", path = "", nvim_lsp = "🅻" },
+					-- Source tags. Written as \u{XXXX} escapes (Nerd Font codepoints), NOT raw glyphs:
+					-- raw private-use glyphs get silently stripped in transfer, which is what blanked
+					-- luasnip/buffer/path before. Each escape is named — swap any that shows as a box
+					-- (tofu) for your font. nvim_lsp's 🅻 (U+1F13B) is normal-plane, so it's safe literal.
+					-- To read a glyph's codepoint from your live config: put the cursor on it, press `ga`.
+					menu = {
+						luasnip = "\u{f121}", -- f121 nf-fa-code   (snippet)
+						buffer = "\u{f15b}", -- f15b nf-fa-file   (buffer)
+						path = "\u{f07b}", -- f07b nf-fa-folder (path)
+						nvim_lsp = "🅻", -- U+1F13B negative squared L (normal plane, survives transfer)
+					},
 				}),
 			},
 			mapping = cmp.mapping.preset.insert({
@@ -46,6 +59,9 @@ return {
 				["<CR>"] = cmp.mapping.confirm({ select = false }),
 			}),
 			sources = {
+				-- lazydev: Neovim lua API + require-path completion when editing config (lua files).
+				-- group_index 0 = its own priority group, so it skips loading LuaLS dupes for these.
+				{ name = "lazydev", group_index = 0 },
 				{ name = "luasnip" },
 				{ name = "nvim_lsp" },
 				{ name = "buffer" },

@@ -13,9 +13,10 @@ return {
 			{ "<leader>f", group = "find (fzf)" },
 			{ "<leader>g", group = "git" },
 			{ "<leader>h", group = "harpoon" },
-			{ "<leader>s", group = "split" },
+			{ "<leader>s", group = "split / window" },
 			{ "<leader>S", group = "search & replace" },
 			{ "<leader>x", group = "trouble / lists" },
+			{ "<leader><tab>", group = "tabs" },
 		},
 	},
 	keys = {

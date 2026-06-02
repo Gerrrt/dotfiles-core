@@ -1,10 +1,11 @@
 -- ================================================================================================
 -- TITLE: NeoVim keymaps
 -- ABOUT: global, non-plugin quality-of-life keymaps
--- NOTE : Window navigation (<C-h/j/k/l>) is intentionally NOT here — vim-tmux-navigator
---        owns those keys and moves seamlessly between nvim splits and tmux panes.
---        Line moving (<A-h/j/k/l>) is owned by mini.move. Both were duplicated before
---        and the plugins silently won, so the manual versions were dead code.
+-- NOTE : Window MOVEMENT (<C-h/j/k/l>) is intentionally NOT here — vim-tmux-navigator owns those
+--        keys and moves seamlessly between nvim splits and tmux panes. Line moving (<A-h/j/k/l>)
+--        is owned by mini.move. BUFFER keymaps (cycle/pick/move/pin/close) now live in the
+--        bufferline spec (plugins/bufferline-nvim.lua) so they lazy-load the visual line on first
+--        use — same philosophy. All three were duplicated here before and the plugins silently won.
 -- ================================================================================================
 
 -- Quick config editing
@@ -33,19 +34,38 @@ vim.keymap.set("x", "<leader>p", '"_dP', { desc = "Paste without yanking" })
 vim.keymap.set({ "n", "v" }, "<leader>D", '"_d', { desc = "Delete without yanking" })
 
 -- Buffers
-vim.keymap.set("n", "<leader>bn", ":bnext<CR>", { desc = "Next buffer" })
-vim.keymap.set("n", "<leader>bp", ":bprevious<CR>", { desc = "Previous buffer" })
-vim.keymap.set("n", "<leader>bd", function()
-	require("mini.bufremove").delete(0, false)
-end, { desc = "Delete buffer (keep layout)" })
+-- NOTE: buffer keymaps now live in plugins/bufferline-nvim.lua (lazy-loaded on first use):
+--         ]b / [b ............. next / previous (in the order shown on the line)
+--         <leader>bn / bp ..... same, discoverable under the buffer group
+--         <leader>bj .......... pick mode (press the letter shown on a buffer to jump)
+--         <leader>bd .......... delete buffer, keep window layout (mini.bufremove)
+--         <leader>bP .......... pin / unpin     <leader>bo/br/bh .... close others/right/left
+--       Jump-by-number is NOT here — harpoon owns <leader>1-4.
 
--- Splits
-vim.keymap.set("n", "<leader>sv", ":vsplit<CR>", { desc = "Split window vertically" })
-vim.keymap.set("n", "<leader>sh", ":split<CR>", { desc = "Split window horizontally" })
+-- Windows / splits
+-- NOTE: moving BETWEEN splits is vim-tmux-navigator's <C-h/j/k/l> (it crosses into tmux panes).
+vim.keymap.set("n", "<leader>sv", ":vsplit<CR>", { desc = "Split vertically" })
+vim.keymap.set("n", "<leader>sh", ":split<CR>", { desc = "Split horizontally" })
+vim.keymap.set("n", "<leader>se", "<C-w>=", { desc = "Equalize split sizes" })
+vim.keymap.set("n", "<leader>sw", "<C-w>w", { desc = "Cycle to next split" })
+vim.keymap.set("n", "<leader>sx", "<C-w>x", { desc = "Swap split positions" })
+vim.keymap.set("n", "<leader>sq", "<C-w>q", { desc = "Close current split" })
+vim.keymap.set("n", "<leader>so", "<C-w>o", { desc = "Close all OTHER splits" })
 vim.keymap.set("n", "<C-Up>", ":resize +2<CR>", { desc = "Increase window height" })
 vim.keymap.set("n", "<C-Down>", ":resize -2<CR>", { desc = "Decrease window height" })
 vim.keymap.set("n", "<C-Left>", ":vertical resize -2<CR>", { desc = "Decrease window width" })
 vim.keymap.set("n", "<C-Right>", ":vertical resize +2<CR>", { desc = "Increase window width" })
+
+-- Tabs
+-- NOTE: vim "tabs" are whole window LAYOUTS (think workspaces — e.g. one tab of engagement
+--       notes, another of exploit code), NOT one-file-per-tab like other editors. Your per-file
+--       visuals are the bufferline up top. Natives still apply: gt / gT cycle tabs, and
+--       <C-w>T breaks the current split out into its own tab.
+vim.keymap.set("n", "<leader><tab>n", ":tabnew<CR>", { desc = "New tab" })
+vim.keymap.set("n", "<leader><tab>d", ":tabclose<CR>", { desc = "Close tab" })
+vim.keymap.set("n", "<leader><tab>o", ":tabonly<CR>", { desc = "Close other tabs" })
+vim.keymap.set("n", "]<tab>", ":tabnext<CR>", { desc = "Next tab" })
+vim.keymap.set("n", "[<tab>", ":tabprevious<CR>", { desc = "Previous tab" })
 
 -- Indent and keep selection
 vim.keymap.set("v", "<", "<gv", { desc = "Indent left and reselect" })
