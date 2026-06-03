@@ -28,6 +28,9 @@ zvm_after_init() {
   # Ctrl+\ → toggle autosuggestions. GUARDED: as of the 2026 refresh,
   # zsh-autosuggestions is DEFERRED (plugins.zsh), so autosuggest-toggle may not
   # exist yet when this hook fires on a fresh shell. Same pattern as atuin above.
+  # NOTE: the subscript MUST stay hyphenated (autosuggest-toggle). A shell
+  # formatter that adds spaces around the `-` turns this into arithmetic and the
+  # guard silently fails — do not "tidy" it.
   (($+widgets[autosuggest - toggle])) && bindkey -M viins '^\' autosuggest-toggle
   bindkey -M viins '^[[A' history-substring-search-up
   bindkey -M viins '^[[B' history-substring-search-down

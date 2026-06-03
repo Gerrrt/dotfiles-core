@@ -7,16 +7,22 @@
 
 # ── zsh ───────────────────────────────────────────────────────────────────────
 # Load order (sourced by each OS repo's .zshrc loader, in THIS order):
-#   tools -> aliases -> functions -> fzf -> bindings -> plugins -> op -> os -> local
+#   tools -> options -> history -> aliases -> functions -> fzf -> bindings
+#         -> plugins -> op -> maint -> update -> os -> local
 # Order matters: tools inits atuin (defines its widget) and fzf defines its zle
-# widgets BEFORE plugins loads zsh-vi-mode, which fires the binding hook.
+# widgets BEFORE plugins loads zsh-vi-mode, which fires the binding hook; options
+# runs compinit BEFORE plugins (fzf-tab + carapace need it).
 zsh/tools.zsh          # detection + the single init point (zoxide/starship/atuin/mise)
+zsh/options.zsh        # setopts + completion system (compinit, cached) + zstyles
+zsh/history.zsh        # HISTFILE/HISTSIZE/SAVEHIST + history setopts + secret-ignore
 zsh/aliases.zsh        # modern-CLI aliases, each guarded by tools.zsh detection
-zsh/functions.zsh      # cross-OS shell functions (mkcd, extract, up, ...)
+zsh/functions.zsh      # cross-OS shell functions (mkcd, extract, up, serve, ...)
 zsh/fzf.zsh            # fzf env + zle widgets (Ctrl-F/R, Alt-Z, Ctrl-G) + fif/fbr
 zsh/bindings.zsh       # vi-mode keybindings (zvm_after_init hook)
-zsh/plugins.zsh        # lightweight plugin loader + plugin list
+zsh/plugins.zsh        # lightweight plugin loader (zsh-defer, carapace, fzf-tab)
 zsh/op.zsh             # 1Password CLI helpers (macOS agent socket -> os layer)
+zsh/maint.zsh          # daily-maintenance control surface (maint-install/run/log/...)
+zsh/update.zsh         # `up` updater + once/day "updates available" nudge
 
 # ── starship — prompt theme; symlinked to the DEFAULT ~/.config/starship.toml ─
 # (so no STARSHIP_CONFIG needed). Not a .zsh module, so bootstrap links it
@@ -30,16 +36,25 @@ bin/clip-paste
 # ── mise — polyglot runtime manager; global tool versions (portable) ──────────
 mise/config.toml
 
-# ── tmux (PROMOTED) — base conf; OS-specific theme bits -> os/<os>.conf ───────
-tmux/tmux.conf
-tmux/scripts/             # tmux-menu.sh, tmux-scratch.sh, tmux-sessionizer.sh (popups)
+# ── sesh — portable session-manager config (SEEDED to ~/.config/sesh/sesh.toml;
+#    copied, not symlinked — engagement layouts live in dotfiles-Kali) ──────────
+sesh/sesh.toml.example
 
-# ── git (PROMOTED) — portable config; credential/identity split to OS+local ───
+# ── tmux — base conf + keybinding layer; OS-specific bits -> os/<os>.conf ──────
+tmux/tmux.conf            # main config; sources tmux.reset.conf first, os.conf last
+tmux/tmux.reset.conf      # the keybinding layer (prefix C-a lives here) — MUST be symlinked
+tmux/scripts/             # tmux-menu / tmux-scratch / tmux-sesh / tmux-netinfo (popups + status)
+#                           (tmux-sessionizer.sh is superseded by tmux-sesh.sh)
+
+# ── maintenance runner (invoked by the scheduler maint.zsh installs) ──────────
+maint/dotfiles-maint.sh
+
+# ── git — portable config; credential/identity split to OS+local ──────────────
 git/gitconfig
 git/local.gitconfig.example
 
-# ── nvim (PROMOTED) — entire lazy.nvim tree; portable, clipboard via `clip` ───
+# ── nvim — entire lazy.nvim tree; portable, clipboard via `clip` ──────────────
 nvim/                    # whole directory: lua/gerrrt/{config,plugins,servers,utils}
 
-# ── Core layers: zsh + clip + mise + tmux + git + nvim. ───────────────────────
+# ── Core layers: zsh + clip + mise + sesh + tmux + maint + git + nvim. ────────
 

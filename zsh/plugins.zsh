@@ -11,6 +11,12 @@
 #     fast-syntax-highlighting) AFTER the first prompt paints — the shell is
 #     interactive instantly and they "catch up" a few ms later.
 #   • carapace (multi-shell completion, 500+ commands) feeds INTO fzf-tab.
+#
+# FORMATTER WARNING: the `(( $+functions[zsh-defer] ))` / `[fzf-tab-complete]`
+# guards below MUST keep their hyphens un-spaced. A shell formatter (shfmt) that
+# doesn't grok zsh will rewrite `[zsh-defer]` → `[zsh - defer]`, turning the
+# associative-array key into an arithmetic expression that's always 0 — silently
+# disabling deferral and the fzf-tab styling. Keep them exactly as written.
 # ──────────────────────────────────────────────────────────────────────────────
 
 ZPLUGINDIR="${ZDOTDIR:-$HOME/.config/zsh}/plugins"
