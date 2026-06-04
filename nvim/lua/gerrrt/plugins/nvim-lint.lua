@@ -28,6 +28,7 @@ return {
 			vue = { "eslint_d" },
 			dockerfile = { "hadolint" },
 			solidity = { "solhint" },
+			zsh = { "shellcheck" },
 		}
 
 		local grp = vim.api.nvim_create_augroup("NvimLint", { clear = true })
