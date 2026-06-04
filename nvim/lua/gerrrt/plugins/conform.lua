@@ -48,6 +48,7 @@ return {
 			typescriptreact = { "prettierd" },
 			svelte = { "prettierd" },
 			vue = { "prettierd" },
+			zsh = { "shfmt" },
 		},
 	},
 	config = function(_, opts)
