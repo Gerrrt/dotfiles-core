@@ -9,7 +9,7 @@
 mkcd() { mkdir -p -- "$1" && cd -- "$1"; }
 
 # up — climb N directories (up 3 == cd ../../..)
-up() {
+cdup() {
   local n="${1:-1}" p=""
   while ((n-- > 0)); do p="../$p"; done
   cd "$p" || return
