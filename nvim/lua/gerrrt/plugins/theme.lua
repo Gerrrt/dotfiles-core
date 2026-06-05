@@ -22,7 +22,7 @@ return {
 			require("tokyonight").setup({
 				style = "storm",
 				transparent = true,
-				styles = { sidebars = "normal", floats = "normal" },
+				styles = { sidebars = "transparent", floats = "transparent" },
 				on_highlights = function(hl, c)
 					hl.Visual = { bg = c.bg_visual }
 					hl.Comment = { fg = c.comment, italic = true }
