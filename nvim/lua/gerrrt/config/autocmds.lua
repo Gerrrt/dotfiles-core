@@ -61,7 +61,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
 local markdown_options = vim.api.nvim_create_augroup("MarkdownOptions", {})
 vim.api.nvim_create_autocmd("FileType", {
 	group = markdown_options,
-	pattern = { "markdown", "text", "gitcommit" },
+	pattern = { "markdown", "text" },
 	callback = function()
 		vim.opt_local.wrap = true
 		vim.opt_local.linebreak = true
