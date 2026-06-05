@@ -1,0 +1,122 @@
+# git.zsh — curated git aliases + helpers
+#
+# Provenance: a hand-picked subset of the oh-my-zsh `git` plugin, with the
+# framework, auto-updater, and ~100 rarely-used aliases stripped out. Drop this
+# into dotfiles-core as a standalone zsh module; it sources cleanly on its own
+# and carries no OMZ dependency.
+#
+# Naming matches OMZ so existing muscle memory transfers. Two intentional
+# deviations from upstream, both safety upgrades:
+#   - gpf  -> --force-with-lease (OMZ's gpf is a raw --force; lease refuses to
+#            clobber commits you haven't seen). Raw force is still here as gpf!.
+#   - no destructive aliases bound to bare letters that shadow common typos.
+#
+# Branch-aware aliases resolve the trunk via git_main_branch(), so they work
+# whether a repo uses main, master, trunk, etc.
+
+# ── helpers ──────────────────────────────────────────────────────────────────
+
+# Current branch name (empty outside a repo / on detached HEAD failure).
+function git_current_branch() {
+  local ref
+  ref=$(command git symbolic-ref --quiet HEAD 2>/dev/null)
+  local ret=$?
+  if [[ $ret != 0 ]]; then
+    [[ $ret == 128 ]] && return     # not a git repo
+    ref=$(command git rev-parse --short HEAD 2>/dev/null) || return
+  fi
+  echo "${ref#refs/heads/}"
+}
+
+# Resolve the trunk branch for this repo (main, master, trunk, ...).
+function git_main_branch() {
+  command git rev-parse --git-dir &>/dev/null || return
+  local ref
+  for ref in refs/{heads,remotes/{origin,upstream}}/{main,trunk,mainline,default,stable,master}; do
+    if command git show-ref -q --verify "$ref"; then
+      echo "${ref:t}"
+      return 0
+    fi
+  done
+  echo master
+}
+
+# ── status / inspection ──────────────────────────────────────────────────────
+alias gst='git status'
+alias gss='git status --short'
+alias gsb='git status --short --branch'
+
+# ── staging ──────────────────────────────────────────────────────────────────
+alias ga='git add'
+alias gaa='git add --all'
+alias gap='git add --patch'
+
+# ── commit ───────────────────────────────────────────────────────────────────
+alias gc='git commit --verbose'
+alias gcm='git commit --message'              # NOTE: OMZ uses gcm for "checkout main"
+alias gca='git commit --verbose --all'
+alias gcam='git commit --all --message'
+alias 'gc!'='git commit --verbose --amend'
+alias 'gcn!'='git commit --verbose --no-edit --amend'   # amend, keep message
+
+# ── branch ───────────────────────────────────────────────────────────────────
+alias gb='git branch'
+alias gba='git branch --all'
+alias gbd='git branch --delete'
+alias 'gbD'='git branch --delete --force'
+alias gbm='git branch --move'
+
+# ── checkout / switch ────────────────────────────────────────────────────────
+alias gco='git checkout'
+alias gcb='git checkout -b'
+alias gcom='git checkout "$(git_main_branch)"'
+alias gsw='git switch'
+alias gswc='git switch --create'
+alias gswm='git switch "$(git_main_branch)"'
+
+# ── diff ─────────────────────────────────────────────────────────────────────
+alias gd='git diff'
+alias gds='git diff --staged'
+alias gdw='git diff --word-diff'
+
+# ── log ──────────────────────────────────────────────────────────────────────
+alias glog='git log --oneline --decorate --graph'
+alias gloga='git log --oneline --decorate --graph --all'
+alias glol="git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'"
+alias glola="git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --all"
+
+# ── fetch / pull / push ──────────────────────────────────────────────────────
+alias gf='git fetch'
+alias gfa='git fetch --all --prune --tags'
+alias gl='git pull'
+alias gpr='git pull --rebase'
+alias gp='git push'
+alias gpu='git push --set-upstream origin "$(git_current_branch)"'
+alias gpf='git push --force-with-lease'       # safe force (upgrade vs OMZ)
+alias 'gpf!'='git push --force'               # raw force, explicit
+
+# ── stash ────────────────────────────────────────────────────────────────────
+alias gsta='git stash push'
+alias gstaa='git stash push --include-untracked'
+alias gstp='git stash pop'
+alias gstl='git stash list'
+alias gstd='git stash drop'
+
+# ── rebase ───────────────────────────────────────────────────────────────────
+alias grb='git rebase'
+alias grbi='git rebase --interactive'
+alias grbm='git rebase "$(git_main_branch)"'
+alias grbc='git rebase --continue'
+alias grba='git rebase --abort'
+
+# ── reset / restore ──────────────────────────────────────────────────────────
+alias grh='git reset'                         # unstage / soft-ish (no --hard)
+alias grhh='git reset --hard'
+alias grs='git restore'
+alias grss='git restore --staged'
+
+# ── remote / merge ───────────────────────────────────────────────────────────
+alias gr='git remote'
+alias grv='git remote --verbose'
+alias gm='git merge'
+alias gma='git merge --abort'
