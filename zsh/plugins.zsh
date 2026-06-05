@@ -64,7 +64,7 @@ function zplugin-update {
 _zplugin_load romkatv zsh-defer
 # helper: defer if zsh-defer loaded, else load synchronously (bare-box safe)
 _defer_or_now() {
-  if (($+functions[zsh - defer])); then zsh-defer _zplugin_load "$@"; else _zplugin_load "$@"; fi
+  if (($+functions[zsh-defer])); then zsh-defer _zplugin_load "$@"; else _zplugin_load "$@"; fi
 }
 
 # =========================================================
@@ -89,7 +89,7 @@ fi
 
 # fzf-tab (load after compinit + carapace, before other completion wrappers)
 _zplugin_load Aloxaf fzf-tab
-if (($+functions[fzf - tab - complete])); then
+if (($+functions[fzf-tab-complete])); then
   zstyle ':fzf-tab:*' fzf-command fzf
   zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza --icons --tree --level=1 $realpath'
   zstyle ':fzf-tab:complete:*:*' fzf-preview '$_FZF_PREVIEW_CMD $realpath 2>/dev/null'

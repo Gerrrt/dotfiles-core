@@ -38,6 +38,11 @@ vim.api.nvim_create_autocmd("BufWritePre", {
 	group = lsp_fmt_group,
 	callback = function(args)
 		require("mini.trailspace").trim()
+		-- shfmt mangles hyphenated function names (e.g. fzf-tab-complete) in zsh arithmetic expressions
+		local skip_shfmt = { ["plugins.zsh"] = true }
+		if skip_shfmt[vim.fn.expand("%:t")] then
+			return
+		end
 		require("conform").format({ bufnr = args.buf, lsp_format = "fallback", timeout_ms = 1500 })
 	end,
 })
