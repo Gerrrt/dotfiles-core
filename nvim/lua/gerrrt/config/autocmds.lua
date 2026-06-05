@@ -58,7 +58,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
 })
 
 -- custom options for text/markdown files
-local markdown_options = vim.api.nvim_create_augroup("MardownOptions", {})
+local markdown_options = vim.api.nvim_create_augroup("MarkdownOptions", {})
 vim.api.nvim_create_autocmd("FileType", {
 	group = markdown_options,
 	pattern = { "markdown", "text", "gitcommit" },
@@ -70,5 +70,7 @@ vim.api.nvim_create_autocmd("FileType", {
 		vim.opt_local.cursorline = true
 		vim.opt_local.colorcolumn = "yes"
 		vim.opt_local.signcolumn = "yes"
+		vim.opt_local.conceallevel = 2 -- conceal markup (link/bold markers); moved here from global options
+		vim.opt_local.concealcursor = "" -- still show markup on the cursor line
 	end,
 })

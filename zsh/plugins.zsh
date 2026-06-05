@@ -75,8 +75,9 @@ _zplugin_load zsh-users zsh-history-substring-search
 _zplugin_load jeffreytse zsh-vi-mode
 
 # DEFERRED (heavy; not needed before the first prompt). NOTE: autosuggest-toggle
-# (bound to Ctrl-\ in bindings.zsh) is now guarded there, since the widget may not
-# exist yet at vi-mode init time.
+# (bound to Ctrl-\ in bindings.zsh) is bound UNCONDITIONALLY there — it's deferred and
+# loads after the first prompt, so a widget-exists guard at vi-mode init time is always
+# false; bindkey records the binding and the widget materialises before you can press it.
 _defer_or_now zsh-users zsh-autosuggestions
 _defer_or_now zdharma-continuum fast-syntax-highlighting
 

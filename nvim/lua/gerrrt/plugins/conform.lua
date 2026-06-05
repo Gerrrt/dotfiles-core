@@ -76,7 +76,9 @@ return {
 				"luacheck",
 				"solhint",
 			},
-			run_on_start = true,
+			-- Skip the startup install/update pass on engagement boxes (DOTFILES_OFFLINE=1),
+			-- which would otherwise hit the mason registry and download tools. See globals.lua.
+			run_on_start = not vim.g.dotfiles_offline,
 		})
 	end,
 }

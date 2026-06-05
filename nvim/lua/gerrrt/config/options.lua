@@ -8,15 +8,15 @@ vim.opt.number = true -- Line numbers
 vim.opt.relativenumber = true -- Relative line numbers
 vim.opt.cursorline = true -- Highlight current line
 vim.opt.scrolloff = 10 -- Keep 10 lines above/below cursor
-vim.opt.sidescrolloff = 8 -- Keep 8 columns left/right of cursor
-vim.opt.wrap = false -- Don't wrap lines
+vim.opt.sidescrolloff = 10 -- Keep 10 columns left/right of cursor
+vim.opt.wrap = true -- Wrap lines
 vim.opt.cmdheight = 1 -- Command line height
 vim.opt.spelllang = { "en", "de" } -- Set language for spellchecking
 
 -- Tabbing / Indentation
-vim.opt.tabstop = 2 -- Tab width
-vim.opt.shiftwidth = 2 -- Indent width
-vim.opt.softtabstop = 2 -- Soft tab stop
+vim.opt.tabstop = 4 -- Tab width
+vim.opt.shiftwidth = 4 -- Indent width
+vim.opt.softtabstop = 4 -- Soft tab stop
 vim.opt.expandtab = true -- Use spaces instead of tabs
 vim.opt.smartindent = true -- Smart auto-indenting
 vim.opt.autoindent = true -- Copy indent from current line
@@ -32,7 +32,7 @@ vim.opt.incsearch = true -- Show matches as you type
 -- Visual Settings
 vim.opt.termguicolors = true -- Enable 24-bit colors
 vim.opt.signcolumn = "yes" -- Always show sign column
-vim.opt.colorcolumn = "100" -- Show column at 100 characters
+vim.opt.colorcolumn = "80" -- Show column at 100 characters
 vim.opt.showmatch = true -- Highlight matching brackets
 vim.opt.matchtime = 2 -- How long to show matching bracket
 vim.opt.completeopt = "menuone,noinsert,noselect" -- Completion options
@@ -40,8 +40,9 @@ vim.opt.showmode = false -- Don't show mode in command line
 vim.opt.pumheight = 10 -- Popup menu height
 vim.opt.pumblend = 10 -- Popup menu transparency
 vim.opt.winblend = 0 -- Floating window transparency
-vim.opt.conceallevel = 2 -- Conceal markup (links/bold markers) in markdown etc.
-vim.opt.concealcursor = "" -- Show markup even on cursor line
+-- NOTE: conceallevel/concealcursor are set per-filetype in the markdown autocmd
+-- (config/autocmds.lua), not globally — concealing in non-markdown buffers can hide
+-- characters unexpectedly (e.g. in some JSON/LSP setups).
 vim.opt.redrawtime = 10000 -- Timeout for syntax highlighting redraw
 vim.opt.maxmempattern = 20000 -- Max memory for pattern matching
 vim.opt.synmaxcol = 300 -- Syntax highlighting column limit
@@ -57,7 +58,7 @@ vim.opt.ttimeoutlen = 0 -- No wait for key code sequences
 vim.opt.autoread = true -- Auto-reload file if changed outside
 vim.opt.autowrite = false -- Don't auto-save on some events
 vim.opt.diffopt:append("vertical") -- Vertical diff splits
-vim.opt.diffopt:append("algorithm:patience") -- Better diff algorithm
+vim.opt.diffopt:append("algorithm:histogram") -- Better diff algorithm (matches gitconfig's diff.algorithm)
 vim.opt.diffopt:append("linematch:60") -- Better diff highlighting (smart line matching)
 
 -- Set undo directory and ensure it exists

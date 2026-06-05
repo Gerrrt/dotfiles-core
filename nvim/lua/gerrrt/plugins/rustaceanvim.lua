@@ -19,8 +19,22 @@ local config = function()
 		dap = {
 			adapter = {
 				type = "executable",
-				command = vim.fn.exepath("lldb-dap") ~= "" and "lldb-dap"
-					or vim.fn.trim(vim.fn.system("xcrun -f lldb-dap")),
+				-- Prefer lldb-dap on PATH. Only consult `xcrun -f lldb-dap` on macOS (and only if
+				-- xcrun actually exists) — on Linux/Kali xcrun is absent and its error text would
+				-- otherwise become the adapter command. Final fallback is the bare name so the
+				-- failure is a clean "not found" rather than executing garbage.
+				command = (function()
+					if vim.fn.exepath("lldb-dap") ~= "" then
+						return "lldb-dap"
+					end
+					if vim.fn.has("mac") == 1 and vim.fn.executable("xcrun") == 1 then
+						local p = vim.fn.trim(vim.fn.system({ "xcrun", "-f", "lldb-dap" }))
+						if vim.v.shell_error == 0 and p ~= "" then
+							return p
+						end
+					end
+					return "lldb-dap"
+				end)(),
 				name = "rt_lldb",
 			},
 		},
