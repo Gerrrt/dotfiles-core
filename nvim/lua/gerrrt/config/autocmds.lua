@@ -38,9 +38,12 @@ vim.api.nvim_create_autocmd("BufWritePre", {
 	group = lsp_fmt_group,
 	callback = function(args)
 		require("mini.trailspace").trim()
-		-- shfmt mangles hyphenated function names (e.g. fzf-tab-complete) in zsh arithmetic expressions
-		local skip_shfmt = { ["plugins.zsh"] = true }
-		if skip_shfmt[vim.fn.expand("%:t")] then
+		-- Never auto-format zsh. shfmt (whether reached through conform OR through the
+		-- lsp_format="fallback" path via bash-language-server, which shells out to shfmt)
+		-- parses zsh as bash and silently corrupts zsh-only syntax. Skipping by FILETYPE
+		-- (not a single filename) protects every zsh file in Core, not just plugins.zsh.
+		-- Trailing-whitespace trim above already ran, so zsh still gets that.
+		if vim.bo[args.buf].filetype == "zsh" then
 			return
 		end
 		require("conform").format({ bufnr = args.buf, lsp_format = "fallback", timeout_ms = 1500 })
@@ -62,10 +65,10 @@ vim.api.nvim_create_autocmd("FileType", {
 	callback = function()
 		vim.opt_local.wrap = true
 		vim.opt_local.linebreak = true
-		vim.opt_local.relativenumber = false
-		vim.opt_local.number = false
-		vim.opt_local.cursorline = false
-		vim.opt_local.colorcolumn = ""
-		vim.opt_local.signcolumn = "no"
+		vim.opt_local.relativenumber = true
+		vim.opt_local.number = true
+		vim.opt_local.cursorline = true
+		vim.opt_local.colorcolumn = "yes"
+		vim.opt_local.signcolumn = "yes"
 	end,
 })

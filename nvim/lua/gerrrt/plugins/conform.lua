@@ -48,7 +48,11 @@ return {
 			typescriptreact = { "prettierd" },
 			svelte = { "prettierd" },
 			vue = { "prettierd" },
-			zsh = { "shfmt" },
+			-- NOTE: zsh is intentionally absent. shfmt is a POSIX/bash/mksh formatter and does
+			-- NOT understand zsh — it mangles zsh-only syntax (glob qualifiers (#qN), ${(%):-%x},
+			-- $+widgets[name-with-hyphens], &|, ...). There is no safe zsh formatter, so zsh files
+			-- are never auto-formatted. (autocmds.lua also hard-skips formatting for ft=zsh, and
+			-- utils/lsp.lua disables bashls's LSP formatting so the "fallback" path can't shfmt it.)
 		},
 	},
 	config = function(_, opts)
