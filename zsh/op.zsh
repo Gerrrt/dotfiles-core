@@ -29,11 +29,10 @@ openv() {
 # optoken — copy a TOTP code to the clipboard via Core's cross-OS `clip`
 # Usage: optoken "Personal/GitHub"
 optoken() {
-  if [[ -z "$1" ]]; then
-    echo "Usage: optoken <vault>/<item>"
-    return 1
-  fi
-  op item get "$1" --otp | clip && echo "✓ TOTP copied to clipboard"
+  [[ -z "$1" ]] && { echo "Usage: optoken <vault>/<item>"; return 1; }
+  local otp
+  otp=$(op item get "$1" --otp) || return 1
+  printf '%s' "$otp" | clip && echo "✓ TOTP copied to clipboard"
 }
 
 # opssh — list SSH keys stored in 1Password

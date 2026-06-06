@@ -32,17 +32,12 @@ export FZF_ALT_C_OPTS="--preview 'eza --icons=always --tree --level=1 {}'"
 # Widget: Ctrl+F — file picker (no hidden files)
 # =========================================================
 _fzf_file_no_hidden() {
-  local cmd_args=()
-  if [[ -n ${HAVE_FD:-} ]]; then
-    cmd_args=(fd --type f)
-    [[ -z ${FZF_DEFAULT_COMMAND} ]] || cmd_args=(${(z)${FZF_DEFAULT_COMMAND/--hidden /}})
-  else
-    cmd_args=(find . -type f)
-  fi
-  result=$("${cmd_args[@]}" | fzf --preview "$_FZF_PREVIEW_CMD") &&
+  local result
+  result=$("$FD_BIN" --type f --strip-cwd-prefix --exclude .git | fzf --preview "$_FZF_PREVIEW_CMD") &&
     LBUFFER+="$result"
   zle reset-prompt
 }
+
 zle -N _fzf_file_no_hidden
 
 # =========================================================
@@ -108,18 +103,13 @@ zle -N _tmux_sessionizer
 # Global utility: fif — find text inside files
 # =========================================================
 fif() {
-  if [[ -z "$1" ]]; then
-    echo "Usage: fif <search_term>"
-    return 1
-  fi
-  rg --files-with-matches --no-messages "$1" | fzf \
-    --height 80% \
-    --layout=reverse \
-    --border=rounded \
+  [[ -z "$1" ]] && { echo "Usage: fif <search_term>"; return 1; }
+  FIF_TERM="$1" rg --files-with-matches --no-messages "$1" | fzf \
+    --height 80% --layout=reverse --border=rounded \
     --prompt="Text Match ❯ " \
-    --preview "bat --style=numbers --color=always \
-      --highlight-line \$(rg --line-number --no-messages \"$1\" {} \
-        | cut -d: -f1 | head -n 1) {}" \
+    --preview 'bat --style=numbers --color=always \
+      --highlight-line $(rg --line-number --no-messages "$FIF_TERM" {} \
+        | cut -d: -f1 | head -n 1) {}' \
     --preview-window="right:65%:wrap:border-left"
 }
 

@@ -85,7 +85,7 @@ _defer_or_now zdharma-continuum fast-syntax-highlighting
 if [[ -n ${HAVE_CARAPACE:-} ]]; then
   export CARAPACE_BRIDGES='zsh,fish,bash' # borrow completions a tool ships for another shell
   zstyle ':completion:*' format $'\e[2;37m── %d ──\e[m'
-  source <(carapace _carapace zsh)
+  [[ -n ${HAVE_CARAPACE:-} ]] && _cache_eval carapace carapace _carapace zsh
 fi
 
 # fzf-tab (load after compinit + carapace, before other completion wrappers)
