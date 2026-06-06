@@ -49,7 +49,7 @@ fcd() {
 }
 
 # please — re-run the last command with sudo
-please() { sudo $(fc -ln -1); }
+please() { eval "sudo $(fc -ln -1)"; }
 
 # mkbak — timestamped backup of a file before you edit it
 mkbak() { cp -- "$1" "$1.$(date +%Y%m%d-%H%M%S).bak"; }

@@ -32,9 +32,14 @@ export FZF_ALT_C_OPTS="--preview 'eza --icons=always --tree --level=1 {}'"
 # Widget: Ctrl+F — file picker (no hidden files)
 # =========================================================
 _fzf_file_no_hidden() {
-  local cmd result
-  cmd="${FZF_DEFAULT_COMMAND/--hidden /}"
-  result=$(eval "${cmd:-find . -type f}" | fzf --preview "$_FZF_PREVIEW_CMD") &&
+  local cmd_args=()
+  if [[ -n ${HAVE_FD:-} ]]; then
+    cmd_args=(fd --type f)
+    [[ -z ${FZF_DEFAULT_COMMAND} ]] || cmd_args=(${(z)${FZF_DEFAULT_COMMAND/--hidden /}})
+  else
+    cmd_args=(find . -type f)
+  fi
+  result=$("${cmd_args[@]}" | fzf --preview "$_FZF_PREVIEW_CMD") &&
     LBUFFER+="$result"
   zle reset-prompt
 }

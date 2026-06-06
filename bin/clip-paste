@@ -5,7 +5,9 @@ set -euo pipefail
 
 if [[ -n "${WSL_DISTRO_NAME:-}" ]] || grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null; then
   # strip the CRs that the Windows clipboard appends
-  powershell.exe -NoProfile -Command Get-Clipboard 2>/dev/null | tr -d '\r'
+  local out
+  out="$(powershell.exe -NoProfile -Command Get-Clipboard 2>/dev/null)" || return 1
+  printf '%s' "$out" | tr -d '\r'
 elif [[ "$(uname -s)" == "Darwin" ]]; then
   exec pbpaste
 elif [[ -n "${WAYLAND_DISPLAY:-}" ]] && command -v wl-paste >/dev/null; then

@@ -32,4 +32,4 @@ setopt HIST_SAVE_NO_DUPS
 # has its own richer filtering (history_filter in config.toml) — this is the
 # belt-and-suspenders for the flat file. Operator habit: prefix anything spicy
 # with a space (HIST_IGNORE_SPACE) and it never lands anywhere.
-HISTORY_IGNORE='(pass *|*--password *|*--token *|*API_KEY*|*SECRET*|op read*)'
+HISTORY_IGNORE='(pass show *|pass read *|pass insert *|*--password *|*--token *|*API_KEY*|*SECRET*|op read*)'
