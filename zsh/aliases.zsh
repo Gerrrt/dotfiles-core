@@ -42,9 +42,10 @@ fi
 alias -- -='cd -'
 
 # ── disk / process / monitor ──────────────────────────────────────────────────
-[[ -n ${HAVE_DUST:-} ]] && alias du='dust'
+[[ -n ${HAVE_DUST:-} ]]  && alias du='dust'
 [[ -n ${HAVE_PROCS:-} ]] && alias ps='procs'
-[[ -n ${HAVE_BTOP:-} ]] && alias top='btop' && alias htop='btop'
+[[ -n ${HAVE_BTOP:-} ]]  && alias top='btop' && alias htop='btop'
+[[ -n ${HAVE_VIDDY:-} ]] && alias watch='viddy'
 
 # ── file manager ──────────────────────────────────────────────────────────────
 [[ -n ${HAVE_YAZI:-} ]] && {
@@ -87,13 +88,19 @@ hash -d proj="$HOME/Projects"
 alias notes='cd "$NOTES_DIR" && nvim .'
 
 # ── safety nets (POSIX, intentionally NOT modernized) ────────────────────────
+# rm: macOS overrides this to `trash` in os/macos.zsh when trash(1) is available.
 alias rm='rm -i'
 alias cp='cp -i'
 alias mv='mv -i'
 alias mkdir='mkdir -p'
 
+# ── help / docs ───────────────────────────────────────────────────────────────
+# tealdeer: `help <cmd>` → community-curated quick-reference (complement to man).
+[[ -n ${HAVE_TLDR:-} ]] && alias help='tldr'
+
 # ── network conveniences (stay in Core; anything engagement-flavored -> Kali)─
 alias myip='curl -fsS https://ifconfig.me 2>/dev/null && echo'
 alias ports='ss -tulpn 2>/dev/null || netstat -tulpn'
+[[ -n ${HAVE_GPING:-} ]] && alias ping='gping'
 # NOTE: `serve` is now a function in functions.zsh (prints the reachable URL and
 # takes an optional port), replacing the old `python3 -m http.server` alias.

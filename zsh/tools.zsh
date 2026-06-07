@@ -74,6 +74,9 @@ _have doggo && HAVE_DOGGO=1
 _have gron && HAVE_GRON=1
 _have sd && HAVE_SD=1
 _have gum && HAVE_GUM=1
+_have viddy && HAVE_VIDDY=1         # modern watch (aliases.zsh: watch → viddy)
+_have gping && HAVE_GPING=1         # graphical ping (aliases.zsh: ping → gping)
+_have tldr  && HAVE_TLDR=1          # tealdeer binary (aliases.zsh: help → tldr)
 [[ -n ${FD_BIN:-} ]] && HAVE_FD=1
 [[ -n ${BAT_BIN:-} ]] && HAVE_BAT=1
 
