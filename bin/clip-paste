@@ -2,11 +2,11 @@
 # core/bin/clip-paste — cross-OS "paste from clipboard" to stdout.
 # Mirror of `clip`. Detection order: WSL -> macOS -> Wayland -> X11.
 set -euo pipefail
-
 if [[ -n "${WSL_DISTRO_NAME:-}" ]] || grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null; then
-  # strip the CRs that the Windows clipboard appends
-  local out
-  out="$(powershell.exe -NoProfile -Command Get-Clipboard 2>/dev/null)" || return 1
+  # strip the CRs that the Windows clipboard appends.
+  # NB: this is script scope, not a function — `local`/`return` are illegal here
+  # and would abort under `set -e`, breaking paste on WSL. Use a plain var + exit.
+  out="$(powershell.exe -NoProfile -Command Get-Clipboard 2>/dev/null)" || exit 1
   printf '%s' "$out" | tr -d '\r'
 elif [[ "$(uname -s)" == "Darwin" ]]; then
   exec pbpaste

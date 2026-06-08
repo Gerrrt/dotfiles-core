@@ -44,7 +44,7 @@ trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
 # ── keep the log from growing forever (last ~800 lines) ───────────────────────
 if [[ -f "$LOG" ]] && [[ "$(wc -l <"$LOG" 2>/dev/null || echo 0)" -gt 800 ]]; then
-  local tmp
+  # script scope, not a function — `local` is illegal here and prints an error.
   tmp="$(mktemp "${LOG}.XXXXXX")" && tail -n 600 "$LOG" >"$tmp" && mv "$tmp" "$LOG"
 fi
 

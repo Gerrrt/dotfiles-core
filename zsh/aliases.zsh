@@ -70,13 +70,9 @@ alias vim='nvim'
 alias df='df -h'
 alias diff='diff --color=auto'
 
-# ── git quality-of-life (delta is wired in git/gitconfig, not here) ──────────
-alias g='git'
-alias gs='git status -sb'
-alias gd='git diff'
-alias gl='git log --oneline --graph --decorate -20'
-alias glog='PAGER="less -F -X" git log'
-alias gadog='PAGER="less -F -X" git log --all --decorate --oneline --graph'
+# ── git ───────────────────────────────────────────────────────────────────────
+# The git alias set is the single source of truth in git.zsh (OMZ-style, loaded
+# right after this file). Only the non-git lazygit launcher lives here.
 alias lg='lazygit'
 
 # ── named directories (~dots, ~proj) ──────────────────────────────────────────

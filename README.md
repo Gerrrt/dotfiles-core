@@ -5,19 +5,19 @@ This is the keystone of a nine-repo dotfiles system. It holds the config that is
 identical everywhere — shell modules, tmux base, Neovim, git — and nothing that
 is OS-specific or offensive.
 
-> If it changes when the *operating system* changes, it does **not** belong here.
-> If it changes when *you as an operator* change, it does **not** belong here.
+> If it changes when the _operating system_ changes, it does **not** belong here.
+> If it changes when _you as an operator_ change, it does **not** belong here.
 > Everything left over is Core, and it lives here.
 
 ---
 
 ## The three-layer model (unchanged, now centralized)
 
-| Layer | Lives in | Examples |
-|-------|----------|----------|
-| **Core** | **this repo**, vendored into each OS repo via `git subtree` | zsh modules, tmux base, nvim, git/delta |
-| **OS-native** | `dotfiles-{MacBook,Windows,Debian,Fedora,Arch,openSUSE,Alpine,Gentoo}` | package manager, clipboard shim, paths |
-| **Role / offensive** | `dotfiles-Kali` | engagement scaffolding, C2, Impacket, wordlists |
+| Layer                | Lives in                                                               | Examples                                        |
+| -------------------- | ---------------------------------------------------------------------- | ----------------------------------------------- |
+| **Core**             | **this repo**, vendored into each OS repo via `git subtree`            | zsh modules, tmux base, nvim, git/delta         |
+| **OS-native**        | `dotfiles-{MacBook,Windows,Debian,Fedora,Arch,openSUSE,Alpine,Gentoo}` | package manager, clipboard shim, paths          |
+| **Role / offensive** | `dotfiles-Kali`                                                        | engagement scaffolding, C2, Impacket, wordlists |
 
 Previously each repo carried its **own copy** of Core, and drift was caught
 after the fact with `core-diff.sh`. That works at 4 repos. At 9 it doesn't.
@@ -54,7 +54,7 @@ place alongside its own OS-native files.
 
 ## Why subtree (not submodule, not chezmoi)
 
-- **vs submodule** — submodules store a *pointer*, so a fresh clone is empty
+- **vs submodule** — submodules store a _pointer_, so a fresh clone is empty
   until `git submodule update --init`. Subtree vendors the actual files, so
   every repo is self-contained and clone-and-go. Better for portfolio repos.
 - **vs chezmoi** — chezmoi (one repo + per-OS templates) is the most DRY answer
@@ -78,19 +78,29 @@ bin/
   sync-core.sh            loop git-subtree pull across all OS repos (the maintain button)
 zsh/                      sourced by each OS repo's .zshrc loader, IN THIS ORDER:
   tools.zsh               detection + single init point (zoxide/starship/atuin/mise) — load FIRST
+  options.zsh             setopts + completion system (compinit, cached) + zstyles
+  history.zsh             HISTFILE/HISTSIZE/SAVEHIST + history setopts + secret-ignore
   aliases.zsh             modern-CLI aliases, each guarded by tools.zsh detection
+  git.zsh                 curated OMZ-style git aliases + git_main_branch helper
   functions.zsh           cross-OS shell functions (mkcd, extract, up, ...)
   fzf.zsh                 fzf env + zle widgets (Ctrl-F/R, Alt-Z, Ctrl-G) + fif/fbr
   bindings.zsh            vi-mode keybindings (zvm_after_init hook)
   plugins.zsh             lightweight plugin loader + plugin list
   op.zsh                  1Password CLI helpers
+  maint.zsh               daily-maintenance control surface (maint-install/run/log)
+  update.zsh              `up` updater + once/day "updates available" nudge
 starship/
   starship.toml           prompt theme -> symlinked to ~/.config/starship.toml
 mise/
   config.toml             global runtime versions (node/python/ruby/go/rust/java/lua)
+sesh/
+  sesh.toml.example       portable session-manager config (seeded, not symlinked)
 tmux/
   tmux.conf               portable base config (OS bits -> os/<os>.conf)
-  scripts/                popup scripts: tmux-menu / tmux-scratch / tmux-sessionizer
+  tmux.reset.conf         the keybinding layer (prefix C-a lives here)
+  scripts/                popup scripts: tmux-menu / tmux-scratch / tmux-sesh / tmux-netinfo
+maint/
+  dotfiles-maint.sh       the daily "update everything (that's safe)" runner
 git/
   gitconfig               portable git config (OS + identity layered via [include])
   local.gitconfig.example identity template — seeded by bootstrap, never tracked
@@ -98,10 +108,13 @@ nvim/                     entire lazy.nvim tree: lua/gerrrt/{config,plugins,serv
 core.manifest             the canonical list of Core files (drives sync + audits)
 ```
 
-> Load order is load-bearing: `tools` inits atuin (registers its widget) and
-> `fzf` defines its zle widgets BEFORE `plugins` loads zsh-vi-mode, whose init
-> fires the keybinding hook in `bindings`. Each OS repo's `.zshrc` sources them
-> as `tools → aliases → functions → fzf → bindings → plugins → op → os → local`.
+> Load order is load-bearing: `tools` inits atuin (registers its widget), `options`
+> runs `compinit` (fzf-tab + carapace need it), and `fzf` defines its zle widgets
+> BEFORE `plugins` loads zsh-vi-mode, whose init fires the keybinding hook in
+> `bindings`. Each OS repo's `.zshrc` sources them as
+> `tools → options → history → aliases → git → functions → fzf → bindings →
+plugins → op → maint → update → os → local` (the canonical order in
+> `core.manifest`).
 
 ---
 

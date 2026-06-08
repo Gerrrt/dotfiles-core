@@ -41,6 +41,9 @@ function git_main_branch() {
   echo master
 }
 
+# ── git itself ────────────────────────────────────────────────────────────────
+alias g='git'
+
 # ── status / inspection ──────────────────────────────────────────────────────
 alias gst='git status'
 alias gss='git status --short'
