@@ -28,7 +28,7 @@ CAP_R=""
 pill() { # pill <accent-hex> <text>
   local accent="$1" text="$2"
   printf '#[fg=%s,bg=default]%s#[fg=%s,bg=%s,bold]%s#[fg=%s,bg=default]%s' \
-    "$accent" "$CAP_L" "$BG" "$accent" " $text " "$accent" "$CAP_R"
+    "$accent" "$CAP_L" "$BG" "$accent" "$text" "$accent" "$CAP_R"
 }
 
 # Tunnel interfaces in priority order (OpenVPN / WireGuard / Tailscale / macOS utun)
