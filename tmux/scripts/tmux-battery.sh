@@ -21,8 +21,8 @@ BG="#24283b"
 GREEN="#9ece6a"
 YELLOW="#e0af68"
 RED="#f7768e"
-CAP_L="" # @cap_l rounded left cap
-CAP_R="" # @cap_r rounded right cap
+CAP_L="" # @cap_l rounded left cap
+CAP_R="" # @cap_r rounded right cap
 
 pct=""
 state=""

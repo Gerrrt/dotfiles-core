@@ -22,8 +22,8 @@ ORANGE="#ff9e64"
 GREEN="#9ece6a"
 
 # left/right rounded caps make a floating pill on the transparent bar
-CAP_L=""
-CAP_R=""
+CAP_L=""
+CAP_R=""
 
 pill() { # pill <accent-hex> <text>
   local accent="$1" text="$2"
