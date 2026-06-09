@@ -29,6 +29,7 @@ $username\
 $directory\
 [](fg:color_srf2 bg:color_srf1)\
 $git_branch\
+$git_state\
 $git_status\
 [](fg:color_srf1 bg:color_srf2)\
 $c\
@@ -42,11 +43,15 @@ $java\
 $kotlin\
 $haskell\
 $python\
+$ruby\
+$lua\
 [](fg:color_srf2 bg:color_srf1)\
 $docker_context\
 $conda\
 $pixi\
 [](fg:color_srf1 bg:color_srf2)\
+$cmd_duration\
+$jobs\
 $time\
 [ ](fg:color_srf2)\
 $line_break$character"""
@@ -125,6 +130,13 @@ format = '[[ $symbol $branch ](fg:color_green bg:color_srf1)]($style)'
 style = "bg:color_srf1"
 format = '[[($all_status$ahead_behind )](fg:color_orange bg:color_srf1)]($style)'
 
+# Mid-operation state (REBASING 2/8, MERGING, CHERRY-PICKING…). Red text so an
+# in-progress rebase/merge is impossible to miss; sits in the same srf1 git band
+# between branch and status, and only appears when an operation is underway.
+[git_state]
+style = "bg:color_srf1"
+format = '[[ $state( $progress_current/$progress_total) ](fg:color_red bg:color_srf1)]($style)'
+
 [nodejs]
 symbol = ""
 style = "bg:color_srf2"
@@ -192,6 +204,36 @@ format = '[[ $symbol( $environment) ](fg:color_purple bg:color_srf1)]($style)'
 [pixi]
 style = "bg:color_srf1"
 format = '[[ $symbol( $version)( $environment) ](fg:color_purple bg:color_srf1)]($style)'
+
+# ruby + lua are declared in mise/config.toml as global runtimes, so they belong
+# in the language band alongside the rest. Same cyan-on-srf2 treatment. (Section
+# order here is irrelevant — the `format` string at the top controls layout.)
+[ruby]
+symbol = ""
+style = "bg:color_srf2"
+format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+
+[lua]
+symbol = ""
+style = "bg:color_srf2"
+format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+
+# How long the last command took (only when it exceeds min_time). Orange text on
+# the same srf2 surface as time, so slow commands gently announce themselves
+# without a color clash. Transient: it vanishes after a quick command.
+[cmd_duration]
+min_time = 2000
+style = "bg:color_srf2"
+format = '[[ 󰔛 $duration ](fg:color_orange bg:color_srf2)]($style)'
+
+# Background job count (`&`, Ctrl-Z). Purple text, srf2 surface; only shows when
+# at least one job is running.
+[jobs]
+symbol = '+'
+symbol_threshold = 1
+number_threshold = 1
+style = "bg:color_srf2"
+format = '[[ $symbol $number ](fg:color_purple bg:color_srf2)]($style)'
 
 [time]
 disabled = false
