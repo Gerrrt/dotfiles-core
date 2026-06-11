@@ -8,7 +8,8 @@
 # mkcd — make a directory and cd into it
 mkcd() { mkdir -p -- "$1" && cd -- "$1"; }
 
-# up — climb N directories (up 3 == cd ../../..)
+# cdup — climb N directories (cdup 3 == cd ../../..). NOT named `up`: that's the
+# package-updater in update.zsh.
 cdup() {
   local n="${1:-1}" p=""
   while ((n-- > 0)); do p="../$p"; done

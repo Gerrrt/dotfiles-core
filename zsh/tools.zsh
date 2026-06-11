@@ -8,11 +8,13 @@
 # bat -> `batcat`). We detect what's installed, set HAVE_* flags + canonical
 # binary names, and degrade gracefully instead of erroring on a bare box.
 #
-# This is also the ONE place zoxide/starship/atuin/mise are initialised. As of
-# the 2026 refresh, starship + zoxide are CACHED: their `init zsh` output is
-# stable, so we generate it once and `source` the cache (one cheap read) instead
-# of spawning a subprocess on every shell start. atuin + mise stay live (their
-# init legitimately varies with daemon/version). Measure with:
+# This is also the ONE place zoxide/starship/atuin/mise are initialised. Their
+# `init`/`activate zsh` scripts are static text for a given binary version, so we
+# CACHE all four: generate once and `source` the cache (one cheap read) instead
+# of spawning a subprocess on every shell start. The per-shell/per-dir variation
+# lives in the RUNTIME hooks those scripts register, not in the generated text,
+# so caching the generation changes nothing about behaviour. _cache_eval re-runs
+# the generator whenever the binary is newer than its cache. Measure with:
 #     hyperfine 'zsh -i -c exit'
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -28,6 +30,12 @@ _have() { command -v "$1" >/dev/null 2>&1; }
 # ── Cache helper: source a tool's init script, regenerate only when the binary
 # is newer than the cache (or the cache is missing). Turns an eval-of-subprocess
 # into a plain source. Used for the tools whose init output is deterministic. ──
+#
+# CACHE-INVALIDATION CAVEAT: the cache is rebuilt only when the *binary* is newer
+# than it (the mtime check below). If a tool's init output also depends on ENV
+# read at generation time — e.g. ATUIN_NOBIND for atuin, CARAPACE_BRIDGES for
+# carapace — flipping that env will NOT bust the cache. After such a change force
+# a regen: `rm "${XDG_CACHE_HOME:-$HOME/.cache}/zsh/<name>.zsh"`, then new shell.
 _cache_eval() { # _cache_eval <name> <command...>
   local name="$1"
   shift
@@ -104,7 +112,12 @@ export VIRTUAL_ENV_DISABLE_PROMPT=1
 export ATUIN_NOBIND=true
 
 # ── Initialise shell-hook tools ───────────────────────────────────────────────
-# CACHED (deterministic init output):
+# All CACHED via _cache_eval: the `init`/`activate` scripts these emit are static
+# *text* (function defs + hook registration) for a given binary version — the
+# per-shell/per-dir variation happens at RUNTIME inside the sourced hooks, not in
+# the generated script — so caching the generation is safe and removes the last
+# two per-shell subprocess spawns. _cache_eval regenerates whenever the binary is
+# newer than the cache (e.g. after an upgrade). See the invalidation caveat above.
 [[ -n ${HAVE_STARSHIP:-} ]] && _cache_eval starship starship init zsh
 
 # Keep starship's right prompt alive. plugins.zsh (loaded after this file) pulls
@@ -122,11 +135,14 @@ if [[ -n ${HAVE_STARSHIP:-} && -n ${RPROMPT:-} ]]; then
 fi
 
 [[ -n ${HAVE_ZOXIDE:-} ]] && _cache_eval zoxide zoxide init zsh
-# LIVE (init varies with daemon/version — do not cache):
-[[ -n ${HAVE_MISE:-} ]] && eval "$(mise activate zsh)"
-[[ -n ${HAVE_ATUIN:-} ]] && eval "$(atuin init zsh)"
-# NOTE on mise: this is the chpwd-hook activation. If you prefer native shims
-# (mise/config.toml has experimental=true), switch to `mise activate zsh --shims`
-# or put "$(mise where)"/shims on PATH and drop this line — pick ONE deliberately.
+# mise: the chpwd-hook activation, now cached. The hook still resolves tools live
+# per-dir; only the activation script's *generation* is cached. (If you'd rather
+# use native shims — mise/config.toml has experimental=true — switch to
+# `mise activate zsh --shims` or put "$(mise where)"/shims on PATH and drop this
+# line; pick ONE deliberately.)
+[[ -n ${HAVE_MISE:-} ]] && _cache_eval mise mise activate zsh
+# atuin: init script is static text; ATUIN_NOBIND (set above) is read at
+# generation, so the caveat above applies if you ever flip it.
+[[ -n ${HAVE_ATUIN:-} ]] && _cache_eval atuin atuin init zsh
 
 unfunction _have 2>/dev/null

@@ -96,6 +96,33 @@ if [[ -d "$ZPLUGINDIR" ]]; then
   done
 fi
 
+# ── byte-compile zsh modules + plugins (.zwc) ─────────────────────────────────
+# Mirrors the compile-on-source loop in .zshrc, but pre-warms the cache here so
+# the first shell after a dotfiles/plugin update doesn't pay the compile, AND
+# additionally compiles the (deferred, heavy) plugin sources the .zshrc loop
+# never touches — which is why this runs right AFTER the plugin pull above, so a
+# freshly-updated plugin gets recompiled. Each file is compiled only when its
+# source is newer than its .zwc (or the .zwc is missing); `source`/autoload then
+# load the wordcode and skip re-parsing. zcompile is a zsh builtin, so shell out
+# to zsh (-f: skip rc files; $1: the resolved ZDOTDIR). Failures are non-fatal.
+if have zsh; then
+  ZDOTDIR_RESOLVED="${ZDOTDIR:-$HOME/.config/zsh}"
+  step "zsh: byte-compile modules + plugins" zsh -f -c '
+    emulate -L zsh
+    setopt extended_glob null_glob
+    local zd=$1 f
+    local -a targets=(
+      $zd/*.zsh                 # Core modules (what .zshrc sources each shell)
+      $zd/.zcompdump            # completion dump (options.zsh compiles at start; pre-warm)
+      $zd/plugins/**/*.zsh      # plugin sources (heavy; deferred — loop skips these)
+    )
+    for f in $targets; do
+      [[ -f $f ]] || continue
+      [[ -s $f.zwc && ! $f -nt $f.zwc ]] || zcompile -R -- $f 2>/dev/null
+    done
+  ' dotfiles-maint-zcompile "$ZDOTDIR_RESOLVED"
+fi
+
 # ── tmux plugins (TPM) ────────────────────────────────────────────────────────
 TPM="$HOME/.config/tmux/plugins/tpm/bin"
 if [[ -x "$TPM/update_plugins" ]]; then

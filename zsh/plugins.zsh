@@ -70,14 +70,22 @@ _defer_or_now() {
 # =========================================================
 # Plugins
 # =========================================================
-# Loaded NOW (define widgets / keybindings the vi-mode hook + bindings.zsh need):
-_zplugin_load zsh-users zsh-history-substring-search
+# Loaded NOW: zsh-vi-mode MUST be synchronous — it resets all bindings on init
+# and fires the zvm_after_init hook (bindings.zsh) that registers our keymap, so
+# it has to run on the critical path.
 _zplugin_load jeffreytse zsh-vi-mode
 
-# DEFERRED (heavy; not needed before the first prompt). NOTE: autosuggest-toggle
-# (bound to Ctrl-\ in bindings.zsh) is bound UNCONDITIONALLY there — it's deferred and
-# loads after the first prompt, so a widget-exists guard at vi-mode init time is always
-# false; bindkey records the binding and the widget materialises before you can press it.
+# DEFERRED (heavy; not needed before the first prompt). The widgets these provide
+# are bound in the zvm_after_init hook (bindings.zsh), but — exactly like
+# autosuggest-toggle below — bindkey happily records a binding to a not-yet-loaded
+# widget, and the widget materialises right after the first prompt, long before
+# you could press the key. So history-substring-search is deferred too: its
+# history-substring-search-up/down widgets (Up/Down in bindings.zsh) only need to
+# exist by keypress, and deferring takes its source cost off shell startup.
+# NOTE: autosuggest-toggle (bound to Ctrl-\ in bindings.zsh) is bound
+# UNCONDITIONALLY there for the same reason — a widget-exists guard at vi-mode
+# init time would always be false and silently drop the bind.
+_defer_or_now zsh-users zsh-history-substring-search
 _defer_or_now zsh-users zsh-autosuggestions
 _defer_or_now zdharma-continuum fast-syntax-highlighting
 
