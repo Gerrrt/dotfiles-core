@@ -156,7 +156,7 @@ repo_root_format = "[ $before_root_path]($before_repo_root_style)[$repo_root]($r
 [git_branch]
 symbol = "󰘬"
 style = "fg:color_green bg:color_srf2"
-format = '[$symbol $branch]($style)'
+format = '[ $symbol $branch]($style)'
 
 [git_status]
 style = "fg:color_orange bg:color_srf2"
