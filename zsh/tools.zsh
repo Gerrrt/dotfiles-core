@@ -38,7 +38,13 @@ _cache_eval() { # _cache_eval <name> <command...>
   [[ -z "$bin" ]] && return 0
   if [[ ! -s "$cache" || "$bin" -nt "$cache" ]]; then
     [[ -d "$dir" ]] || mkdir -p "$dir"
-    "$@" >"$cache" 2>/dev/null
+    # `>|` forces the overwrite: options.zsh sets NO_CLOBBER, under which a plain
+    # `>` onto an existing cache raises "file exists" (a shell-level redirection
+    # error that 2>/dev/null does NOT suppress). This regen path runs whenever the
+    # tool's binary is newer than the cache — e.g. right after a brew upgrade. It
+    # surfaced only for the os.zsh callers (gh/uv/ty) because they run AFTER
+    # options.zsh sets NO_CLOBBER; the tools.zsh callers run before it.
+    "$@" >|"$cache" 2>/dev/null
   fi
   source "$cache"
 }

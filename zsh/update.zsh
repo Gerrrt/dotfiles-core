@@ -103,7 +103,7 @@ _pkgup_refresh() {
   n="${n//[^0-9-]/}"
   : "${n:=-1}"
   mkdir -p "${_PKGUP_CACHE:h}"
-  print -r -- "$n" >"$_PKGUP_CACHE"
+  print -r -- "$n" >|"$_PKGUP_CACHE"       # >| : force past NO_CLOBBER (cache pre-exists)
   print -r -- "$(date +%s)" >>"$_PKGUP_CACHE"
 }
 
@@ -133,7 +133,7 @@ if ((UPDATE_CHECK_ENABLED)) && [[ "$(_pkgup_mgr)" != none ]]; then
       {
         print -r -- "$(sed -n 1p "$_PKGUP_CACHE" 2>/dev/null)"
         print -r -- "$now"
-      } >"$_PKGUP_CACHE" 2>/dev/null
+      } >|"$_PKGUP_CACHE" 2>/dev/null    # >| : force past NO_CLOBBER (cache pre-exists)
       { _pkgup_refresh; } &|
     fi
   }
