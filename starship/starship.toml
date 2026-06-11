@@ -69,7 +69,7 @@ $custom\
 $cmd_duration\
 $jobs\
 $time\
-[ ](fg:color_srf1)\
+[](fg:color_srf1)\
 $line_break$status$character$sudo"""
 
 right_format = """
@@ -150,7 +150,7 @@ before_repo_root_style = "fg:color_comment bg:color_srf2"
 [git_branch]
 symbol = ""
 style = "fg:color_green bg:color_srf2"
-format = '[ $symbol $branch]($style)'
+format = '[$symbol $branch]($style)'
 
 [git_status]
 style = "fg:color_orange bg:color_srf2"
