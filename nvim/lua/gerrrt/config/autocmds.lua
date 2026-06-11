@@ -23,7 +23,9 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 	group = highlight_yank_group,
 	pattern = "*",
 	callback = function()
-		vim.hl.on_yank({
+		-- vim.hl.on_yank was deprecated in 0.13 (removal slated for 0.14); hl_op is the
+		-- drop-in replacement taking the same options.
+		vim.hl.hl_op({
 			higroup = "IncSearch",
 			timeout = 200,
 		})

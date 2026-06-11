@@ -32,6 +32,7 @@ $git_branch\
 $git_commit\
 $git_state\
 $git_status\
+$git_metrics\
 [](fg:color_srf1 bg:color_srf2)\
 $c\
 $cpp\
@@ -48,8 +49,10 @@ $ruby\
 $lua\
 [](fg:color_srf2 bg:color_srf1)\
 $docker_context\
+$kubernetes\
 $conda\
 $pixi\
+$direnv\
 [](fg:color_srf1 bg:color_srf2)\
 $cmd_duration\
 $jobs\
@@ -131,6 +134,16 @@ format = '[[ $symbol $branch ](fg:color_green bg:color_srf1)]($style)'
 style = "bg:color_srf1"
 format = '[[($all_status$ahead_behind )](fg:color_orange bg:color_srf1)]($style)'
 
+# Added/deleted line counts (+12 -3) on the same srf1 git band, after status. Green/red
+# text matching git's own diff colors. only_nonzero_diffs keeps it silent in a clean tree,
+# so the segment only appears once you've actually changed something.
+[git_metrics]
+disabled = false
+only_nonzero_diffs = true
+added_style = "fg:color_green bg:color_srf1"
+deleted_style = "fg:color_red bg:color_srf1"
+format = '([+$added ]($added_style))([-$deleted ]($deleted_style))'
+
 # Short commit hash, shown ONLY in detached-HEAD state (only_detached = true) so
 # a `git checkout <sha>`/`<tag>` no longer leaves the git band misleadingly blank.
 # Green text to read as a sibling of the branch, on the same srf1 surface.
@@ -209,6 +222,22 @@ symbol = ""
 style = "bg:color_srf1"
 format = '[[ $symbol( $context) ](fg:color_purple bg:color_srf1)]($style)'
 
+# Kubernetes context (+ namespace) on the srf1 ops band, cyan text. GATED on real k8s
+# project markers (Helm charts, kustomize, skaffold, a k8s/ dir, or an explicit
+# KUBECONFIG export) — without detect_* config starship would render this in EVERY
+# directory that has a current context, which is noise. context_aliases can shorten
+# long ARNs/GKE names; add your clusters there as needed.
+[kubernetes]
+disabled = false
+symbol = "󱃾 "
+style = "bg:color_srf1"
+format = '[[ $symbol$context( \($namespace\)) ](fg:color_aqua bg:color_srf1)]($style)'
+detect_files = ['Chart.yaml', 'skaffold.yaml', 'kustomization.yaml']
+detect_folders = ['k8s', '.helm', 'manifests']
+detect_env_vars = ['KUBECONFIG']
+# [kubernetes.context_aliases]
+# "arn:aws:eks:us-east-1:123456789:cluster/prod" = "prod"
+
 [conda]
 style = "bg:color_srf1"
 format = '[[ $symbol( $environment) ](fg:color_purple bg:color_srf1)]($style)'
@@ -216,6 +245,21 @@ format = '[[ $symbol( $environment) ](fg:color_purple bg:color_srf1)]($style)'
 [pixi]
 style = "bg:color_srf1"
 format = '[[ $symbol( $version)( $environment) ](fg:color_purple bg:color_srf1)]($style)'
+
+# direnv state on the srf1 band — you hook direnv in os/macos.zsh but had no visual
+# feedback that an .envrc was loaded vs. waiting for `direnv allow`. Yellow when allowed
+# & loaded, red when blocked/denied so an un-allowed .envrc is obvious. Only renders in a
+# directory under direnv's control (an .envrc up the tree).
+[direnv]
+disabled = false
+symbol = " "
+style = "bg:color_srf1"
+format = '[[ $symbol$loaded ](fg:color_yellow bg:color_srf1)]($style)'
+loaded_msg = "on"
+unloaded_msg = "off"
+allowed_msg = ""
+not_allowed_msg = " "
+denied_msg = " "
 
 # ruby + lua are declared in mise/config.toml as global runtimes, so they belong
 # in the language band alongside the rest. Same cyan-on-srf2 treatment. (Section
