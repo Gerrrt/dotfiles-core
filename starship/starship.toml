@@ -20,6 +20,19 @@
 # (the `fg:` inside its `format`). To go even calmer, point a module at
 # color_comment. Nothing else needs to move.
 # ──────────────────────────────────────────────────────────────────────────────
+# BAND STRUCTURE (why git rides the same surface as dir, and time the same as
+# docker): a powerline band that can be EMPTY leaves its two arrows back-to-back
+# with nothing between them — a stray notch that looks like a gap (this is what
+# happened to the git band in a non-repo dir). The fix is to group modules so
+# every colored band is anchored by an always-present module. The only modules
+# that ALWAYS render are os/username, directory, and time — so there are exactly
+# three gap-proof bands:
+#   srf1 : os + username
+#   srf2 : directory + git + languages          (anchored by directory)
+#   srf1 : docker/k8s/aws/conda/… + custom + cmd_duration + jobs + time  (by time)
+# Only two interior arrows remain, both flanked by always-present content, so no
+# empty-band gaps can appear. (We also dropped $fill: it claims the whole line
+# width, which left zero room for zsh's RPROMPT and suppressed right_format.)
 
 format = """
 [](fg:color_srf1)\
@@ -27,13 +40,11 @@ $os\
 $username\
 [](fg:color_srf1 bg:color_srf2)\
 $directory\
-[](fg:color_srf2 bg:color_srf1)\
 $git_branch\
 $git_commit\
 $git_state\
 $git_status\
 $git_metrics\
-[](fg:color_srf1 bg:color_srf2)\
 $c\
 $cpp\
 $rust\
@@ -47,21 +58,18 @@ $haskell\
 $python\
 $ruby\
 $lua\
-[](fg:color_srf2)\
-$fill\
-[](fg:color_srf1)\
+[](fg:color_srf2 bg:color_srf1)\
 $docker_context\
 $kubernetes\
 $aws\
 $conda\
 $pixi\
 $direnv\
-[](fg:color_srf1 bg:color_srf2)\
 $custom\
 $cmd_duration\
 $jobs\
 $time\
-[ ](fg:color_srf2)\
+[ ](fg:color_srf1)\
 $line_break$status$character$sudo"""
 
 right_format = """
@@ -87,10 +95,6 @@ color_comment = '#565f89'   # muted / de-emphasized
 # ── surfaces — the two dark segment fills (subtle stepped depth) ──────────────
 color_srf1    = '#24283b'   # storm bg, slightly raised above the terminal
 color_srf2    = '#1f2335'   # bg_dark, a touch deeper
-
-# ── fill: stretches between left and right halves ────────────────────────────
-[fill]
-symbol = "-"          # use "·" or "─" for a visible rule across the line
 
 [os]
 disabled = false
@@ -145,11 +149,11 @@ before_repo_root_style = "fg:color_comment bg:color_srf2"
 
 [git_branch]
 symbol = ""
-style = "fg:color_green bg:color_srf1"
+style = "fg:color_green bg:color_srf2"
 format = '[ $symbol $branch]($style)'
 
 [git_status]
-style = "fg:color_orange bg:color_srf1"
+style = "fg:color_orange bg:color_srf2"
 format = '([ $all_status $ahead_behind]($style))'
 
 # Added/deleted line counts (+12 -3) on the same srf1 git band, after status. Green/red
@@ -157,8 +161,8 @@ format = '([ $all_status $ahead_behind]($style))'
 # so the segment only appears once you've actually changed something.
 [git_metrics]
 disabled = false
-added_style = "fg:color_green bg:color_srf1"
-deleted_style = "fg:color_red bg:color_srf1"
+added_style = "fg:color_green bg:color_srf2"
+deleted_style = "fg:color_red bg:color_srf2"
 format = '([ +$added]($added_style))([ -$deleted]($deleted_style))'
 
 # Short commit hash, shown ONLY in detached-HEAD state (only_detached = true) so
@@ -168,7 +172,7 @@ format = '([ +$added]($added_style))([ -$deleted]($deleted_style))'
 only_detached = true
 tag_disabled = false      # also surface an exact tag (e.g. v1.2.0) when on one
 tag_symbol = " 󰓹 "
-style = "bg:color_srf1"
+style = "bg:color_srf2"
 format = '[[ $hash $tag](fg:color_green bg:color_srf1)]($style)'
 
 # Mid-operation state (REBASING 2/8, MERGING, CHERRY-PICKING…). Red text so an
@@ -176,8 +180,8 @@ format = '[[ $hash $tag](fg:color_green bg:color_srf1)]($style)'
 # between branch and status, and only appears when an operation is underway.
 
 [git_state]
-style = "bg:color_srf1"
-format = '[[ $state( $progress_current/$progress_total)](fg:color_red bg:color_srf1)]($style)'
+style = "bg:color_srf2"
+format = '[[ $state( $progress_current/$progress_total)](fg:color_red bg:color_srf2)]($style)'
 
 [nodejs]
 symbol = ""
@@ -246,7 +250,7 @@ description = "active tunnel interface"
 command = "ifconfig | awk '/^(utun|wg|tun)/{print $1; exit}' | tr -d ':'"
 when = "ifconfig | grep -qE '^(utun|wg|tun)'"
 symbol = "󰦝 "
-style = "fg:color_purple bg:color_srf2"
+style = "fg:color_purple bg:color_srf1"
 format = '[ $symbol $output ]($style)'
 # Other classic [custom] uses: gcloud project, terraform workspace, 1Password
 # account, current Burp/engagement tag from an env var, etc.
@@ -320,45 +324,45 @@ format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
 # without a color clash. Transient: it vanishes after a quick command.
 [cmd_duration]
 min_time = 500
-style = "fg:color_orange bg:color_srf2"
+style = "fg:color_orange bg:color_srf1"
 format = '[ 󰔛 $duration ]($style)'
-# Background job count (`&`, Ctrl-Z). Purple text, srf2 surface; only shows when
+# Background job count (`&`, Ctrl-Z). Purple text, srf1 surface; only shows when
 # at least one job is running.
 [jobs]
 symbol = '+'
 symbol_threshold = 1
 number_threshold = 1
-style = "bg:color_srf2"
-format = '[[ $symbol$number](fg:color_purple bg:color_srf2)]($style)'
+style = "bg:color_srf1"
+format = '[[ $symbol$number](fg:color_purple bg:color_srf1)]($style)'
 
 [time]
 disabled = false
 time_format = "%R"
-style = "fg:color_comment bg:color_srf2"
+style = "fg:color_comment bg:color_srf1"
 format = '[ $time ]($style)'
 
 # ── RIGHT prompt modules ─────────────────────────────────────────────────────
 [shell]
 disabled = false
-style = "fg:color_comment"
+style = "fg:color_comment bg:color_srf1"
 zsh_indicator = "zsh"
-format = '[ $indicator]($style) '
+format = '[ $indicator ]($style) '
 
 [battery]
-format = '[ $symbol$percentage]($style) '
+format = '[ $symbol$percentage ]($style) '
 [[battery.display]]
 threshold = 20
-style = "fg:color_red"
+style = "fg:color_red bg:color_srf1"
 [[battery.display]]
 threshold = 100
-style = "fg:color_comment"
+style = "fg:color_comment bg:color_srf1"
 
 [memory_usage]
 disabled = false
 threshold = 80          # only show when RAM > 80%
 symbol = "󰍛 "
-style = "fg:color_purple"
-format = '[ $symbol$ram_pct]($style) '
+style = "fg:color_purple bg:color_srf1"
+format = '[ $symbol$ram_pct ]($style)'
 
 [sudo]
 disabled = false        # shows a marker while sudo creds are cached
