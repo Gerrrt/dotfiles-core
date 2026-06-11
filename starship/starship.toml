@@ -134,7 +134,7 @@ format = '[ $user]($style)'
 style = "fg:color_yellow bg:color_srf2"
 format = '[ $path ]($style)'
 truncation_length = 3
-truncation_symbol = "…/"
+truncation_symbol = "../"
 read_only = "󰌾 "       # NEW vs your config: lock icon in read-only dirs
 read_only_style = "fg:color_red bg:color_srf2"
 repo_root_style = "bold fg:color_yellow bg:color_srf2"   # make the git-root segment pop
@@ -148,9 +148,9 @@ before_repo_root_style = "fg:color_comment bg:color_srf2"
 "Developer" = "󰲋 "
 
 [git_branch]
-symbol = ""
+symbol = " "
 style = "fg:color_green bg:color_srf2"
-format = ' [$symbol $branch]($style) '
+format = '[ $symbol$branch]($style)'
 
 [git_status]
 style = "fg:color_orange bg:color_srf2"
@@ -173,7 +173,7 @@ only_detached = true
 tag_disabled = false      # also surface an exact tag (e.g. v1.2.0) when on one
 tag_symbol = " 󰓹 "
 style = "bg:color_srf2"
-format = '[[ $hash $tag](fg:color_green bg:color_srf1)]($style)'
+format = '[[ $hash$tag](fg:color_green bg:color_srf1)]($style)'
 
 # Mid-operation state (REBASING 2/8, MERGING, CHERRY-PICKING…). Red text so an
 # in-progress rebase/merge is impossible to miss; sits in the same srf1 git band
