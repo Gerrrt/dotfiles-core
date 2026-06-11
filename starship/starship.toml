@@ -47,8 +47,9 @@ $haskell\
 $python\
 $ruby\
 $lua\
-[](fg:color_srf2 bg:color_srf1)\
+[](fg:color_srf2)\
 $fill\
+[](fg:color_srf1)\
 $docker_context\
 $kubernetes\
 $aws\
@@ -245,8 +246,8 @@ description = "active tunnel interface"
 command = "ifconfig | awk '/^(utun|wg|tun)/{print $1; exit}' | tr -d ':'"
 when = "ifconfig | grep -qE '^(utun|wg|tun)'"
 symbol = "󰦝 "
-style = "fg:color_purple"
-format = '[ $symbol $output]($style)'
+style = "fg:color_purple bg:color_srf2"
+format = '[ $symbol $output ]($style)'
 # Other classic [custom] uses: gcloud project, terraform workspace, 1Password
 # account, current Burp/engagement tag from an env var, etc.
 
@@ -268,7 +269,7 @@ detect_env_vars = ['KUBECONFIG']
 
 [aws]
 symbol = "󰸏 "
-style = "fg:color_orange"
+style = "fg:color_orange bg:color_srf1"
 format = '[$symbol($profile )(\($region\) )]($style)'
 # disabled by default elsewhere; shows AWS_PROFILE/region when set
 
@@ -319,9 +320,8 @@ format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
 # without a color clash. Transient: it vanishes after a quick command.
 [cmd_duration]
 min_time = 500
-style = "fg:color_orange"
-format = '[ 󰔛 $duration]($style) '
-
+style = "fg:color_orange bg:color_srf2"
+format = '[ 󰔛 $duration ]($style)'
 # Background job count (`&`, Ctrl-Z). Purple text, srf2 surface; only shows when
 # at least one job is running.
 [jobs]
@@ -334,8 +334,8 @@ format = '[[ $symbol$number](fg:color_purple bg:color_srf2)]($style)'
 [time]
 disabled = false
 time_format = "%R"
-style = "fg:color_comment"
-format = '[ $time]($style)'
+style = "fg:color_comment bg:color_srf2"
+format = '[ $time ]($style)'
 
 # ── RIGHT prompt modules ─────────────────────────────────────────────────────
 [shell]
