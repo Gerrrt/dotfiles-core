@@ -98,6 +98,21 @@ export ATUIN_NOBIND=true
 # ── Initialise shell-hook tools ───────────────────────────────────────────────
 # CACHED (deterministic init output):
 [[ -n ${HAVE_STARSHIP:-} ]] && _cache_eval starship starship init zsh
+
+# Keep starship's right prompt alive. plugins.zsh (loaded after this file) pulls
+# in romkatv/zsh-defer to async-load the heavy plugins; zsh-defer's prompt-reset
+# path blanks RPS1 (== RPROMPT), which silently wipes the right prompt starship
+# just set — left prompt survives, right vanishes. Rather than depend on the
+# installed zsh-defer version (current master only blanks RPS1 when it's unset,
+# but older builds do it unconditionally), capture starship's RPROMPT now and
+# re-assert it on every precmd so it survives the deferred-plugin load.
+if [[ -n ${HAVE_STARSHIP:-} && -n ${RPROMPT:-} ]]; then
+  typeset -g _STARSHIP_RPROMPT=$RPROMPT
+  autoload -Uz add-zsh-hook
+  _starship_keep_rprompt() { RPROMPT=$_STARSHIP_RPROMPT; }
+  add-zsh-hook precmd _starship_keep_rprompt
+fi
+
 [[ -n ${HAVE_ZOXIDE:-} ]] && _cache_eval zoxide zoxide init zsh
 # LIVE (init varies with daemon/version — do not cache):
 [[ -n ${HAVE_MISE:-} ]] && eval "$(mise activate zsh)"
