@@ -148,7 +148,7 @@ before_repo_root_style = "fg:color_comment bg:color_srf2"
 "Developer" = "󰲋 "
 
 [git_branch]
-symbol = " "
+symbol = "󰘬"
 style = "fg:color_green bg:color_srf2"
 format = '[ $symbol$branch]($style)'
 
