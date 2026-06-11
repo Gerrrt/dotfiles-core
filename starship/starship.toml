@@ -139,6 +139,12 @@ read_only = "󰌾 "       # NEW vs your config: lock icon in read-only dirs
 read_only_style = "fg:color_red bg:color_srf2"
 repo_root_style = "bold fg:color_yellow bg:color_srf2"   # make the git-root segment pop
 before_repo_root_style = "fg:color_comment bg:color_srf2"
+# When repo_root_style is set, starship renders the path via repo_root_format
+# (NOT `format` above) — and the built-in default ends with a literal unstyled
+# trailing space, which showed up as a blank hole between directory and git on
+# the powerline. Redefine it here without that trailing space, and pad the
+# leading edge inside a bg:color_srf2 span so the bar stays continuous.
+repo_root_format = "[ $before_root_path]($before_repo_root_style)[$repo_root]($repo_root_style)[$path]($style)[$read_only]($read_only_style)"
 
 [directory.substitutions]
 "Documents" = "󰈙 "

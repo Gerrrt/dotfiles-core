@@ -17,7 +17,8 @@
 set -u
 
 # tokyonight-storm palette — keep in sync with tmux.conf @tn_* / tmux-netinfo.sh
-BG="#24283b"
+BGHL="#292e42"
+BGDA="#1f2335"
 GREEN="#9ece6a"
 YELLOW="#e0af68"
 RED="#f7768e"
@@ -73,5 +74,5 @@ fi
 
 # Styled pill. printf '%%' emits one literal '%'; it lands at the end of a token
 # (followed by a space), which tmux passes through verbatim.
-printf '#[fg=%s,bg=default]%s#[fg=%s,bg=%s,bold] %s %d%% #[fg=%s,bg=default]%s' \
-  "$color" "$CAP_L" "$BG" "$color" "$glyph" "$pct" "$color" "$CAP_R"
+printf '#[fg=%s,bg=%s]%s#[fg=%s,bg=%s,bold]%s %d%%#[fg=%s,bg=%s]%s' \
+  "$BGDA" "$BGHL" "$CAP_L" "$color" "$BGDA" "$glyph" "$pct" "$BGDA" "$BGHL" "$CAP_R"

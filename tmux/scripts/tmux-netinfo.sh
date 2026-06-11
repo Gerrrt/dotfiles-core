@@ -17,9 +17,10 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 # tokyonight-storm palette (kept in sync with starship.toml + tmux.conf @tn_*)
-BG="#24283b"
 ORANGE="#ff9e64"
 GREEN="#9ece6a"
+BGHL="#292e42"
+BGDA="#1f2335"
 
 # left/right rounded caps make a floating pill on the transparent bar
 CAP_L=""
@@ -27,8 +28,8 @@ CAP_R=""
 
 pill() { # pill <accent-hex> <text>
   local accent="$1" text="$2"
-  printf '#[fg=%s,bg=default]%s#[fg=%s,bg=%s,bold]%s#[fg=%s,bg=default]%s' \
-    "$accent" "$CAP_L" "$BG" "$accent" "$text" "$accent" "$CAP_R"
+  printf '#[fg=%s,bg=%s]%s#[fg=%s,bg=%s,bold]%s#[fg=%s,bg=%s]%s' \
+    "$BGDA" "$BGHL" "$CAP_L" "$accent" "$BGDA" "$text" "$BGDA" "$BGHL" "$CAP_R"
 }
 
 # Tunnel interfaces in priority order (OpenVPN / WireGuard / Tailscale / macOS utun)
