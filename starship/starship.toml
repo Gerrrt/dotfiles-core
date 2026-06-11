@@ -133,7 +133,7 @@ truncation_symbol = "…/"
 read_only = "󰌾 "       # NEW vs your config: lock icon in read-only dirs
 read_only_style = "fg:color_red bg:color_srf2"
 repo_root_style = "bold fg:color_yellow bg:color_srf2"   # make the git-root segment pop
-before_repo_root_style = "fg:color_comment"
+before_repo_root_style = "fg:color_comment bg:color_srf2"
 
 [directory.substitutions]
 "Documents" = "󰈙 "
@@ -145,11 +145,11 @@ before_repo_root_style = "fg:color_comment"
 [git_branch]
 symbol = ""
 style = "fg:color_green bg:color_srf1"
-format = '[$symbol$branch]($style) '
+format = '[$symbol$branch]($style)'
 
 [git_status]
 style = "fg:color_orange bg:color_srf1"
-format = '([$all_status$ahead_behind]($style) )'
+format = '([$all_status$ahead_behind]($style))'
 
 # Added/deleted line counts (+12 -3) on the same srf1 git band, after status. Green/red
 # text matching git's own diff colors. only_nonzero_diffs keeps it silent in a clean tree,
@@ -158,7 +158,7 @@ format = '([$all_status$ahead_behind]($style) )'
 disabled = false
 added_style = "fg:color_green bg:color_srf1"
 deleted_style = "fg:color_red bg:color_srf1"
-format = '([+$added]($added_style) )([-$deleted]($deleted_style) )'
+format = '([+$added]($added_style))/([-$deleted]($deleted_style))'
 
 # Short commit hash, shown ONLY in detached-HEAD state (only_detached = true) so
 # a `git checkout <sha>`/`<tag>` no longer leaves the git band misleadingly blank.
@@ -176,7 +176,7 @@ format = '[[ $hash$tag ](fg:color_green bg:color_srf1)]($style)'
 
 [git_state]
 style = "bg:color_srf1"
-format = '[[ $state( $progress_current/$progress_total) ](fg:color_red bg:color_srf1)]($style)'
+format = '[[$state($progress_current/$progress_total)](fg:color_red bg:color_srf1)]($style)'
 
 [nodejs]
 symbol = ""
@@ -246,7 +246,7 @@ command = "ifconfig | awk '/^(utun|wg|tun)/{print $1; exit}' | tr -d ':'"
 when = "ifconfig | grep -qE '^(utun|wg|tun)'"
 symbol = "󰦝 "
 style = "fg:color_purple"
-format = '[$symbol$output]($style) '
+format = '[$symbol$output]($style)'
 # Other classic [custom] uses: gcloud project, terraform workspace, 1Password
 # account, current Burp/engagement tag from an env var, etc.
 
@@ -335,7 +335,7 @@ format = '[[ $symbol $number ](fg:color_purple bg:color_srf2)]($style)'
 disabled = false
 time_format = "%R"
 style = "fg:color_comment"
-format = '[ $time]($style)'
+format = '[$time]($style)'
 
 # ── RIGHT prompt modules ─────────────────────────────────────────────────────
 [shell]
