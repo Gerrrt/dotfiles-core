@@ -63,7 +63,9 @@ $time\
 [ ](fg:color_srf2)\
 $line_break$status$character$sudo"""
 
-right_format = """$shell$battery$memory_usage"""
+right_format = """
+[](fg:color_srf1)\
+$shell$battery$memory_usage"""
 
 continuation_prompt = "[∙](fg:color_comment) "   # the > > on multi-line input
 
@@ -129,8 +131,8 @@ format = "[ $path ]($style)"
 truncation_length = 3
 truncation_symbol = "…/"
 read_only = "󰌾 "       # NEW vs your config: lock icon in read-only dirs
-read_only_style = "fg:color_red"
-repo_root_style = "bold fg:color_yellow"   # make the git-root segment pop
+read_only_style = "fg:color_red bg:color_srf2"
+repo_root_style = "bold fg:color_yellow bg:color_srf2"   # make the git-root segment pop
 before_repo_root_style = "fg:color_comment"
 
 [directory.substitutions]
@@ -142,11 +144,11 @@ before_repo_root_style = "fg:color_comment"
 
 [git_branch]
 symbol = ""
-style = "fg:color_green"
+style = "fg:color_green bg:color_srf1"
 format = '[$symbol$branch]($style) '
 
 [git_status]
-style = "fg:color_orange"
+style = "fg:color_orange bg:color_srf1"
 format = '([$all_status$ahead_behind]($style) )'
 
 # Added/deleted line counts (+12 -3) on the same srf1 git band, after status. Green/red
@@ -154,8 +156,8 @@ format = '([$all_status$ahead_behind]($style) )'
 # so the segment only appears once you've actually changed something.
 [git_metrics]
 disabled = false
-added_style = "fg:color_green"
-deleted_style = "fg:color_red"
+added_style = "fg:color_green bg:color_srf1"
+deleted_style = "fg:color_red bg:color_srf1"
 format = '([+$added]($added_style) )([-$deleted]($deleted_style) )'
 
 # Short commit hash, shown ONLY in detached-HEAD state (only_detached = true) so
