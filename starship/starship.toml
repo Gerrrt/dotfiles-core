@@ -47,8 +47,8 @@ $haskell\
 $python\
 $ruby\
 $lua\
-$fill\
 [](fg:color_srf2 bg:color_srf1)\
+$fill\
 $docker_context\
 $kubernetes\
 $aws\
@@ -121,13 +121,13 @@ Pop = ""
 
 [username]
 show_always = true
-style_user = "bg:color_srf1 fg:color_fg0"
+style_user = "bg:color_srf1 fg:color_purple"
 style_root = "bg:color_srf1 fg:color_red"   # root stands out (kept readable, not a fill)
-format = '[ $user ]($style)'
+format = '[ $user]($style)'
 
 [directory]
 style = "fg:color_yellow bg:color_srf2"
-format = "[ $path ]($style)"
+format = "[ $path]($style)"
 truncation_length = 3
 truncation_symbol = "…/"
 read_only = "󰌾 "       # NEW vs your config: lock icon in read-only dirs
@@ -145,11 +145,11 @@ before_repo_root_style = "fg:color_comment bg:color_srf2"
 [git_branch]
 symbol = ""
 style = "fg:color_green bg:color_srf1"
-format = '[$symbol$branch]($style)'
+format = '[ $symbol $branch]($style)'
 
 [git_status]
 style = "fg:color_orange bg:color_srf1"
-format = '([$all_status$ahead_behind]($style))'
+format = '([ $all_status $ahead_behind]($style))'
 
 # Added/deleted line counts (+12 -3) on the same srf1 git band, after status. Green/red
 # text matching git's own diff colors. only_nonzero_diffs keeps it silent in a clean tree,
@@ -158,7 +158,7 @@ format = '([$all_status$ahead_behind]($style))'
 disabled = false
 added_style = "fg:color_green bg:color_srf1"
 deleted_style = "fg:color_red bg:color_srf1"
-format = '([+$added]($added_style))/([-$deleted]($deleted_style))'
+format = '([ +$added]($added_style))([ -$deleted]($deleted_style))'
 
 # Short commit hash, shown ONLY in detached-HEAD state (only_detached = true) so
 # a `git checkout <sha>`/`<tag>` no longer leaves the git band misleadingly blank.
@@ -168,7 +168,7 @@ only_detached = true
 tag_disabled = false      # also surface an exact tag (e.g. v1.2.0) when on one
 tag_symbol = " 󰓹 "
 style = "bg:color_srf1"
-format = '[[ $hash$tag ](fg:color_green bg:color_srf1)]($style)'
+format = '[[ $hash $tag](fg:color_green bg:color_srf1)]($style)'
 
 # Mid-operation state (REBASING 2/8, MERGING, CHERRY-PICKING…). Red text so an
 # in-progress rebase/merge is impossible to miss; sits in the same srf1 git band
@@ -176,17 +176,17 @@ format = '[[ $hash$tag ](fg:color_green bg:color_srf1)]($style)'
 
 [git_state]
 style = "bg:color_srf1"
-format = '[[$state($progress_current/$progress_total)](fg:color_red bg:color_srf1)]($style)'
+format = '[[ $state( $progress_current/$progress_total)](fg:color_red bg:color_srf1)]($style)'
 
 [nodejs]
 symbol = ""
 style = "bg:color_srf2"
-format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+format = '[[ $symbol($version)](fg:color_aqua bg:color_srf2)]($style)'
 
 [bun]
 symbol = ""
 style = "bg:color_srf2"
-format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+format = '[[ $symbol($version)](fg:color_aqua bg:color_srf2)]($style)'
 
 [c]
 symbol = " "
@@ -246,7 +246,7 @@ command = "ifconfig | awk '/^(utun|wg|tun)/{print $1; exit}' | tr -d ':'"
 when = "ifconfig | grep -qE '^(utun|wg|tun)'"
 symbol = "󰦝 "
 style = "fg:color_purple"
-format = '[$symbol$output]($style)'
+format = '[ $symbol $output]($style)'
 # Other classic [custom] uses: gcloud project, terraform workspace, 1Password
 # account, current Burp/engagement tag from an env var, etc.
 
@@ -294,7 +294,7 @@ format = '[[ $symbol( $version)( $environment) ](fg:color_purple bg:color_srf1)]
 disabled = false
 symbol = " "
 style = "bg:color_srf1"
-format = '[[ $symbol$loaded ](fg:color_yellow bg:color_srf1)]($style)'
+format = '[[ $symbol$loaded](fg:color_yellow bg:color_srf1)]($style)'
 loaded_msg = "on"
 unloaded_msg = "off"
 allowed_msg = " "
@@ -320,7 +320,7 @@ format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
 [cmd_duration]
 min_time = 500
 style = "fg:color_orange"
-format = '[󰔛 $duration]($style) '
+format = '[ 󰔛 $duration]($style) '
 
 # Background job count (`&`, Ctrl-Z). Purple text, srf2 surface; only shows when
 # at least one job is running.
@@ -329,23 +329,23 @@ symbol = '+'
 symbol_threshold = 1
 number_threshold = 1
 style = "bg:color_srf2"
-format = '[[ $symbol $number ](fg:color_purple bg:color_srf2)]($style)'
+format = '[[ $symbol$number](fg:color_purple bg:color_srf2)]($style)'
 
 [time]
 disabled = false
 time_format = "%R"
 style = "fg:color_comment"
-format = '[$time]($style)'
+format = '[ $time]($style)'
 
 # ── RIGHT prompt modules ─────────────────────────────────────────────────────
 [shell]
 disabled = false
 style = "fg:color_comment"
 zsh_indicator = "zsh"
-format = '[$indicator]($style) '
+format = '[ $indicator]($style) '
 
 [battery]
-format = '[$symbol$percentage]($style) '
+format = '[ $symbol$percentage]($style) '
 [[battery.display]]
 threshold = 20
 style = "fg:color_red"
@@ -358,13 +358,13 @@ disabled = false
 threshold = 80          # only show when RAM > 80%
 symbol = "󰍛 "
 style = "fg:color_purple"
-format = '[$symbol$ram_pct]($style) '
+format = '[ $symbol$ram_pct]($style) '
 
 [sudo]
 disabled = false        # shows a marker while sudo creds are cached
 symbol = "󱐋 "
 style = "fg:color_yellow"
-format = '[$symbol]($style)'
+format = '[ $symbol]($style)'
 
 [line_break]
 disabled = false
@@ -387,8 +387,8 @@ recognize_signal_code = true
 map_symbol = true
 pipestatus = true
 pipestatus_separator = '[|](fg:color_comment)'
-format = '[$symbol$common_meaning$signal_name$maybe_int]($style) '
-pipestatus_format = '[$pipestatus]($style) => [$symbol$common_meaning$signal_name$maybe_int]($style) '
+format = '[ $symbol $common_meaning $signal_name $maybe_int]($style) '
+pipestatus_format = '[ $pipestatus]($style) => [ $symbol$common_meaning$signal_name$maybe_int]($style) '
 
 [character]
 disabled = false
