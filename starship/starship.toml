@@ -144,7 +144,7 @@ before_repo_root_style = "fg:color_comment bg:color_srf2"
 # trailing space, which showed up as a blank hole between directory and git on
 # the powerline. Redefine it here without that trailing space, and pad the
 # leading edge inside a bg:color_srf2 span so the bar stays continuous.
-repo_root_format = "[ $before_root_path]($before_repo_root_style)[$repo_root]($repo_root_style)[$path]($style)[$read_only]($read_only_style)"
+repo_root_format = "[$before_root_path]($before_repo_root_style)[$repo_root]($repo_root_style)[$path]($style)[$read_only]($read_only_style)"
 
 [directory.substitutions]
 "Documents" = "󰈙 "
