@@ -40,6 +40,7 @@ $os\
 $username\
 [](fg:color_srf1 bg:color_srf2)\
 $directory\
+[](fg:color_srf2 bg:color_srf1)\
 $git_branch\
 $git_commit\
 $git_state\
@@ -132,7 +133,7 @@ format = '[ $user]($style)'
 
 [directory]
 style = "fg:color_yellow bg:color_srf2"
-format = "[ $path]($style)"
+format = '[ $path]($style)'
 truncation_length = 3
 truncation_symbol = "…/"
 read_only = "󰌾 "       # NEW vs your config: lock icon in read-only dirs
