@@ -77,7 +77,7 @@ right_format = """
 [](fg:color_srf1)\
 $shell$battery$memory_usage"""
 
-continuation_prompt = "[∙](fg:color_comment) "   # the > > on multi-line input
+continuation_prompt = "[∙](fg:color_comment)"   # the > > on multi-line input
 
 palette = 'tokyonight_storm'
 
@@ -129,11 +129,11 @@ Pop = ""
 show_always = true
 style_user = "bg:color_srf1 fg:color_purple"
 style_root = "bg:color_srf1 fg:color_red"   # root stands out (kept readable, not a fill)
-format = '[$user]($style)'
+format = ' [$user]($style) '
 
 [directory]
 style = "fg:color_yellow bg:color_srf2"
-format = '[$path]($style)'
+format = ' [$path]($style) '
 truncation_length = 3
 truncation_symbol = "…/"
 read_only = "󰌾 "       # NEW vs your config: lock icon in read-only dirs
@@ -151,7 +151,7 @@ before_repo_root_style = "fg:color_comment bg:color_srf2"
 [git_branch]
 symbol = ""
 style = "fg:color_green bg:color_srf2"
-format = '[$symbol $branch]($style)'
+format = ' [$symbol $branch]($style) '
 
 [git_status]
 style = "fg:color_orange bg:color_srf2"
