@@ -83,6 +83,14 @@ _have gum && HAVE_GUM=1
 _have viddy && HAVE_VIDDY=1         # modern watch (aliases.zsh: watch → viddy)
 _have gping && HAVE_GPING=1         # graphical ping (aliases.zsh: ping → gping)
 _have tldr  && HAVE_TLDR=1          # tealdeer binary (aliases.zsh: help → tldr)
+# mid-2026 additions — data / disk / dev tooling (see PORTING-MATRIX package table):
+_have jq && HAVE_JQ=1               # JSON processor (gron greps; jq transforms — complements)
+_have yq && HAVE_YQ=1              # YAML/JSON/XML processor (the jq of YAML)
+_have duf && HAVE_DUF=1             # modern df (aliases.zsh: df → duf, with df -h fallback)
+_have ouch && HAVE_OUCH=1          # one-binary archive (un)packer (functions.zsh: extract prefers it)
+_have hyperfine && HAVE_HYPERFINE=1 # benchmarking (the perf note at the top of this file uses it)
+_have shellcheck && HAVE_SHELLCHECK=1 # shell linter (own command — no alias)
+_have shfmt && HAVE_SHFMT=1        # shell formatter (own command — no alias)
 [[ -n ${FD_BIN:-} ]] && HAVE_FD=1
 [[ -n ${BAT_BIN:-} ]] && HAVE_BAT=1
 

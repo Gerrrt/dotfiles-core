@@ -31,25 +31,32 @@ _Repo status_ at the bottom).
 
 ## Package names (modern CLI stack)
 
-| Tool             | Arch                   | openSUSE    | Alpine     | Gentoo (atom)         | Kali (apt)      |
-| ---------------- | ---------------------- | ----------- | ---------- | --------------------- | --------------- |
-| eza              | `eza`                  | `eza`       | `eza`      | `sys-apps/eza`        | `eza`           |
-| bat              | `bat`                  | `bat`       | `bat`      | `sys-apps/bat`        | `bat`⁴          |
-| fd               | `fd`                   | `fd`        | `fd`       | `sys-apps/fd`         | `fd-find`⁴      |
-| ripgrep          | `ripgrep`              | `ripgrep`   | `ripgrep`  | `sys-apps/ripgrep`    | `ripgrep`       |
-| zoxide           | `zoxide`               | `zoxide`    | `zoxide`   | `app-shells/zoxide`   | `zoxide`        |
-| fzf              | `fzf`                  | `fzf`       | `fzf`      | `app-shells/fzf`      | `fzf`           |
-| git-delta        | `git-delta`            | `git-delta` | `delta`    | `dev-util/git-delta`  | `git-delta`     |
-| btop             | `btop`                 | `btop`      | `btop`     | `sys-process/btop`    | `btop`          |
-| tldr             | `tealdeer`             | `tealdeer`¹ | `tealdeer` | `app-misc/tealdeer`   | `tealdeer`      |
-| neovim           | `neovim`               | `neovim`    | `neovim`   | `app-editors/neovim`  | `neovim`        |
-| lazygit          | `lazygit`              | `lazygit`   | `lazygit`  | `dev-vcs/lazygit`     | `lazygit`       |
-| zsh              | `zsh`                  | `zsh`       | `zsh`²     | `app-shells/zsh`      | `zsh`           |
-| tmux             | `tmux`                 | `tmux`      | `tmux`     | `app-misc/tmux`       | `tmux`          |
-| starship         | `starship`             | script³     | script³    | `app-shells/starship` | script³         |
-| atuin            | `atuin` (AUR for some) | script³     | `atuin`    | `app-shells/atuin`    | `atuin`³        |
-| yazi             | `yazi`                 | cargo³      | cargo³     | `app-misc/yazi`       | cargo³          |
-| tree-sitter-cli⁵ | `tree-sitter-cli`      | cargo³      | cargo³     | cargo³                | `mise`/`cargo`³ |
+| Tool             | Arch                   | openSUSE     | Alpine       | Gentoo (atom)              | Kali (apt)      |
+| ---------------- | ---------------------- | ------------ | ------------ | -------------------------- | --------------- |
+| eza              | `eza`                  | `eza`        | `eza`        | `sys-apps/eza`             | `eza`           |
+| bat              | `bat`                  | `bat`        | `bat`        | `sys-apps/bat`             | `bat`⁴          |
+| fd               | `fd`                   | `fd`         | `fd`         | `sys-apps/fd`              | `fd-find`⁴      |
+| ripgrep          | `ripgrep`              | `ripgrep`    | `ripgrep`    | `sys-apps/ripgrep`         | `ripgrep`       |
+| zoxide           | `zoxide`               | `zoxide`     | `zoxide`     | `app-shells/zoxide`        | `zoxide`        |
+| fzf              | `fzf`                  | `fzf`        | `fzf`        | `app-shells/fzf`           | `fzf`           |
+| git-delta        | `git-delta`            | `git-delta`  | `delta`      | `dev-util/git-delta`       | `git-delta`     |
+| btop             | `btop`                 | `btop`       | `btop`       | `sys-process/btop`         | `btop`          |
+| tldr             | `tealdeer`             | `tealdeer`¹  | `tealdeer`   | `app-misc/tealdeer`        | `tealdeer`      |
+| neovim           | `neovim`               | `neovim`     | `neovim`     | `app-editors/neovim`       | `neovim`        |
+| lazygit          | `lazygit`              | `lazygit`    | `lazygit`    | `dev-vcs/lazygit`          | `lazygit`       |
+| zsh              | `zsh`                  | `zsh`        | `zsh`²       | `app-shells/zsh`           | `zsh`           |
+| tmux             | `tmux`                 | `tmux`       | `tmux`       | `app-misc/tmux`            | `tmux`          |
+| starship         | `starship`             | script³      | script³      | `app-shells/starship`      | script³         |
+| atuin            | `atuin` (AUR for some) | script³      | `atuin`      | `app-shells/atuin`         | `atuin`³        |
+| yazi             | `yazi`                 | cargo³       | cargo³       | `app-misc/yazi`            | cargo³          |
+| tree-sitter-cli⁵ | `tree-sitter-cli`      | cargo³       | cargo³       | cargo³                     | `mise`/`cargo`³ |
+| jq               | `jq`                   | `jq`         | `jq`         | `app-misc/jq`              | `jq`            |
+| yq⁶              | `go-yq`                | `yq`         | `yq`         | `app-admin/go-yq`          | `yq`            |
+| duf              | `duf`                  | `duf`        | `duf`        | `sys-fs/duf`               | `duf`           |
+| hyperfine        | `hyperfine`            | `hyperfine`  | `hyperfine`  | `app-benchmarks/hyperfine` | `hyperfine`     |
+| shellcheck       | `shellcheck`           | `ShellCheck` | `shellcheck` | `dev-util/shellcheck`      | `shellcheck`    |
+| shfmt⁷           | `shfmt`                | `shfmt`      | `shfmt`      | `dev-go/shfmt`             | `shfmt`⁷        |
+| ouch             | `ouch`                 | cargo³       | `ouch`       | cargo³                     | cargo³          |
 
 ¹ openSUSE: may be in `devel` repos; if absent, `cargo install tealdeer`.
 ² Alpine default shell is `ash`; you must `apk add zsh` explicitly.
@@ -64,6 +71,13 @@ both, so aliases and config work unchanged.
 **Arch:** `extra` carries 0.26.9 (clears the floor). Where unpackaged:
 `mise use -g tree-sitter` or `cargo install tree-sitter-cli`. On **Alpine** it
 must be a musl build — prefer cargo over any prebuilt binary.
+⁶ yq: this matrix targets **mikefarah's Go `yq`** (the jq-for-YAML). Distros also
+ship **Python `yq`** (kislyuk) under the same `yq` name; if you land the wrong
+one, install the Go build via `mise use -g yq` or the upstream release binary.
+⁷ shfmt: not always in stable apt (Debian/Kali) and the Gentoo atom is
+`dev-go/shfmt`. If the package is missing, `mise use -g shfmt` or
+`go install mvdan.cc/sh/v3/cmd/shfmt@latest`. (These mid-2026 rows are
+best-effort — verify the exact package on first stamp of each distro.)
 
 ## Clipboard backend (swap in `os/<distro>.zsh`)
 

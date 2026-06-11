@@ -46,6 +46,8 @@ alias -- -='cd -'
 [[ -n ${HAVE_PROCS:-} ]] && alias ps='procs'
 [[ -n ${HAVE_BTOP:-} ]]  && alias top='btop' && alias htop='btop'
 [[ -n ${HAVE_VIDDY:-} ]] && alias watch='viddy'
+# df → duf (modern, mountpoint-aware); classic `df -h` stays the bare-box fallback.
+if [[ -n ${HAVE_DUF:-} ]]; then alias df='duf'; else alias df='df -h'; fi
 
 # ── file manager ──────────────────────────────────────────────────────────────
 [[ -n ${HAVE_YAZI:-} ]] && {
@@ -64,11 +66,12 @@ alias -- -='cd -'
 # doggo: modern dig (DNS recon). dig stays as-is; this is a distinct verb.
 [[ -n ${HAVE_DOGGO:-} ]] && alias dns='doggo'
 # gron / sd are their own commands (no alias — never shadow sed in scripts).
+# jq / yq / hyperfine / shellcheck / shfmt are likewise their own commands: they
+# shadow nothing classic, so they get HAVE_* detection in tools.zsh but no alias.
 
 # ── editor + misc QoL ─────────────────────────────────────────────────────────
 alias vim='nvim'
-alias df='df -h'
-alias diff='diff --color=auto'
+alias diff='diff --color=auto'   # df → duf/df -h handled in the disk section above
 
 # ── git ───────────────────────────────────────────────────────────────────────
 # The git alias set is the single source of truth in git.zsh (OMZ-style, loaded

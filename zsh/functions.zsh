@@ -21,6 +21,9 @@ extract() {
     echo "extract: '$1' is not a file" >&2
     return 1
   }
+  # ouch (if installed) handles every format below and more from one binary;
+  # the hand-rolled case statement stays as the bare-box / no-ouch fallback.
+  [[ -n ${HAVE_OUCH:-} ]] && { ouch decompress "$1"; return; }
   case "$1" in
   *.tar.bz2 | *.tbz2) tar xjf "$1" ;;
   *.tar.gz | *.tgz) tar xzf "$1" ;;
