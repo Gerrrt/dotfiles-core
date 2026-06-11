@@ -66,7 +66,6 @@ $conda\
 $pixi\
 $direnv\
 $custom\
-$cmd_duration\
 $jobs\
 $time\
 [](fg:color_srf1)\
@@ -74,7 +73,7 @@ $line_break$status$character$sudo"""
 
 right_format = """
 [](fg:color_srf1)\
-$shell$battery$memory_usage"""
+$shell$cmd_duration$memory_usage"""
 
 continuation_prompt = "[∙](fg:color_comment)"   # the > > on multi-line input
 
@@ -325,9 +324,11 @@ symbol = ""
 style = "bg:color_srf2"
 format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
 
-# How long the last command took (only when it exceeds min_time). Orange text on
-# the same srf2 surface as time, so slow commands gently announce themselves
-# without a color clash. Transient: it vanishes after a quick command.
+# How long the last command took (only when it exceeds min_time). Lives in the
+# RIGHT prompt (see right_format) — same srf1 surface as the rest of that pill,
+# orange text so slow commands gently announce themselves. Transient: vanishes
+# after a quick command. starship passes --cmd-duration to `prompt --right`, so
+# it renders correctly on the right side.
 [cmd_duration]
 min_time = 500
 style = "fg:color_orange bg:color_srf1"
@@ -347,21 +348,14 @@ time_format = "%R"
 style = "fg:color_comment bg:color_srf1"
 format = '[ $time ]($style)'
 
-# ── RIGHT prompt modules ─────────────────────────────────────────────────────
+# ── RIGHT prompt modules: shell · cmd_duration · memory_usage ────────────────
+# (battery removed — it's already in the tmux status bar. cmd_duration is
+# configured above, in its original spot; section order is irrelevant.)
 [shell]
 disabled = false
 style = "fg:color_comment bg:color_srf1"
 zsh_indicator = "zsh"
-format = '[ $indicator ]($style) '
-
-[battery]
-format = '[ $symbol$percentage ]($style) '
-[[battery.display]]
-threshold = 20
-style = "fg:color_red bg:color_srf1"
-[[battery.display]]
-threshold = 100
-style = "fg:color_comment bg:color_srf1"
+format = '[ $indicator ]($style)'
 
 [memory_usage]
 disabled = false
