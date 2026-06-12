@@ -334,7 +334,7 @@ format = '[[ $symbol($version)](fg:color_aqua bg:color_srf2)]($style)'
 [cmd_duration]
 min_time = 500
 style = "fg:color_orange bg:color_srf1"
-format = '[ 󰔛 $duration]($style)'
+format = '[  󰔛 $duration]($style)'
 # Background job count (`&`, Ctrl-Z). Purple text, srf1 surface; only shows when
 # at least one job is running.
 [jobs]
@@ -342,7 +342,7 @@ symbol = '+'
 symbol_threshold = 1
 number_threshold = 1
 style = "bg:color_srf1"
-format = '[[ $symbol$number](fg:color_purple bg:color_srf1)]($style)'
+format = '[[ $symbol $number](fg:color_purple bg:color_srf1)]($style)'
 
 [time]
 disabled = false
@@ -393,8 +393,8 @@ recognize_signal_code = true
 map_symbol = true
 pipestatus = true
 pipestatus_separator = '[|](fg:color_comment)'
-format = '[ $symbol $common_meaning $signal_name $maybe_int]($style) '
-pipestatus_format = '[ $pipestatus]($style) => [ $symbol$common_meaning$signal_name$maybe_int]($style) '
+format = '[ $symbol $common_meaning $signal_name $maybe_int]($style)'
+pipestatus_format = '[ $pipestatus]($style)=>[ $symbol $common_meaning $signal_name $maybe_int]($style)'
 
 [character]
 disabled = false
