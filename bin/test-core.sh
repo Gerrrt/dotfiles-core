@@ -75,17 +75,99 @@ summary() {
     "$c_grn" "$PASS" "$c_rst" "$c_yel" "$SKIP" "$c_rst" "$c_red" "$FAIL" "$c_rst"
 }
 
-if ! have zsh; then
-  hdr "behavioral tests"
-  skip "all behavioral tests (zsh not installed — runs in CI)"
-  summary
-  [[ "$NESTED" == 1 ]] || printf '%stests OK (skipped)%s\n' "$c_grn" "$c_rst"
-  exit 0
-fi
-
-# Each module is sourced in a throwaway sandbox; clean it up no matter how we exit.
+# One throwaway sandbox for the whole run; clean it up no matter how we exit. It is
+# created BEFORE the zsh gate because Section C (clipboard) is pure bash and must run
+# even where zsh is absent — bin/clip's whole reason to exist is bare-box portability.
 SANDBOX="$(mktemp -d "${TMPDIR:-/tmp}/core-test.XXXXXX")"
 trap 'rm -rf "$SANDBOX"' EXIT
+
+# ── C. clipboard detection ladder (bin/clip / bin/clip-paste) ─────────────────
+# bin/clip is the single highest-fan-out runtime artifact in Core — used by zsh
+# (pbcopy alias), tmux (copy-pipe), AND nvim (clipboard provider), across all 9 OS
+# repos — yet its WSL→macOS→Wayland→X11 ladder had no test, only `bash -n`. We drive
+# the ladder HERMETICALLY: PATH is pointed at a fake bin holding a stub `uname` that
+# reports the OS we want, a stub `grep` that answers the /proc/version probe, and
+# stub backends that print a marker instead of touching a real clipboard — then we
+# assert the RIGHT backend was exec'd. PATH is the fake dir ONLY (a real `bash`
+# symlink keeps the `#!/usr/bin/env bash` shebang resolvable), so backend probing is
+# fully deterministic regardless of what the host happens to have installed. Pure
+# bash — runs with no zsh, exactly where bin/clip most needs to work.
+hdr "clipboard detection ladder (bin/clip, bin/clip-paste)"
+CLIP="$HERE/bin/clip"
+CLIPPASTE="$HERE/bin/clip-paste"
+CBIN="$SANDBOX/clipbin"
+_real_bash="$(command -v bash)"
+_real_tr="$(command -v tr)"
+
+_stub() { printf '#!/bin/sh\n%s\n' "$2" >"$CBIN/$1"; chmod +x "$CBIN/$1"; }
+# Fresh fake bin + cleared env before each scenario. `bash` is symlinked so the
+# shebang resolves under the stripped PATH; `uname`/`grep` default to "Linux, not
+# WSL" and Darwin/WSL cases override them.
+_clip_reset() {
+  rm -rf "$CBIN"; mkdir -p "$CBIN"
+  unset WSL_DISTRO_NAME WAYLAND_DISPLAY
+  ln -s "$_real_bash" "$CBIN/bash"
+  _stub uname 'echo Linux'
+  _stub grep 'exit 1'
+}
+# Assert prog's stdout is exactly the marker the chosen backend prints.
+_clip_is() { # _clip_is <label> <prog> <expected>
+  local out
+  out="$(printf 'payload' | PATH="$CBIN" "$2" 2>/dev/null)"
+  if [[ "$out" == "$3" ]]; then pass "$1"; else fail "$1 (got '${out}', want '${3}')"; fi
+}
+# Assert prog exits non-zero — the no-backend-found path.
+_clip_fails() { # _clip_fails <label> <prog>
+  if printf 'payload' | PATH="$CBIN" "$2" >/dev/null 2>&1; then
+    fail "$1 (expected non-zero exit)"
+  else pass "$1"; fi
+}
+
+# clip (copy) — each scenario leaves ONLY the intended backend reachable.
+_clip_reset; export WSL_DISTRO_NAME=Ubuntu; _stub clip.exe 'echo WSL'
+_clip_is "clip → clip.exe when WSL_DISTRO_NAME set" "$CLIP" WSL
+unset WSL_DISTRO_NAME
+_clip_reset; _stub uname 'echo Darwin'; _stub pbcopy 'echo MAC'
+_clip_is "clip → pbcopy on Darwin" "$CLIP" MAC
+_clip_reset; export WAYLAND_DISPLAY=wayland-0; _stub wl-copy 'echo WL'
+_clip_is "clip → wl-copy under Wayland" "$CLIP" WL
+unset WAYLAND_DISPLAY
+_clip_reset; _stub xclip 'echo XCLIP'
+_clip_is "clip → xclip on X11" "$CLIP" XCLIP
+_clip_reset; _stub xsel 'echo XSEL'
+_clip_is "clip → xsel when xclip absent" "$CLIP" XSEL
+_clip_reset
+_clip_fails "clip exits non-zero with no backend" "$CLIP"
+
+# clip-paste (paste) — mirror ladder; the WSL leg also strips the CR powershell adds.
+_clip_reset; export WSL_DISTRO_NAME=Ubuntu; ln -s "$_real_tr" "$CBIN/tr"
+_stub powershell.exe 'printf "WSLPASTE\r"'
+_clip_is "clip-paste → powershell + CR-strip on WSL" "$CLIPPASTE" WSLPASTE
+unset WSL_DISTRO_NAME
+_clip_reset; _stub uname 'echo Darwin'; _stub pbpaste 'echo MAC'
+_clip_is "clip-paste → pbpaste on Darwin" "$CLIPPASTE" MAC
+_clip_reset; export WAYLAND_DISPLAY=wayland-0; _stub wl-paste 'echo WL'
+_clip_is "clip-paste → wl-paste under Wayland" "$CLIPPASTE" WL
+unset WAYLAND_DISPLAY
+_clip_reset; _stub xclip 'echo XCLIP'
+_clip_is "clip-paste → xclip -o on X11" "$CLIPPASTE" XCLIP
+_clip_reset
+_clip_fails "clip-paste exits non-zero with no backend" "$CLIPPASTE"
+
+# ── zsh-gated sections (A load-order, B function units) ───────────────────────
+# Everything below needs a real zsh. On a bare box we SKIP it (not fail) and fall
+# through to the shared summary, so a Section-C failure still surfaces as exit 1.
+if ! have zsh; then
+  hdr "zsh behavioral sections (load-order + function units)"
+  skip "load-order smoke + function units (zsh not installed — runs in CI)"
+  summary
+  ((FAIL == 0)) || {
+    [[ "$NESTED" == 1 ]] || printf '%stests FAILED%s\n' "$c_red" "$c_rst" >&2
+    exit 1
+  }
+  [[ "$NESTED" == 1 ]] || printf '%stests OK%s\n' "$c_grn" "$c_rst"
+  exit 0
+fi
 
 # ── A. load-order smoke test ──────────────────────────────────────────────────
 hdr "load-order smoke test (canonical .zshrc chain)"
