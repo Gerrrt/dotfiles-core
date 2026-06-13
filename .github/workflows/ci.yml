@@ -84,7 +84,7 @@ jobs:
       # runs both): bump the version and every cache key rotates automatically.
       - name: Cache luacheck (luarocks tree)
         id: luacache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.luarocks
           # `-lua54` busts any tree a prior run cached against brew's now-default Lua 5.5
@@ -192,7 +192,7 @@ jobs:
       # Cache the hook environments pre-commit clones+builds, keyed on the config so a
       # hook-rev bump (or a new hook) rotates the key automatically.
       - name: Cache pre-commit hooks
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
