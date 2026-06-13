@@ -1,0 +1,37 @@
+name: ci
+
+# Core is authored once here, then vendored into all 9 OS repos via git subtree.
+# A defect that lands here fans out N-way — so gate every push/PR with the same
+# audit the maintainer runs locally. CI installs the linters that a bare box may
+# lack (shellcheck/shfmt/luacheck/zsh) and then hands off entirely to
+# bin/audit-core.sh, so there is ONE definition of "Core is healthy".
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install linters
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y shellcheck zsh luarocks
+          sudo luarocks install luacheck
+
+      - name: Tool versions
+        run: |
+          shellcheck --version | head -2
+          luacheck --version
+          zsh --version
+
+      - name: Run Core audit (manifest, exec bits, syntax, lint)
+        run: ./bin/audit-core.sh

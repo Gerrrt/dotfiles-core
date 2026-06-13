@@ -1,0 +1,26 @@
+# .editorconfig — house style for dotfiles-core.
+# https://editorconfig.org  — honored natively by Neovim (this repo's editor),
+# VS Code, and most others. Keeps the multi-language tree (bash, zsh, lua, toml,
+# yaml) on one consistent 2-space style so shfmt/stylua/luacheck don't churn.
+root = true
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+# Shell — matches shfmt -i 2 -ci used in CI and pre-commit.
+[*.{sh,zsh}]
+indent_size = 2
+# Lua (Neovim config) — stylua/luacheck default to 2-space in this tree.
+[*.lua]
+indent_size = 2
+[*.{toml,yml,yaml}]
+indent_size = 2
+# Markdown: trailing whitespace can be a meaningful hard line break.
+[*.md]
+trim_trailing_whitespace = false
+# tmux/git configs follow upstream conventions.
+[*.{conf,gitconfig}]
+indent_size = 2
