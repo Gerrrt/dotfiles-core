@@ -21,20 +21,60 @@
 
 ZPLUGINDIR="${ZDOTDIR:-$HOME/.config/zsh}/plugins"
 
+# ── Pinned plugin revisions ───────────────────────────────────────────────────
+# These plugins are the ONLY third-party CODE that runs in every interactive shell
+# on every one of the 9 OS repos, yet they were the one thing this repo left
+# UNPINNED while pinning its CI linters (ci.yml), pre-commit hooks (rev:), and even
+# GitHub Actions by SHA. An unpinned `master` clone means an upstream breaking
+# change — or a compromised tag — fans out to every machine on the next install.
+# So pin each to a commit, exactly like the rest of the toolchain. Keyed by the
+# FULL owner/name slug so `make update-plugins` (bin/update-plugins.sh) can
+# ls-remote each and rewrite the SHA deliberately — the runtime never floats.
+# A plugin with no entry here falls back to the old floating `--depth=1` clone.
+typeset -gA ZPLUGIN_PINS=(
+  romkatv/zsh-defer                          53a26e287fbbe2dcebb3aa1801546c6de32416fa
+  jeffreytse/zsh-vi-mode                      08bd1c04520418faee2b9d1afbc410ee1a59a8f1
+  zsh-users/zsh-history-substring-search      14c8d2e0ffaee98f2df9850b19944f32546fdea5
+  zsh-users/zsh-autosuggestions               85919cd1ffa7d2d5412f6d3fe437ebdbeeec4fc5
+  zdharma-continuum/fast-syntax-highlighting  3d574ccf48804b10dca52625df13da5edae7f553
+  Aloxaf/fzf-tab                              24105b15714bfec37989ed5c5b6e60f572253019
+  MichaelAquilina/zsh-you-should-use          5f3d129864ee4505043d88c3486224f1d75b692e
+)
+
 # Optional third arg: override the sourced filename
 _zplugin_load() {
   local repo="${1}" name="${2}" srcfile="${3:-}"
   local plugin_path="${ZPLUGINDIR}/${name}"
+  local pin="${ZPLUGIN_PINS[$repo/$name]:-}"
 
   if [[ ! -d "$plugin_path" ]]; then
     mkdir -p "$ZPLUGINDIR"
     echo "Installing ${name}..."
-    git clone --depth=1 "https://github.com/${repo}/${name}" "$plugin_path" ||
-      {
-        echo "ERROR: failed to install ${name}" >&2
-        return 1
-      }
+    if [[ -n "$pin" ]]; then
+      # Fetch EXACTLY the pinned commit (shallow, detached) — reproducible and
+      # supply-chain-pinned. GitHub serves arbitrary SHAs via `fetch`, so we never
+      # download history we don't run. On any failure, remove the half-built dir so
+      # the next shell retries cleanly instead of sourcing an empty checkout.
+      git init -q "$plugin_path" &&
+        git -C "$plugin_path" remote add origin "https://github.com/${repo}/${name}" &&
+        git -C "$plugin_path" fetch -q --depth 1 origin "$pin" &&
+        git -C "$plugin_path" checkout -q --detach FETCH_HEAD ||
+        {
+          echo "ERROR: failed to install ${name}@${pin:0:12}" >&2
+          rm -rf "$plugin_path"
+          return 1
+        }
+    else
+      git clone --depth=1 "https://github.com/${repo}/${name}" "$plugin_path" ||
+        {
+          echo "ERROR: failed to install ${name}" >&2
+          return 1
+        }
+    fi
   fi
+  # NB: an already-present plugin is sourced AS-IS — no per-start `git` call — so
+  # the hot path keeps zero plugin subprocesses. Reconciling a moved pin is the job
+  # of `zplugin-update` / the maint runner, not every interactive shell.
 
   if [[ -n "$srcfile" ]] && [[ -f "${plugin_path}/${srcfile}" ]]; then
     source "${plugin_path}/${srcfile}"
@@ -50,12 +90,27 @@ _zplugin_load() {
 }
 
 function zplugin-update {
-  local dir name
+  local dir name pin
   for dir in "${ZPLUGINDIR}"/*/; do
     if [[ -d "$dir" ]]; then
       name=$(basename "$dir")
-      echo "Updating ${name}..."
-      git -C "$dir" pull --ff-only 2>/dev/null
+      # A pinned plugin is held AT its pin — `make update-plugins` is the only thing
+      # that moves a pin. So here we re-assert the recorded SHA (fetch+detach) rather
+      # than pulling a branch that would drift the runtime off its pin. Unpinned
+      # plugins keep the old fast-forward-pull behaviour. ${(k)…[(r)/$name]} finds the
+      # slug key ending in /$name so we don't need the owner spelled out twice.
+      pin=""
+      local k
+      for k in "${(@k)ZPLUGIN_PINS}"; do [[ "$k" == */"$name" ]] && pin="${ZPLUGIN_PINS[$k]}"; done
+      if [[ -n "$pin" ]]; then
+        echo "Pinning ${name} → ${pin:0:12}..."
+        git -C "$dir" fetch -q --depth 1 origin "$pin" 2>/dev/null &&
+          git -C "$dir" checkout -q --detach FETCH_HEAD 2>/dev/null ||
+          echo "  ! could not set ${name} to ${pin:0:12}" >&2
+      else
+        echo "Updating ${name} (unpinned)..."
+        git -C "$dir" pull --ff-only 2>/dev/null
+      fi
     fi
   done
 }

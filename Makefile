@@ -7,7 +7,7 @@
 # pre-commit call the same bin/audit-core.sh, so `make audit` == green CI.
 # ──────────────────────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help audit test bench lint sync sync-dry hooks update-hooks
+.PHONY: help audit test bench lint sync sync-dry hooks update-hooks update-plugins
 
 help: ## Show this help
 	@echo "dotfiles-core — make targets:"
@@ -38,3 +38,6 @@ hooks: ## Install the pre-commit hooks into this clone
 update-hooks: ## Bump pinned pre-commit hook revisions (dependabot has no pre-commit ecosystem)
 	@command -v pre-commit >/dev/null 2>&1 || { echo "pre-commit not found: pip install pre-commit"; exit 1; }
 	@pre-commit autoupdate
+
+update-plugins: ## Roll the pinned zsh-plugin SHAs in zsh/plugins.zsh to upstream HEAD (deliberate bump)
+	@./bin/update-plugins.sh

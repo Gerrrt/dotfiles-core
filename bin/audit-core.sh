@@ -69,7 +69,7 @@ have() { command -v "$1" >/dev/null 2>&1; }
 META_ALLOWLIST=(
   README.md PORTING-MATRIX.md CONTRIBUTING.md CHANGELOG.md LICENSE SECURITY.md
   core.manifest .gitignore .gitattributes .editorconfig .pre-commit-config.yaml .markdownlint.jsonc
-  bin/sync-core.sh bin/audit-core.sh bin/test-core.sh bin/bench-core.sh
+  bin/sync-core.sh bin/audit-core.sh bin/test-core.sh bin/bench-core.sh bin/update-plugins.sh
   Makefile
   nvim/.luacheckrc
   CODEOWNERS pull_request_template.md
