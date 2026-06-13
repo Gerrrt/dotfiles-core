@@ -151,14 +151,38 @@ check() { # check <label> <zsh-body>
   fi
 }
 
+# Like check, but SKIP (not fail) when a required external tool is absent — so the
+# archive round-trip tests degrade gracefully on a bare box, mirroring the linter
+# skips above. extract's own first branch is `ouch` when HAVE_OUCH is set; under
+# `zsh -fc` that var is unset, so these exercise the hand-rolled case fallback.
+check_dep() { # check_dep <label> <dep> <zsh-body>
+  if ! have "$2"; then
+    skip "$1 ($2 not installed)"
+    return
+  fi
+  if HOME="$SANDBOX" zsh -fc "source '$FN' || exit 1; $3" >/dev/null 2>&1; then
+    pass "$1"
+  else
+    fail "$1"
+  fi
+}
+
 check "mkcd creates and enters a nested dir" \
   'd=$(mktemp -d); cd "$d"; mkcd a/b/c; [[ ${PWD:t} == c && -d "$d/a/b/c" ]]'
 check "cdup climbs N directories" \
   'd=$(mktemp -d); mkdir -p "$d/a/b/c"; cd "$d/a/b/c"; cdup 2; [[ ${PWD:t} == a ]]'
 check "mkbak writes a timestamped .bak copy" \
   'd=$(mktemp -d); cd "$d"; print hi > f; mkbak f; set -- f.*.bak; [[ -f $1 ]]'
+check "mkbak's .bak is byte-identical to the original" \
+  'd=$(mktemp -d); cd "$d"; print -r -- payload > f; mkbak f; set -- f.*.bak; [[ -f $1 && "$(cat -- $1)" == payload ]]'
 check "extract rejects a non-existent file" \
   'extract /no/such/archive.tar.gz; (( $? != 0 ))'
+check "extract rejects a known file of unknown format" \
+  'd=$(mktemp -d); cd "$d"; : > mystery.qqq; extract mystery.qqq; (( $? != 0 ))'
+check_dep "extract round-trips a .tar.gz" tar \
+  'd=$(mktemp -d); cd "$d"; mkdir src; print -r -- hi > src/a.txt; tar czf a.tgz src; rm -rf src; extract a.tgz; [[ -f src/a.txt && "$(cat -- src/a.txt)" == hi ]]'
+check_dep "extract round-trips a .gz" gzip \
+  'd=$(mktemp -d); cd "$d"; print -r -- hi > f.txt; gzip f.txt; extract f.txt.gz; [[ -f f.txt && "$(cat -- f.txt)" == hi ]]'
 
 # ── summary ───────────────────────────────────────────────────────────────────
 summary

@@ -98,12 +98,39 @@ jobs:
           luarocks --local install luacheck "${LUACHECK_VERSION}"
           echo "$HOME/.luarocks/bin" >> "$GITHUB_PATH"
 
+      # markdownlint gates the docs (the deliverable on this showcase repo). Pinned
+      # to match the .pre-commit-config.yaml hook rev so author-time and CI agree.
+      # Node is preinstalled on both runners; -g puts the bin on PATH for the audit.
+      - name: Install markdownlint-cli2 (pinned)
+        run: npm install -g markdownlint-cli2@0.22.1
+
       - name: Tool versions
         run: |
           shellcheck --version | head -2
           luacheck --version
           zsh --version
           bash --version | head -1
+          markdownlint-cli2 --version
 
       - name: Run Core audit (manifest, exec bits, syntax, lint, behavioral)
         run: ./bin/audit-core.sh
+
+  # Startup-perf visibility. Core invests in startup speed (cached tool-init in
+  # tools.zsh, deferred plugins in plugins.zsh); this surfaces the number on every
+  # push so a regression is visible in the log. INFORMATIONAL, not a gate: shared
+  # runners are too noisy for a hard budget (bench-core.sh's CORE_BENCH_BUDGET_MS
+  # is the gate, for deliberate local/quiet-box use). continue-on-error keeps a
+  # slow runner from ever turning CI red. Linux-only — one number is enough here.
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install zsh + hyperfine
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends zsh hyperfine
+      - name: Benchmark Core startup (report-only)
+        run: ./bin/bench-core.sh

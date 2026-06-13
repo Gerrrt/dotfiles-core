@@ -36,6 +36,14 @@ repos:
         args: ["-x"]
         files: '(\.sh|bin/clip|bin/clip-paste)$'
 
+  # Markdown is the deliverable on this public showcase repo and the one file class
+  # shellcheck/zsh -n/toml-yaml never inspect — so lint it at author time too.
+  # Shares .markdownlint.jsonc with the audit's markdown section (one rule config).
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.22.1
+    hooks:
+      - id: markdownlint-cli2
+
   # NB: shfmt is intentionally NOT enforced — the scripts here use a deliberate
   # compact one-liner style that shfmt would expand (see bin/audit-core.sh).
   # luacheck is NOT a standalone hook either: it discovers .luacheckrc by

@@ -76,6 +76,23 @@ itself at commit time. Two deliberate non-checks:
 - **Keep OS-specific bits out.** Strip clipboard/paths/package-manager logic into
   the OS repo; Core stays portable.
 
+## Commit messages
+
+Use a [Conventional Commits](https://www.conventionalcommits.org/) prefix so the
+log reads as a changelog and tooling can group it (dependabot already commits with
+a `ci` prefix; see `dependabot.yml`):
+
+```text
+type(scope): short imperative summary
+
+optional body explaining the why
+```
+
+Common types here: `fix`, `feat`, `test`, `ci`, `docs`, `chore`, `perf`. The
+scope is the Core area touched — `zsh`, `nvim`, `tmux`, `audit`, `changelog`, etc.
+A user-visible change should land in `CHANGELOG.md` under `[Unreleased]` in the
+same commit.
+
 ## Adding a new Core file (checklist)
 
 1. Confirm it's Core (the table above).

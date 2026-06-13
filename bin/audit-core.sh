@@ -17,7 +17,8 @@
 #   4. lua                              — luacheck nvim/        (if luacheck present)
 #   5. lint                             — shellcheck            (if present)
 #   6. config files                     — toml/yaml parse-check (if python3 present)
-#   7. behavioral                       — load-order smoke + function units (test-core.sh)
+#   7. markdown                          — markdownlint (if markdownlint-cli2 present)
+#   8. behavioral                       — load-order smoke + function units (test-core.sh)
 #
 # We deliberately do NOT enforce shfmt: the hand-tuned scripts here use an
 # intentional compact one-liner style that shfmt would expand. shellcheck (real
@@ -66,8 +67,8 @@ have() { command -v "$1" >/dev/null 2>&1; }
 # core/ subtree — repo-meta and dev tooling. Anything tracked, not matched by the
 # manifest, must appear here (or under a META_PREFIXES dir) or section 1 flags it.
 META_ALLOWLIST=(
-  README.md PORTING-MATRIX.md CONTRIBUTING.md CHANGELOG.md LICENSE
-  core.manifest .gitignore .editorconfig .pre-commit-config.yaml
+  README.md PORTING-MATRIX.md CONTRIBUTING.md CHANGELOG.md LICENSE SECURITY.md
+  core.manifest .gitignore .editorconfig .pre-commit-config.yaml .markdownlint.jsonc
   bin/sync-core.sh bin/audit-core.sh bin/test-core.sh bin/bench-core.sh
   Makefile
   nvim/.luacheckrc
@@ -209,7 +210,26 @@ else
   skip "yaml parse (python3 PyYAML not importable)"
 fi
 
-# ── 7. behavioral tests (load-order smoke + function unit tests) ──────────────
+# ── 7. markdown (markdownlint) ────────────────────────────────────────────────
+# The docs ARE the deliverable on a public showcase repo, and they're the one file
+# class shellcheck/zsh -n/toml-yaml never look at — so a leaked template tag or a
+# broken heading ships unnoticed (it did: see CHANGELOG.md's history). markdownlint
+# is the gate; .markdownlint.jsonc is the shared rule config (line-length off for
+# the wide tables, everything structural on). Graceful skip when absent, exactly
+# like the linters above; pre-commit's markdownlint-cli2 hook is the author-time
+# mirror, and CI installs it so the gate actually runs there.
+hdr "markdown (markdownlint)"
+if have markdownlint-cli2; then
+  if markdownlint-cli2 "**/*.md" >/dev/null 2>&1; then
+    pass "markdownlint (all tracked markdown clean)"
+  else
+    fail "markdownlint reported issues — run: markdownlint-cli2 '**/*.md'"
+  fi
+else
+  skip "markdownlint (markdownlint-cli2 not installed — npm i -g markdownlint-cli2)"
+fi
+
+# ── 8. behavioral tests (load-order smoke + function unit tests) ──────────────
 # Static analysis above proves the modules PARSE; this proves they LOAD TOGETHER
 # in canonical order and that the pure functions behave. Delegated to test-core.sh
 # (single source of truth) but folded into ONE audit summary via CORE_TEST_NESTED.

@@ -71,7 +71,7 @@ Core is fully populated — every layer below is authored here and synced out to
 each OS repo's vendored `core/`. The canonical inventory is `core.manifest`;
 this tree is the human-readable version of it.
 
-```
+```text
 bin/
   clip                    cross-OS "copy to clipboard"   (WSL/macOS/Wayland/X11)
   clip-paste              cross-OS "paste from clipboard"

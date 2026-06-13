@@ -1,0 +1,22 @@
+// .markdownlint.jsonc — house style for the docs that ARE the product here.
+// dotfiles-core is a public showcase repo, so its markdown (README, PORTING-MATRIX,
+// CONTRIBUTING, CHANGELOG, SECURITY) is a deliverable. This config is the single
+// definition of "docs are healthy", mirrored by the pre-commit hook and the
+// markdown section in bin/audit-core.sh — same one-gate philosophy as the rest.
+//
+// Two rules are deliberately off; everything else (the default rule set) stays on
+// to catch real structural defects — bad headings, broken lists, stray HTML, the
+// leaked-template-tag class of bug that this whole effort started from.
+{
+  "default": true,
+
+  // MD013 (line-length): OFF. The docs use wide GitHub tables (PORTING-MATRIX's
+  // package matrix runs ~120 cols) and wrap prose by sentence, not column. A
+  // long line is not a defect here, so flagging every table row is pure noise.
+  "MD013": false,
+
+  // MD041 (first-line-h1): OFF. The issue and PR templates are fragments injected
+  // into GitHub's UI; they legitimately open with YAML front matter or a section
+  // heading (## ...), not a top-level H1.
+  "MD041": false,
+}
