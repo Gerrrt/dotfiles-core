@@ -154,7 +154,22 @@ up() {
   [[ "$1" == (-y|--yes) ]] && yes=1
   local y=()
   ((yes)) && y=(-y)
-  case "$(_pkgup_mgr)" in
+  local mgr
+  mgr="$(_pkgup_mgr)"
+  if [[ "$mgr" == none ]]; then
+    _core_err "up: no supported package manager found"
+    return 1
+  fi
+  # Defensive pre-confirm (skipped by -y): name the manager BEFORE touching the
+  # system, so `up` on the wrong box is a one-keystroke abort, not a surprise sync.
+  # _core_confirm declines with no TTY, so `up` (sans -y) stays interactive-only.
+  if ((! yes)); then
+    _core_confirm "Apply updates with ${mgr}?" || {
+      _core_warn "up: cancelled"
+      return 1
+    }
+  fi
+  case "$mgr" in
   brew) brew update && brew upgrade && brew cleanup ;;
   pacman) _pkgup_priv pacman -Syu ;; # full sync only; never partial
   dnf) _pkgup_priv dnf upgrade --refresh "${y[@]}" ;;
@@ -167,7 +182,8 @@ up() {
   apk) _pkgup_priv apk update && _pkgup_priv apk upgrade ;;
   emerge) _pkgup_priv emerge --sync && _pkgup_priv emerge -auvDN @world ;; # -a always asks
   *)
-    echo "up: no supported package manager found" >&2
+    # Unreachable (the `none` case is handled above) — kept as defence in depth.
+    _core_err "up: no supported package manager found"
     return 1
     ;;
   esac

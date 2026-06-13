@@ -62,8 +62,26 @@ fcd() {
   fi
 }
 
-# please — re-run the last command with sudo
-please() { eval "sudo $(fc -ln -1)"; }
+# please — re-run the last command with sudo. PREVIEWS the command and CONFIRMS
+# first: this eval's your previous line as root, so a fat-fingered history entry
+# (or a function that left something unexpected as the last command) should not
+# silently run privileged. _core_confirm declines with no TTY, so this is fail-safe
+# in a non-interactive context too.
+please() {
+  emulate -L zsh
+  local last
+  last="$(fc -ln -1 2>/dev/null)"
+  if [[ -z "${last//[[:space:]]/}" ]]; then
+    _core_err "please: no previous command to re-run"
+    return 1
+  fi
+  _core_warn "about to run as root:  sudo ${last}"
+  _core_confirm "proceed?" || {
+    _core_warn "please: cancelled"
+    return 1
+  }
+  eval "sudo ${last}"
+}
 
 # mkbak — timestamped backup of a file before you edit it
 mkbak() { cp -- "$1" "$1.$(date +%Y%m%d-%H%M%S).bak"; }
@@ -75,6 +93,10 @@ mkbak() { cp -- "$1" "$1.$(date +%Y%m%d-%H%M%S).bak"; }
 #   serve 8080       # port 8080
 serve() {
   local port="${1:-8000}" ip
+  # Defensive: this binds ALL interfaces on purpose (ad-hoc file transfer), so say
+  # so plainly — on an untrusted network the CWD is reachable by anyone who can
+  # route to this host until you Ctrl-C.
+  _core_warn "serve binds 0.0.0.0:${port} — the CWD is exposed on every interface"
   echo "serving $(pwd) on port ${port}  (Ctrl-C to stop)"
   # tunnel IP (callback address) if a tun/wg interface is up, else LAN, via `ip`
   if command -v ip >/dev/null 2>&1; then
