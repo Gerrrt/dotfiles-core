@@ -18,7 +18,8 @@
 #   5. lint                             — shellcheck            (if present)
 #   6. config files                     — toml/yaml parse-check (if python3 present)
 #   7. markdown                          — markdownlint (if markdownlint-cli2 present)
-#   8. behavioral                       — load-order smoke + function units (test-core.sh)
+#   8. version consistency              — pre-commit hook revs == tool-versions.env
+#   9. behavioral                       — load-order smoke + function units (test-core.sh)
 #
 # We deliberately do NOT enforce shfmt: the hand-tuned scripts here use an
 # intentional compact one-liner style that shfmt would expand. shellcheck (real
@@ -223,7 +224,38 @@ else
   skip "markdownlint (markdownlint-cli2 not installed — npm i -g markdownlint-cli2)"
 fi
 
-# ── 8. behavioral tests (load-order smoke + function unit tests) ──────────────
+# ── 8. version consistency (tool-versions.env ↔ .pre-commit-config.yaml) ──────
+# scripts/tool-versions.env is the SINGLE SOURCE for the pinned dev-tool versions.
+# CI loads it directly (no literals left in ci.yml), but .pre-commit-config.yaml is
+# static YAML that can't read it — so the hook `rev:` fields are the one place a pin
+# can still drift. Gate them: assert each hook rev equals its version here. A bump in
+# one place without the other fails the audit instead of silently shipping mismatched
+# author-time vs CI tooling. Pure bash + awk (busybox-safe); skips if either is gone.
+hdr "version consistency (tool-versions.env ↔ pre-commit)"
+VERSIONS_ENV="scripts/tool-versions.env"
+PRECOMMIT_CFG=".pre-commit-config.yaml"
+if [[ -r "$VERSIONS_ENV" && -r "$PRECOMMIT_CFG" ]]; then
+  _ver() { sed -n "s/^$1=//p" "$VERSIONS_ENV" | head -n1; }
+  # The rev: line immediately following a given repo: line in the pre-commit config.
+  _pc_rev() { awk -v r="$1" '$0 ~ "repo:.*" r {f=1} f && $1=="rev:" {print $2; exit}' "$PRECOMMIT_CFG"; }
+  _check_pin() { # _check_pin <repo-substr> <env-key> <label>
+    local want got
+    want="v$(_ver "$2")"
+    got="$(_pc_rev "$1")"
+    if [[ -n "$got" && "$got" == "$want" ]]; then
+      pass "pre-commit $3 rev $got == tool-versions.env"
+    else
+      fail "pre-commit $3 rev '${got:-<none>}' != tool-versions.env '$want' — bump one to match"
+    fi
+  }
+  _check_pin "koalaman/shellcheck-precommit" SHELLCHECK_VERSION shellcheck
+  _check_pin "DavidAnson/markdownlint-cli2" MARKDOWNLINT_VERSION markdownlint
+  _check_pin "pre-commit/pre-commit-hooks" PRECOMMIT_HOOKS_VERSION pre-commit-hooks
+else
+  skip "version consistency ($VERSIONS_ENV or $PRECOMMIT_CFG unreadable)"
+fi
+
+# ── 9. behavioral tests (load-order smoke + function unit tests) ──────────────
 # Static analysis above proves the modules PARSE; this proves they LOAD TOGETHER
 # in canonical order and that the pure functions behave. Delegated to test-core.sh
 # (single source of truth) but folded into ONE audit summary via CORE_TEST_NESTED.
