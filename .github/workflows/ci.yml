@@ -141,6 +141,33 @@ jobs:
       - name: Run Core audit (manifest, exec bits, syntax, lint, behavioral)
         run: ./bin/audit-core.sh
 
+  # Alpine (musl libc + busybox coreutils) is a named target repo, and functions.zsh
+  # + the maint/test scripts explicitly claim busybox compatibility — yet the matrix
+  # above only proves glibc Ubuntu and BSD macOS, never musl/busybox. This leg closes
+  # that asserted-but-unverified gap. We deliberately do NOT use `container: alpine`
+  # (its musl libc breaks the glibc Node that actions/checkout ships, a known failure);
+  # instead we check out on the host and run the SAME bin/audit-core.sh inside an Alpine
+  # container with the workspace bind-mounted. Only bash/zsh/git/shellcheck/python are
+  # installed — luacheck, markdownlint and nvim skip gracefully here and are already
+  # covered on the glibc legs. The value is everything ELSE running against busybox
+  # applets (awk/grep/sed/date/tar/gzip): the behavioral suite, the clip ladder, and
+  # the manifest/exec-bit/syntax checks, on the one userland Ubuntu can never surface.
+  audit-alpine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Audit on Alpine (musl + busybox)
+        run: |
+          docker run --rm -v "$PWD:/core" -w /core alpine:3.21 sh -euc '
+            apk add --no-cache bash zsh git shellcheck python3 py3-yaml
+            # The repo is owned by the host runner uid but the container runs as root;
+            # without this, git 2.35+ refuses it as "dubious ownership" and the audit
+            # cannot read ls-files/ls-tree. Scope the exception to the mounted path.
+            git config --global --add safe.directory /core
+            ./bin/audit-core.sh
+          '
+
   # Author-time hygiene gate. The .pre-commit-config.yaml hooks only fire for
   # contributors who ran `pre-commit install`; without this job a push carrying
   # trailing whitespace, a missing final newline, a stray `<<<<<<<` conflict marker,
