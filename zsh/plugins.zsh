@@ -97,8 +97,9 @@ function zplugin-update {
       # A pinned plugin is held AT its pin — `make update-plugins` is the only thing
       # that moves a pin. So here we re-assert the recorded SHA (fetch+detach) rather
       # than pulling a branch that would drift the runtime off its pin. Unpinned
-      # plugins keep the old fast-forward-pull behaviour. ${(k)…[(r)/$name]} finds the
-      # slug key ending in /$name so we don't need the owner spelled out twice.
+      # plugins keep the old fast-forward-pull behaviour. We scan the ZPLUGIN_PINS keys
+      # for the slug whose tail is /$name (the dir basename), so a pin can be keyed by
+      # the full owner/name without the owner having to be spelled out again here.
       pin=""
       local k
       for k in "${(@k)ZPLUGIN_PINS}"; do [[ "$k" == */"$name" ]] && pin="${ZPLUGIN_PINS[$k]}"; done

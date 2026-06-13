@@ -87,7 +87,9 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.luarocks
-          key: luacheck-${{ runner.os }}-${{ env.LUACHECK_VERSION }}
+          # `-lua54` busts any tree a prior run cached against brew's now-default Lua 5.5
+          # (which luacheck 1.2.0 can't load) and pins the cache to the 5.4 install below.
+          key: luacheck-${{ runner.os }}-${{ env.LUACHECK_VERSION }}-lua54
 
       - name: Install luacheck ${{ env.LUACHECK_VERSION }} (Linux, pinned)
         if: runner.os == 'Linux'
@@ -102,8 +104,13 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           set -euxo pipefail
-          brew install luarocks
-          luarocks --local install luacheck "${LUACHECK_VERSION}"
+          # Pin to Lua 5.4: brew's luarocks now pulls Lua 5.5 as its default interpreter,
+          # and luacheck 1.2.0 (the last release) fails to even load under 5.5 — 5.5 made
+          # some locals const, tripping "attempt to assign to const variable" in luacheck's
+          # own source. Install luacheck against an explicit lua@5.4 so the gate is stable
+          # until a luacheck release supports 5.5. --lua-dir points luarocks at that keg.
+          brew install lua@5.4 luarocks
+          luarocks --lua-version 5.4 --lua-dir "$(brew --prefix lua@5.4)" --local install luacheck "${LUACHECK_VERSION}"
           echo "$HOME/.luarocks/bin" >> "$GITHUB_PATH"
 
       # markdownlint gates the docs (the deliverable on this showcase repo). Pinned

@@ -44,7 +44,12 @@ have git || {
 # Pull the `owner/name  <sha>` rows out of ZPLUGIN_PINS. The grep matches a slug
 # (owner/name) followed by a 40-hex commit — the exact shape of a pin row, so the
 # array's comments and braces are ignored without needing to track block bounds.
-mapfile -t ROWS < <(grep -oE '[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+[[:space:]]+[0-9a-f]{40}' "$PLUGINS_FILE")
+# Read loop, NOT `mapfile` — mapfile is bash 4+, and this tooling must also run on
+# macOS's stock bash 3.2 (the same constraint audit-core.sh documents for the gate).
+ROWS=()
+while IFS= read -r _row; do ROWS+=("$_row"); done < <(
+  grep -oE '[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+[[:space:]]+[0-9a-f]{40}' "$PLUGINS_FILE"
+)
 [[ ${#ROWS[@]} -gt 0 ]] || {
   printf '%s✗%s no pinned plugins found in %s (is ZPLUGIN_PINS populated?)\n' "$c_red" "$c_rst" "$PLUGINS_FILE" >&2
   exit 1
