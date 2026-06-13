@@ -10,7 +10,7 @@ command -v op >/dev/null 2>&1 || return 0
 # Usage: opsecret "Personal/AWS/access_key_id"
 opsecret() {
   if [[ -z "$1" ]]; then
-    echo "Usage: opsecret <vault>/<item>/<field>"
+    _core_usage "opsecret <vault>/<item>/<field>"
     return 1
   fi
   op read "op://$1"
@@ -20,7 +20,7 @@ opsecret() {
 # Usage: openv .env.op npm run dev   (.env.op format: KEY=op://vault/item/field)
 openv() {
   if [[ -z "$1" ]]; then
-    echo "Usage: openv <env-template-file> <command...>"
+    _core_usage "openv <env-template-file> <command...>"
     return 1
   fi
   op run --env-file="$1" -- "${@:2}"
@@ -29,10 +29,10 @@ openv() {
 # optoken — copy a TOTP code to the clipboard via Core's cross-OS `clip`
 # Usage: optoken "Personal/GitHub"
 optoken() {
-  [[ -z "$1" ]] && { echo "Usage: optoken <vault>/<item>"; return 1; }
+  [[ -z "$1" ]] && { _core_usage "optoken <vault>/<item>"; return 1; }
   local otp
   otp=$(op item get "$1" --otp) || return 1
-  printf '%s' "$otp" | clip && echo "✓ TOTP copied to clipboard"
+  printf '%s' "$otp" | clip && _core_ok "TOTP copied to clipboard"
 }
 
 # opssh — list SSH keys stored in 1Password

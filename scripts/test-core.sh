@@ -233,7 +233,7 @@ fi
 hdr "load-order smoke test (canonical .zshrc chain)"
 # The README/manifest canonical order. There is no os/local module here — those
 # are supplied by each OS repo's loader and are out of Core's scope.
-CORE_MODULES=(tools options history aliases git functions fzf bindings plugins op maint update)
+CORE_MODULES=(tools ui options history aliases git functions fzf bindings plugins op maint update)
 
 # Pre-seed empty plugin dirs so plugins.zsh's first-run clone is a no-op (hermetic,
 # no network). _zplugin_load finds the dir, skips the clone, finds no source file,
@@ -283,10 +283,14 @@ fi
 # ── B. function unit tests ────────────────────────────────────────────────────
 hdr "function unit tests (functions.zsh)"
 FN="$HERE/zsh/functions.zsh"
+# functions.zsh now routes its errors through ui.zsh's _core_* helpers, so the
+# unit shell must source ui.zsh FIRST — the same ordering the real loader uses
+# (tools → ui → … → functions). It loads before functions in every assertion below.
+UI="$HERE/zsh/ui.zsh"
 
 # Run an assertion under zsh; $1 = label, $2 = zsh body that must exit 0.
 check() { # check <label> <zsh-body>
-  if HOME="$SANDBOX" zsh -fc "source '$FN' || exit 1; $2" >/dev/null 2>&1; then
+  if HOME="$SANDBOX" zsh -fc "source '$UI' || exit 1; source '$FN' || exit 1; $2" >/dev/null 2>&1; then
     pass "$1"
   else
     fail "$1"
@@ -302,7 +306,7 @@ check_dep() { # check_dep <label> <dep> <zsh-body>
     skip "$1 ($2 not installed)"
     return
   fi
-  if HOME="$SANDBOX" zsh -fc "source '$FN' || exit 1; $3" >/dev/null 2>&1; then
+  if HOME="$SANDBOX" zsh -fc "source '$UI' || exit 1; source '$FN' || exit 1; $3" >/dev/null 2>&1; then
     pass "$1"
   else
     fail "$1"

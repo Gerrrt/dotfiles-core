@@ -58,7 +58,7 @@ for plug in zsh-defer zsh-vi-mode zsh-history-substring-search \
 done
 
 # The README/manifest canonical order (no os/local — those belong to OS repos).
-CORE_MODULES=(tools options history aliases git functions fzf bindings plugins op maint update)
+CORE_MODULES=(tools ui options history aliases git functions fzf bindings plugins op maint update)
 export CORE_DIR="$HERE/zsh"
 # The `$CORE_DIR/$_m` here is expanded by the zsh CHILD reading this .zshrc, not by
 # this bash parent — so SC2016 (un-expanded `$` in single quotes) is intended.

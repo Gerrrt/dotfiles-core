@@ -6,14 +6,15 @@
 # This list is the contract. Audit scripts and the promotion checklist read it.
 # ── zsh ───────────────────────────────────────────────────────────────────────
 # Load order (sourced by each OS repo's .zshrc loader, in THIS order):
-#   tools -> options -> history -> aliases -> git -> functions -> fzf -> bindings
-#         -> plugins -> op -> maint -> update -> os -> local
+#   tools -> ui -> options -> history -> aliases -> git -> functions -> fzf
+#         -> bindings -> plugins -> op -> maint -> update -> os -> local
 # Order matters: tools inits atuin (defines its widget) and fzf defines its zle
 # widgets BEFORE plugins loads zsh-vi-mode, which fires the binding hook; options
 # runs compinit BEFORE plugins (fzf-tab + carapace need it). git loads AFTER
 # aliases so its comprehensive git set is the single source of truth (aliases.zsh
 # intentionally carries no git aliases — see the note in that file).
 zsh/tools.zsh          # detection + the single init point (zoxide/starship/atuin/mise)
+zsh/ui.zsh             # terminal-UX primitives (_core_err/warn/ok/hint/confirm/spin) — gum-aware
 zsh/options.zsh        # setopts + completion system (compinit, cached) + zstyles
 zsh/history.zsh        # HISTFILE/HISTSIZE/SAVEHIST + history setopts + secret-ignore
 zsh/aliases.zsh        # modern-CLI aliases, each guarded by tools.zsh detection

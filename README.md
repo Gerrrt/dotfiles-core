@@ -89,6 +89,7 @@ scripts/                  DEV TOOLING — runs the gate HERE, never vendored out
   update-plugins.sh       roll the pinned zsh-plugin SHAs (zsh/plugins.zsh) to upstream HEAD
 zsh/                      sourced by each OS repo's .zshrc loader, IN THIS ORDER:
   tools.zsh               detection + single init point (zoxide/starship/atuin/mise) — load FIRST
+  ui.zsh                  terminal-UX primitives (_core_err/warn/ok/hint/confirm/spin) — gum-aware
   options.zsh             setopts + completion system (compinit, cached) + zstyles
   history.zsh             HISTFILE/HISTSIZE/SAVEHIST + history setopts + secret-ignore
   aliases.zsh             modern-CLI aliases, each guarded by tools.zsh detection
@@ -122,8 +123,9 @@ core.manifest             the canonical list of Core files (drives sync + audits
 > Load order is load-bearing: `tools` inits atuin (registers its widget), `options`
 > runs `compinit` (fzf-tab + carapace need it), and `fzf` defines its zle widgets
 > BEFORE `plugins` loads zsh-vi-mode, whose init fires the keybinding hook in
-> `bindings`. Each OS repo's `.zshrc` sources them as
-> `tools → options → history → aliases → git → functions → fzf → bindings →
+> `bindings`. `ui` loads right after `tools` (it only defines the `_core_*` UX
+> helpers every later module may call). Each OS repo's `.zshrc` sources them as
+> `tools → ui → options → history → aliases → git → functions → fzf → bindings →
 plugins → op → maint → update → os → local` (the canonical order in
 > `core.manifest`).
 

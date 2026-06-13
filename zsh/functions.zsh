@@ -6,7 +6,10 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 # mkcd — make a directory and cd into it
-mkcd() { mkdir -p -- "$1" && cd -- "$1"; }
+mkcd() {
+  [[ -z "$1" ]] && { _core_usage "mkcd <dir>"; return 1; }
+  mkdir -p -- "$1" && cd -- "$1"
+}
 
 # cdup — climb N directories (cdup 3 == cd ../../..). NOT named `up`: that's the
 # package-updater in update.zsh.
@@ -18,8 +21,9 @@ cdup() {
 
 # extract — one command for any archive
 extract() {
+  [[ -z "$1" ]] && { _core_usage "extract <archive>"; return 1; }
   [[ -f "$1" ]] || {
-    echo "extract: '$1' is not a file" >&2
+    _core_err "extract: '$1' is not a file"
     return 1
   }
   # ouch (if installed) handles every format below and more from one binary;
@@ -36,7 +40,8 @@ extract() {
   *.7z) 7z x "$1" ;;
   *.rar) unrar x "$1" ;;
   *)
-    echo "extract: unknown format '$1'" >&2
+    _core_err "extract: unknown format '$1'"
+    _core_hint "supported: .tar.gz/.tgz .tar.bz2/.tbz2 .tar.xz .tar .gz .bz2 .zip .7z .rar"
     return 1
     ;;
   esac
@@ -44,6 +49,11 @@ extract() {
 
 # fcd — fuzzy-cd into any subdirectory (needs fzf + fd, degrades to find)
 fcd() {
+  _core_have fzf || {
+    _core_err "fcd: requires fzf"
+    _core_hint "install fzf, then retry"
+    return 1
+  }
   local dir
   if [[ -n ${HAVE_FZF:-} && -n ${HAVE_FD:-} ]]; then
     dir=$("$FD_BIN" --type d --hidden --exclude .git | fzf) && cd "$dir"
