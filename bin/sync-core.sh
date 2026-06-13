@@ -33,41 +33,65 @@ CORE_REMOTE="${CORE_REMOTE:-$(git -C "$HERE" remote get-url origin 2>/dev/null |
 
 ALL_OS_REPOS=(
   dotfiles-MacBook dotfiles-Windows dotfiles-Debian dotfiles-Kali
-  dotfiles-Fedora  dotfiles-Arch    dotfiles-openSUSE
-  dotfiles-Alpine  dotfiles-Gentoo
+  dotfiles-Fedora dotfiles-Arch dotfiles-openSUSE
+  dotfiles-Alpine dotfiles-Gentoo
 )
 
 DRY=0
 SELECT=()
 for arg in "$@"; do
   case "$arg" in
-    --dry-run|-n) DRY=1 ;;
-    -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
-    dotfiles-*) SELECT+=("$arg") ;;
-    *) echo "unknown arg: $arg" >&2; exit 1 ;;
+  --dry-run | -n) DRY=1 ;;
+  -h | --help)
+    sed -n '2,30p' "$0"
+    exit 0
+    ;;
+  dotfiles-*) SELECT+=("$arg") ;;
+  *)
+    echo "unknown arg: $arg" >&2
+    exit 1
+    ;;
   esac
 done
 [[ ${#SELECT[@]} -gt 0 ]] && TARGETS=("${SELECT[@]}") || TARGETS=("${ALL_OS_REPOS[@]}")
 
-c_grn=$'\e[32m'; c_yel=$'\e[33m'; c_red=$'\e[31m'; c_rst=$'\e[0m'
-ok(){   printf '%s✓%s %s\n' "$c_grn" "$c_rst" "$*"; }
-skip(){ printf '%s–%s %s\n' "$c_yel" "$c_rst" "$*"; }
-err(){  printf '%s✗%s %s\n' "$c_red" "$c_rst" "$*" >&2; }
+c_grn=$'\e[32m'
+c_yel=$'\e[33m'
+c_red=$'\e[31m'
+c_rst=$'\e[0m'
+ok() { printf '%s✓%s %s\n' "$c_grn" "$c_rst" "$*"; }
+skip() { printf '%s–%s %s\n' "$c_yel" "$c_rst" "$*"; }
+err() { printf '%s✗%s %s\n' "$c_red" "$c_rst" "$*" >&2; }
 
-[[ -n "$CORE_REMOTE" ]] || { err "CORE_REMOTE empty (set origin on dotfiles-core, or export CORE_REMOTE)"; exit 1; }
-echo ":: core remote = $CORE_REMOTE  (branch $CORE_BRANCH)"
+[[ -n "$CORE_REMOTE" ]] || {
+  err "CORE_REMOTE empty (set origin on dotfiles-core, or export CORE_REMOTE)"
+  exit 1
+}
+
+# The exact dotfiles-core revision each OS repo will receive — surfaced so a sync
+# is traceable (which Core commit landed where; pairs with CHANGELOG.md). ls-remote
+# is the source of truth: it's the tip `subtree pull` fetches, even if the local
+# checkout is behind. Falls back to the local branch SHA when offline. (The empty
+# assignment from a failed $() does NOT trip `set -e`, so the fallback runs.)
+CORE_SHA="$(git ls-remote "$CORE_REMOTE" "$CORE_BRANCH" 2>/dev/null | awk 'NR==1{print substr($1,1,12)}')"
+[[ -n "$CORE_SHA" ]] || CORE_SHA="$(git -C "$HERE" rev-parse --short=12 "$CORE_BRANCH" 2>/dev/null || echo unknown)"
+
+echo ":: core remote = $CORE_REMOTE  (branch $CORE_BRANCH @ $CORE_SHA)"
 echo ":: repos root  = $REPOS_ROOT"
 echo
 
 for repo in "${TARGETS[@]}"; do
   path="$REPOS_ROOT/$repo"
-  if [[ ! -d "$path/.git" ]]; then skip "$repo (not cloned at $path)"; continue; fi
+  if [[ ! -d "$path/.git" ]]; then
+    skip "$repo (not cloned at $path)"
+    continue
+  fi
   if [[ ! -d "$path/core" ]]; then
     skip "$repo (no core/ subtree yet — run the one-time 'git subtree add' first)"
     continue
   fi
-  if (( DRY )); then
-    echo "would: git -C $path subtree pull --prefix=core $CORE_REMOTE $CORE_BRANCH --squash"
+  if ((DRY)); then
+    echo "would: git -C $path subtree pull --prefix=core $CORE_REMOTE $CORE_BRANCH --squash   (→ $CORE_SHA)"
     continue
   fi
   # bail if the OS repo has a dirty tree — subtree merges into a clean state only
@@ -77,7 +101,7 @@ for repo in "${TARGETS[@]}"; do
   fi
   echo ":: $repo"
   if git -C "$path" subtree pull --prefix=core "$CORE_REMOTE" "$CORE_BRANCH" --squash; then
-    ok "$repo core/ updated"
+    ok "$repo core/ updated → $CORE_SHA"
   else
     err "$repo subtree pull failed — resolve, then re-run"
   fi

@@ -30,14 +30,25 @@ env:
 
 jobs:
   audit:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Core fans out to macOS (dotfiles-MacBook) AND eight Linux distros, so gate
+    # on BOTH userlands — not just Linux. The portable checks (shellcheck, zsh -n,
+    # manifest/exec-bit) are OS-agnostic, but the BEHAVIORAL tests and bin/clip*
+    # exercise real runtime: macOS ships bash 3.2 (no `mapfile`/assoc-array niceties
+    # GNU bash 4+ has) and BSD coreutils, which Ubuntu alone can never surface.
+    # fail-fast off so a macOS-only break doesn't hide a Linux-only one (and vice
+    # versa) — we want to see every failing platform in one run.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
-      # Pinned shellcheck: fetch the exact release binary (deterministic, and
-      # faster than apt's index) instead of whatever apt currently ships.
-      - name: Install shellcheck ${{ env.SHELLCHECK_VERSION }} (pinned)
+      # ── Linux: pinned shellcheck binary (deterministic, faster than apt's index) ──
+      - name: Install shellcheck ${{ env.SHELLCHECK_VERSION }} (Linux, pinned)
+        if: runner.os == 'Linux'
         run: |
           set -euxo pipefail
           ver="${SHELLCHECK_VERSION}"
@@ -46,15 +57,23 @@ jobs:
           sudo install -m755 "shellcheck-v${ver}/shellcheck" /usr/local/bin/shellcheck
           rm -rf "shellcheck-v${ver}"
 
-      - name: Install zsh
+      - name: Install zsh (Linux)
+        if: runner.os == 'Linux'
         run: |
           set -euxo pipefail
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends zsh
 
+      # ── macOS: shellcheck via Homebrew (no pinned-binary tarball published for
+      # macOS the way Linux gets one; brew is the supported path). zsh is preinstalled
+      # on the macOS runner, so there is no zsh step here. ──
+      - name: Install shellcheck (macOS)
+        if: runner.os == 'macOS'
+        run: brew install shellcheck
+
       # Cache the luarocks tree so luacheck (and its lua deps) aren't recompiled
-      # from source on every run. Key on the pinned version: bump the version and
-      # the cache key rotates automatically.
+      # from source on every run. Key on the pinned version AND the OS (the matrix
+      # runs both): bump the version and every cache key rotates automatically.
       - name: Cache luacheck (luarocks tree)
         id: luacache
         uses: actions/cache@v4
@@ -62,11 +81,20 @@ jobs:
           path: ~/.luarocks
           key: luacheck-${{ runner.os }}-${{ env.LUACHECK_VERSION }}
 
-      - name: Install luacheck ${{ env.LUACHECK_VERSION }} (pinned)
+      - name: Install luacheck ${{ env.LUACHECK_VERSION }} (Linux, pinned)
+        if: runner.os == 'Linux'
         run: |
           set -euxo pipefail
           sudo apt-get install -y --no-install-recommends luarocks
           # --local installs under ~/.luarocks (the cached path above).
+          luarocks --local install luacheck "${LUACHECK_VERSION}"
+          echo "$HOME/.luarocks/bin" >> "$GITHUB_PATH"
+
+      - name: Install luacheck ${{ env.LUACHECK_VERSION }} (macOS, pinned)
+        if: runner.os == 'macOS'
+        run: |
+          set -euxo pipefail
+          brew install luarocks
           luarocks --local install luacheck "${LUACHECK_VERSION}"
           echo "$HOME/.luarocks/bin" >> "$GITHUB_PATH"
 
@@ -75,6 +103,7 @@ jobs:
           shellcheck --version | head -2
           luacheck --version
           zsh --version
+          bash --version | head -1
 
       - name: Run Core audit (manifest, exec bits, syntax, lint, behavioral)
         run: ./bin/audit-core.sh

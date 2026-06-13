@@ -7,7 +7,7 @@
 # pre-commit call the same bin/audit-core.sh, so `make audit` == green CI.
 # ──────────────────────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help audit test lint sync sync-dry hooks update-hooks
+.PHONY: help audit test bench lint sync sync-dry hooks update-hooks
 
 help: ## Show this help
 	@echo "dotfiles-core — make targets:"
@@ -19,6 +19,9 @@ audit: ## Run the full Core audit (manifest, exec-bits, syntax, lint, behavioral
 
 test: ## Run only the behavioral tests (load-order smoke + function units)
 	@./bin/test-core.sh
+
+bench: ## Benchmark Core's contribution to zsh startup (needs hyperfine; skips if absent)
+	@./bin/bench-core.sh
 
 lint: audit ## Alias for `audit` (the audit IS the lint+test gate)
 
