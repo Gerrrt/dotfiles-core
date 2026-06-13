@@ -240,7 +240,11 @@ fi
 hdr "behavioral (scripts/test-core.sh)"
 TEST_ARGS=()
 ((QUIET)) && TEST_ARGS=(--quiet)
-if CORE_TEST_NESTED=1 ./scripts/test-core.sh "${TEST_ARGS[@]}"; then
+# `${arr[@]+"${arr[@]}"}`, not `"${arr[@]}"`: under `set -u`, expanding an EMPTY array
+# raises "unbound variable" on bash < 4.4 — i.e. macOS's stock bash 3.2, which this
+# gate must run on. The `+` form expands to nothing when unset/empty and to the quoted
+# elements otherwise, so the non-QUIET (empty TEST_ARGS) path stops aborting on macOS.
+if CORE_TEST_NESTED=1 ./scripts/test-core.sh ${TEST_ARGS[@]+"${TEST_ARGS[@]}"}; then
   pass "behavioral tests (load-order smoke + function units)"
 else
   fail "behavioral tests failed — run: ./scripts/test-core.sh"
