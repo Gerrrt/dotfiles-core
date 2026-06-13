@@ -41,6 +41,18 @@ typeset -gA ZPLUGIN_PINS=(
   MichaelAquilina/zsh-you-should-use          5f3d129864ee4505043d88c3486224f1d75b692e
 )
 
+# Show first-run install progress with Core's spinner WHEN ui.zsh is loaded; fall
+# back to running the command plainly otherwise. An OS loader mid-migration may not
+# source ui.zsh yet, so `_core_spin` may not exist — never break install for it.
+_zp_run() { # _zp_run <title> <cmd...>
+  if (($+functions[_core_spin])); then
+    _core_spin "$@"
+  else
+    shift
+    "$@"
+  fi
+}
+
 # Optional third arg: override the sourced filename
 _zplugin_load() {
   local repo="${1}" name="${2}" srcfile="${3:-}"
@@ -49,15 +61,16 @@ _zplugin_load() {
 
   if [[ ! -d "$plugin_path" ]]; then
     mkdir -p "$ZPLUGINDIR"
-    echo "Installing ${name}..."
     if [[ -n "$pin" ]]; then
       # Fetch EXACTLY the pinned commit (shallow, detached) — reproducible and
       # supply-chain-pinned. GitHub serves arbitrary SHAs via `fetch`, so we never
       # download history we don't run. On any failure, remove the half-built dir so
-      # the next shell retries cleanly instead of sourcing an empty checkout.
+      # the next shell retries cleanly instead of sourcing an empty checkout. The
+      # network-bound fetch carries a spinner; the local git steps are instant.
       git init -q "$plugin_path" &&
         git -C "$plugin_path" remote add origin "https://github.com/${repo}/${name}" &&
-        git -C "$plugin_path" fetch -q --depth 1 origin "$pin" &&
+        _zp_run "installing ${name}@${pin:0:7}" \
+          git -C "$plugin_path" fetch -q --depth 1 origin "$pin" &&
         git -C "$plugin_path" checkout -q --detach FETCH_HEAD ||
         {
           echo "ERROR: failed to install ${name}@${pin:0:12}" >&2
@@ -65,7 +78,8 @@ _zplugin_load() {
           return 1
         }
     else
-      git clone --depth=1 "https://github.com/${repo}/${name}" "$plugin_path" ||
+      _zp_run "installing ${name}" \
+        git clone --depth=1 "https://github.com/${repo}/${name}" "$plugin_path" ||
         {
           echo "ERROR: failed to install ${name}" >&2
           return 1
