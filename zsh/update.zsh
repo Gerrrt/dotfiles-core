@@ -140,6 +140,20 @@ if ((UPDATE_CHECK_ENABLED)) && [[ "$(_pkgup_mgr)" != none ]]; then
   _pkgup_notice
 fi
 
+# ── First-run hint: once per machine, point a new shell at the cheat sheet ──────
+# A brand-new clone gives no clue that `serve`, `extract`, `fif`, or the Ctrl-F/G
+# widgets exist. Print ONE unobtrusive line the first time, throttled by a sentinel
+# (like the nudge above), then never again. Set CORE_WELCOME=0 to silence entirely.
+: "${CORE_WELCOME:=1}"
+if ((CORE_WELCOME)); then
+  () {
+    local stamp="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles-core/.welcomed"
+    [[ -e "$stamp" ]] && return 0
+    mkdir -p "${stamp:h}" 2>/dev/null && : >|"$stamp" 2>/dev/null # >| : past NO_CLOBBER
+    print -P "%F{#7aa2f7}👋 dotfiles Core loaded%f %F{#565f89}— run \`core-help\` for functions, keys & maintenance%f"
+  }
+fi
+
 # ══════════════════════════════════════════════════════════════════════════════
 # up — apply updates. INTERACTIVE by design. `up -y` auto-confirms ONLY on the
 # package managers where that's safe (apt/dnf/zypper). pacman/emerge are NEVER

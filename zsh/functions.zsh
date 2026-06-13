@@ -112,3 +112,56 @@ serve() {
   fi
   python3 -m http.server "$port"
 }
+
+# core-help (alias: cheat) — a scannable cheat sheet of what Core actually gives
+# you on this box: the shell functions, the custom keybindings, and the update /
+# maintenance verbs. Static + instant — the discoverability surface for the Core
+# layer (the shell counterpart to which-key in Neovim). Rows are "key|description"
+# pairs grouped under "§heading" markers, so the list stays trivially editable.
+core-help() {
+  emulate -L zsh
+  # Raw ANSI (not prompt %F) + `print -r` below, so a literal backslash in a key
+  # (Ctrl-\) survives — print -P would consume it as an escape. Colour only on a
+  # TTY; piped/redirected output stays plain.
+  local title=$'\e[1;38;2;122;162;247m' te=$'\e[0m'
+  local kc=$'\e[36m' ke=$'\e[0m' dc=$'\e[38;2;86;95;137m' de=$'\e[0m'
+  if [[ ! -t 1 || -n ${NO_COLOR:-} ]]; then title='' te='' kc='' ke='' dc='' de=''; fi
+  local -a rows=(
+    "§navigation & files"
+    "mkcd <dir>|make a directory and cd into it"
+    "cdup [n]|climb n directories (default 1)"
+    "extract <archive>|unpack any archive (tar/zip/7z/rar/…)"
+    "mkbak <file>|timestamped .bak copy before you edit"
+    "fcd|fuzzy-cd into any subdirectory (fzf)"
+    "serve [port]|HTTP server in the CWD, prints reachable URLs"
+    "§search"
+    "fif <text>|find text inside files (rg + fzf + preview)"
+    "fbr|fuzzy git-branch checkout"
+    "§keybindings"
+    "Ctrl-F|file picker → insert path at cursor"
+    "Ctrl-R|history search"
+    "Ctrl-E|Atuin history TUI"
+    "Ctrl-G|session picker (sesh)"
+    "Alt-Z|zoxide project jump"
+    "Ctrl-\\|toggle autosuggestions"
+    "§updates & maintenance"
+    "up [-y]|apply package updates (interactive; confirms first)"
+    "update-check|refresh the 'updates available' nudge"
+    "maint-install [HH:MM]|schedule the daily safe-update job"
+    "maint-run|run daily maintenance now"
+    "maint-log [-f]|view (or follow) the maintenance log"
+  )
+  print -r -- "${title}dotfiles Core — cheat sheet${te} ${dc}(run \`core-help\` anytime)${de}"
+  local line key desc
+  for line in "${rows[@]}"; do
+    if [[ "$line" == §* ]]; then
+      print -r -- "${title}${line#§}${te}"
+    else
+      key="${line%%|*}"
+      desc="${line#*|}"
+      print -r -- "  ${kc}${(r:22:)key}${ke}${dc}${desc}${de}"
+    fi
+  done
+  print -r -- "${dc}  1Password: opsecret · openv · optoken · opssh    full reference: README.md${de}"
+}
+alias cheat='core-help'
