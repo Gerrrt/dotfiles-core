@@ -25,12 +25,9 @@ PLUGINS_FILE="zsh/plugins.zsh"
 DRY=0
 [[ "${1:-}" == "--dry-run" || "${1:-}" == "-n" ]] && DRY=1
 
-c_grn=$'\e[32m'
-c_yel=$'\e[33m'
-c_red=$'\e[31m'
-c_blu=$'\e[34m'
-c_rst=$'\e[0m'
-have() { command -v "$1" >/dev/null 2>&1; }
+# Shared palette + have() (this script keeps its own ↑/– pin-row formatting below).
+# shellcheck source=scripts/lib/common.sh
+source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
 have git || {
   printf '%s✗%s git not found — required to resolve upstream SHAs\n' "$c_red" "$c_rst" >&2

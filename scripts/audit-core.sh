@@ -40,28 +40,10 @@ cd "$HERE" || exit 1
 QUIET=0
 [[ "${1:-}" == "--quiet" || "${1:-}" == "-q" ]] && QUIET=1
 
-c_grn=$'\e[32m'
-c_yel=$'\e[33m'
-c_red=$'\e[31m'
-c_blu=$'\e[34m'
-c_rst=$'\e[0m'
-PASS=0
-SKIP=0
-FAIL=0
-pass() {
-  PASS=$((PASS + 1))
-  ((QUIET)) || printf '%s✓%s %s\n' "$c_grn" "$c_rst" "$*"
-}
-skip() {
-  SKIP=$((SKIP + 1))
-  printf '%s–%s %s\n' "$c_yel" "$c_rst" "$*"
-}
-fail() {
-  FAIL=$((FAIL + 1))
-  printf '%s✗%s %s\n' "$c_red" "$c_rst" "$*" >&2
-}
-hdr() { ((QUIET)) || printf '\n%s== %s ==%s\n' "$c_blu" "$*" "$c_rst"; }
-have() { command -v "$1" >/dev/null 2>&1; }
+# Shared palette + pass/skip/fail/hdr/have (one definition for every gate script).
+# Sourced AFTER QUIET is set so the lib's `: "${QUIET:=0}"` preserves it.
+# shellcheck source=scripts/lib/common.sh
+source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
 # Tracked files that live in dotfiles-core but are NOT vendored into OS repos'
 # core/ subtree — repo-meta and dev tooling. Anything tracked, not matched by the
@@ -125,6 +107,13 @@ if have git && git rev-parse --git-dir >/dev/null 2>&1; then
     mode="${line%% *}"
     path="${line#* }"
     case "$path" in
+    scripts/lib/*.sh)
+      # Sourced bash libraries — the bash sibling of zsh/*.zsh: no shebang, NOT
+      # executable. Must precede the generic *.sh arm below (case matches first).
+      if [[ "$mode" == 100644 ]]; then
+        pass "src  $path"
+      else fail "sourced lib must NOT be executable, is $mode: $path"; fi
+      ;;
     *.sh | bin/clip | bin/clip-paste)
       if [[ "$mode" == 100755 ]]; then
         pass "+x   $path"

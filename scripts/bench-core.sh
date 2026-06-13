@@ -33,13 +33,9 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 1
 
-c_grn=$'\e[32m'
-c_yel=$'\e[33m'
-c_red=$'\e[31m'
-c_blu=$'\e[34m'
-c_rst=$'\e[0m'
-have() { command -v "$1" >/dev/null 2>&1; }
-skip() { printf '%s–%s %s\n' "$c_yel" "$c_rst" "$*"; }
+# Shared palette + have()/skip() (this script keeps its own bench-table printfs).
+# shellcheck source=scripts/lib/common.sh
+source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
 if ! have zsh; then
   skip "bench skipped (zsh not installed)"
