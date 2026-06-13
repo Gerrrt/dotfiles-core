@@ -40,6 +40,15 @@ setopt AUTO_MENU
 setopt NO_MENU_COMPLETE # show the menu, don't auto-insert the first match
 unsetopt FLOW_CONTROL   # free up Ctrl-S / Ctrl-Q
 
+# ── Core's own completions for its first-party commands ───────────────────────
+# Ship completion functions for up/extract/mkcd/mkbak/maint-log/openv so Core's
+# verbs tab-complete like any system command. Resolve the dir relative to THIS
+# file (`%x` = path being sourced; `:A` resolves the bootstrap symlink back to
+# core/zsh/), and prepend to fpath BEFORE compinit scans it. No bootstrap symlink
+# needed — fpath points straight at the vendored core/zsh/completions.
+typeset -g _CORE_COMPDIR="${${(%):-%x}:A:h}/completions"
+[[ -d "$_CORE_COMPDIR" ]] && fpath=("$_CORE_COMPDIR" $fpath)
+
 # ── Completion system (cached: rebuild .zcompdump at most once per 24h) ────────
 typeset -g _CORE_COMPINIT_DONE
 if [[ -z $_CORE_COMPINIT_DONE ]]; then

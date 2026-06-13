@@ -101,6 +101,7 @@ zsh/                      sourced by each OS repo's .zshrc loader, IN THIS ORDER
   op.zsh                  1Password CLI helpers
   maint.zsh               daily-maintenance control surface (maint-install/run/log)
   update.zsh              `up` updater + once/day "updates available" nudge
+  completions/            autoloaded completions for Core's verbs (up/extract/mkcd/…) — fpath-added by options.zsh
 starship/
   starship.toml           prompt theme -> symlinked to ~/.config/starship.toml
 mise/

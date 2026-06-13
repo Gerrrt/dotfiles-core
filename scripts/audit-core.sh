@@ -136,9 +136,11 @@ while IFS= read -r f; do
   if bash -n "$f" 2>/dev/null; then pass "bash -n $f"; else fail "bash syntax error: $f"; fi
 done < <(git ls-files '*.sh' 'bin/clip' 'bin/clip-paste' 2>/dev/null)
 if have zsh; then
+  # The sourced modules AND the autoloaded completion functions (zsh/completions/_*,
+  # no .zsh extension) — both are zsh that fans out to 9 repos; both must parse.
   while IFS= read -r f; do
     if zsh -n "$f" 2>/dev/null; then pass "zsh -n  $f"; else fail "zsh syntax error: $f"; fi
-  done < <(git ls-files 'zsh/*.zsh' 2>/dev/null)
+  done < <(git ls-files 'zsh/*.zsh' 'zsh/completions/*' 2>/dev/null)
 else
   skip "zsh -n (zsh not installed)"
 fi

@@ -26,6 +26,7 @@ zsh/plugins.zsh        # lightweight plugin loader (zsh-defer, carapace, fzf-tab
 zsh/op.zsh             # 1Password CLI helpers (macOS agent socket -> os layer)
 zsh/maint.zsh          # daily-maintenance control surface (maint-install/run/log/...)
 zsh/update.zsh         # `up` updater + once/day "updates available" nudge
+zsh/completions/       # autoloaded completions for Core's own verbs (up/extract/mkcd/…) — fpath-added by options.zsh, not symlinked
 # ── starship — prompt theme; symlinked to the DEFAULT ~/.config/starship.toml ─
 # (so no STARSHIP_CONFIG needed). Not a .zsh module, so bootstrap links it
 # explicitly rather than via the core/zsh/*.zsh loop.

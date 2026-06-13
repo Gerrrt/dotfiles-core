@@ -1,0 +1,6 @@
+#compdef openv
+# Completion for Core's `openv` (zsh/op.zsh): an env-template file, then the
+# command (and its own args) to run with those secrets injected.
+_arguments \
+  '1:env-template:_files' \
+  '*::command:_normal'
