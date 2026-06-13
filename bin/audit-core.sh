@@ -66,7 +66,8 @@ have() { command -v "$1" >/dev/null 2>&1; }
 META_ALLOWLIST=(
   README.md PORTING-MATRIX.md CONTRIBUTING.md LICENSE
   core.manifest .gitignore .editorconfig .pre-commit-config.yaml
-  bin/sync-core.sh bin/audit-core.sh
+  bin/sync-core.sh bin/audit-core.sh bin/test-core.sh
+  Makefile
   nvim/.luacheckrc
 )
 # Directory prefixes whose tracked contents are allowlisted wholesale.
@@ -171,6 +172,20 @@ if have shellcheck; then
   ((sc_fail)) || pass "shellcheck (all bash scripts clean)"
 else
   skip "shellcheck (not installed)"
+fi
+
+# ── 6. behavioral tests (load-order smoke + function unit tests) ──────────────
+# Static analysis above proves the modules PARSE; this proves they LOAD TOGETHER
+# in canonical order and that the pure functions behave. Delegated to test-core.sh
+# (single source of truth) but folded into ONE audit summary via CORE_TEST_NESTED.
+# Self-gates on zsh: with none installed it SKIPs, exactly like sections 3–5.
+hdr "behavioral (bin/test-core.sh)"
+TEST_ARGS=()
+((QUIET)) && TEST_ARGS=(--quiet)
+if CORE_TEST_NESTED=1 ./bin/test-core.sh "${TEST_ARGS[@]}"; then
+  pass "behavioral tests (load-order smoke + function units)"
+else
+  fail "behavioral tests failed — run: ./bin/test-core.sh"
 fi
 
 # ── summary ──────────────────────────────────────────────────────────────────

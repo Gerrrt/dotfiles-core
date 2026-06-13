@@ -14,18 +14,61 @@ on:
 permissions:
   contents: read
 
+# One in-flight run per ref. This both (a) cancels a superseded run when you push
+# again, and (b) dedupes the push-event + pull_request-event double-trigger on a
+# same-repo PR: both share this ref-keyed group, so only the latest survives.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Pin the linters CI installs so the 9-repo gate is REPRODUCIBLE — a new upstream
+# shellcheck/luacheck release can't silently turn CI red with zero repo changes.
+# Bump these deliberately (and dependabot/`make update-hooks` keeps the rest moving).
+env:
+  SHELLCHECK_VERSION: "0.10.0"
+  LUACHECK_VERSION: "1.2.0"
+
 jobs:
   audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install linters
+      # Pinned shellcheck: fetch the exact release binary (deterministic, and
+      # faster than apt's index) instead of whatever apt currently ships.
+      - name: Install shellcheck ${{ env.SHELLCHECK_VERSION }} (pinned)
+        run: |
+          set -euxo pipefail
+          ver="${SHELLCHECK_VERSION}"
+          url="https://github.com/koalaman/shellcheck/releases/download/v${ver}/shellcheck-v${ver}.linux.x86_64.tar.xz"
+          curl -fsSL "$url" | tar -xJ
+          sudo install -m755 "shellcheck-v${ver}/shellcheck" /usr/local/bin/shellcheck
+          rm -rf "shellcheck-v${ver}"
+
+      - name: Install zsh
         run: |
           set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y shellcheck zsh luarocks
-          sudo luarocks install luacheck
+          sudo apt-get install -y --no-install-recommends zsh
+
+      # Cache the luarocks tree so luacheck (and its lua deps) aren't recompiled
+      # from source on every run. Key on the pinned version: bump the version and
+      # the cache key rotates automatically.
+      - name: Cache luacheck (luarocks tree)
+        id: luacache
+        uses: actions/cache@v4
+        with:
+          path: ~/.luarocks
+          key: luacheck-${{ runner.os }}-${{ env.LUACHECK_VERSION }}
+
+      - name: Install luacheck ${{ env.LUACHECK_VERSION }} (pinned)
+        run: |
+          set -euxo pipefail
+          sudo apt-get install -y --no-install-recommends luarocks
+          # --local installs under ~/.luarocks (the cached path above).
+          luarocks --local install luacheck "${LUACHECK_VERSION}"
+          echo "$HOME/.luarocks/bin" >> "$GITHUB_PATH"
 
       - name: Tool versions
         run: |
@@ -33,5 +76,5 @@ jobs:
           luacheck --version
           zsh --version
 
-      - name: Run Core audit (manifest, exec bits, syntax, lint)
+      - name: Run Core audit (manifest, exec bits, syntax, lint, behavioral)
         run: ./bin/audit-core.sh

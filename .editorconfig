@@ -1,7 +1,11 @@
 # .editorconfig — house style for dotfiles-core.
 # https://editorconfig.org  — honored natively by Neovim (this repo's editor),
-# VS Code, and most others. Keeps the multi-language tree (bash, zsh, lua, toml,
-# yaml) on one consistent 2-space style so shfmt/stylua/luacheck don't churn.
+# VS Code, and most others. This file is the single enforcer of indentation in
+# the multi-language tree (bash, zsh, lua, toml, yaml): it keeps everything on one
+# consistent 2-space style at edit time. NB: neither shfmt nor stylua is wired
+# into CI or pre-commit (shfmt would expand the deliberate compact one-liner
+# style — see bin/audit-core.sh); the enforced checks are shellcheck + luacheck
+# (real bugs) plus the behavioral/manifest audit. Formatting stays editorconfig.
 root = true
 [*]
 charset = utf-8
@@ -10,10 +14,10 @@ insert_final_newline = true
 trim_trailing_whitespace = true
 indent_style = space
 indent_size = 2
-# Shell — matches shfmt -i 2 -ci used in CI and pre-commit.
+# Shell — 2-space (shfmt is intentionally NOT enforced; this just keeps edits 2-space).
 [*.{sh,zsh}]
 indent_size = 2
-# Lua (Neovim config) — stylua/luacheck default to 2-space in this tree.
+# Lua (Neovim config) — 2-space; luacheck (run from nvim/) is the enforced linter.
 [*.lua]
 indent_size = 2
 [*.{toml,yml,yaml}]
@@ -24,3 +28,6 @@ trim_trailing_whitespace = false
 # tmux/git configs follow upstream conventions.
 [*.{conf,gitconfig}]
 indent_size = 2
+# Makefile — recipe lines REQUIRE real tabs; override the global space rule.
+[Makefile]
+indent_style = tab
