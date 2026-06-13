@@ -27,6 +27,9 @@ concurrency:
 env:
   SHELLCHECK_VERSION: "0.10.0"
   LUACHECK_VERSION: "1.2.0"
+  # pre-commit has no dependabot ecosystem here (like the linters above), so this is
+  # the deliberate manual bump point for the hygiene gate's runner version.
+  PRECOMMIT_VERSION: "4.0.1"
 
 jobs:
   audit:
@@ -44,7 +47,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       # ── Linux: pinned shellcheck binary (deterministic, faster than apt's index) ──
       - name: Install shellcheck ${{ env.SHELLCHECK_VERSION }} (Linux, pinned)
@@ -76,7 +79,7 @@ jobs:
       # runs both): bump the version and every cache key rotates automatically.
       - name: Cache luacheck (luarocks tree)
         id: luacache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.luarocks
           key: luacheck-${{ runner.os }}-${{ env.LUACHECK_VERSION }}
@@ -115,6 +118,36 @@ jobs:
       - name: Run Core audit (manifest, exec bits, syntax, lint, behavioral)
         run: ./bin/audit-core.sh
 
+  # Author-time hygiene gate. The .pre-commit-config.yaml hooks only fire for
+  # contributors who ran `pre-commit install`; without this job a push carrying
+  # trailing whitespace, a missing final newline, a stray `<<<<<<<` conflict marker,
+  # or a shebang script that isn't +x sails through green and subtree-syncs into all
+  # 9 repos. The audit job deliberately does NOT replicate these file-hygiene hooks
+  # (audit-core.sh owns manifest/lint/behavioral), so run the SAME config here —
+  # author-time == CI, one source of truth, zero drift. SKIP the three hooks the
+  # audit job already owns so nothing runs twice and this stays the fast lane.
+  # Linux-only: file hygiene is OS-agnostic, unlike the audit's dual-userland matrix.
+  precommit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      # Cache the hook environments pre-commit clones+builds, keyed on the config so a
+      # hook-rev bump (or a new hook) rotates the key automatically.
+      - name: Cache pre-commit hooks
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+      # pipx is preinstalled on the runner and installs to ~/.local/bin (already on
+      # PATH), sidestepping PEP-668 "externally-managed-environment" pip errors.
+      - name: Install pre-commit ${{ env.PRECOMMIT_VERSION }} (pinned)
+        run: pipx install "pre-commit==${PRECOMMIT_VERSION}"
+      - name: Run hygiene hooks (audit-owned hooks skipped)
+        env:
+          SKIP: audit-core,shellcheck,markdownlint-cli2
+        run: pre-commit run --all-files --show-diff-on-failure
+
   # Startup-perf visibility. Core invests in startup speed (cached tool-init in
   # tools.zsh, deferred plugins in plugins.zsh); this surfaces the number on every
   # push so a regression is visible in the log. INFORMATIONAL, not a gate: shared
@@ -126,7 +159,7 @@ jobs:
     timeout-minutes: 10
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Install zsh + hyperfine
         run: |
           set -euxo pipefail

@@ -68,11 +68,11 @@ have() { command -v "$1" >/dev/null 2>&1; }
 # manifest, must appear here (or under a META_PREFIXES dir) or section 1 flags it.
 META_ALLOWLIST=(
   README.md PORTING-MATRIX.md CONTRIBUTING.md CHANGELOG.md LICENSE SECURITY.md
-  core.manifest .gitignore .editorconfig .pre-commit-config.yaml .markdownlint.jsonc
+  core.manifest .gitignore .gitattributes .editorconfig .pre-commit-config.yaml .markdownlint.jsonc
   bin/sync-core.sh bin/audit-core.sh bin/test-core.sh bin/bench-core.sh
   Makefile
   nvim/.luacheckrc
-  CODEOWNERS dependabot.yml pull_request_template.md
+  CODEOWNERS pull_request_template.md
 )
 # Directory prefixes whose tracked contents are allowlisted wholesale.
 META_PREFIXES=(examples/ .github/)

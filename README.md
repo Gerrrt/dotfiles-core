@@ -46,6 +46,10 @@ To update every OS repo after a Core change, run the loop helper from this repo:
 ./bin/sync-core.sh --dry-run
 ```
 
+> Run `make` (no target) for a discoverable list of every entry point —
+> `make audit` / `test` / `bench` / `sync` / `hooks` all shell out to the
+> `bin/*.sh` scripts above, which stay the single source of truth.
+
 The OS repo's `bootstrap.sh` then symlinks `core/zsh/*.zsh`, `core/tmux/`,
 `core/nvim/`, `core/git/`, `core/starship/`, `core/mise/`, and `core/bin/` into
 place alongside its own OS-native files.
@@ -76,6 +80,9 @@ bin/
   clip                    cross-OS "copy to clipboard"   (WSL/macOS/Wayland/X11)
   clip-paste              cross-OS "paste from clipboard"
   sync-core.sh            loop git-subtree pull across all OS repos (the maintain button)
+  audit-core.sh           THE gate: manifest/exec-bit/syntax/lint/behavioral (CI + pre-commit run this)
+  test-core.sh            behavioral suite: load-order smoke + functions.zsh unit tests
+  bench-core.sh           hermetic hyperfine benchmark of the canonical zsh load chain
 zsh/                      sourced by each OS repo's .zshrc loader, IN THIS ORDER:
   tools.zsh               detection + single init point (zoxide/starship/atuin/mise) — load FIRST
   options.zsh             setopts + completion system (compinit, cached) + zstyles
