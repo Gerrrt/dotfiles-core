@@ -17,24 +17,27 @@
 ENGAGEMENTS_DIR="${ENGAGEMENTS_DIR:-$HOME/engagements}"
 
 build_menu() {
-	# ── Sessions + windows (skip the popup scratch sessions) ──────────────────
-	tmux list-sessions -F '#S' | grep -v '^_popup_' | while IFS= read -r s; do
-		printf '▼ %s\tswitch\t%s\n' "$s" "$s"
-		tmux list-windows -t "$s" -F "#I"$'\t'"#W" | while IFS=$'\t' read -r idx wname; do
-			printf '  ⦿ %s:%s %s\tswitch\t%s:%s\n' "$s" "$idx" "$wname" "$s" "$idx"
-		done
-	done
+  # ── Sessions + windows (skip the popup scratch sessions) ──────────────────
+  tmux list-sessions -F '#S' | grep -v '^_popup_' | while IFS= read -r s; do
+    printf '▼ %s\tswitch\t%s\n' "$s" "$s"
+    tmux list-windows -t "$s" -F "#I"$'\t'"#W" | while IFS=$'\t' read -r idx wname; do
+      printf '  ⦿ %s:%s %s\tswitch\t%s:%s\n' "$s" "$idx" "$wname" "$s" "$idx"
+    done
+  done
 
-	# ── Engagements (only if the dir exists — keeps this portable Core) ───────
-	if [[ -d "$ENGAGEMENTS_DIR" ]]; then
-		find "$ENGAGEMENTS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null |
-			sort -r | while IFS= read -r dir; do
-			printf '◆ %s\teng\t%s\n' "$(basename "$dir")" "$dir"
-		done
-	fi
+  # ── Engagements (only if the dir exists — keeps this portable Core) ───────
+  if [[ -d "$ENGAGEMENTS_DIR" ]]; then
+    find "$ENGAGEMENTS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null |
+      sort -r | while IFS= read -r dir; do
+      printf '◆ %s\teng\t%s\n' "$(basename "$dir")" "$dir"
+    done
+  fi
 }
 
 # Preview: live pane content for sessions/windows; the scope sheet for engagements.
+# shellcheck disable=SC2016  # single quotes are intentional: fzf re-evaluates this
+# string in its own subshell per row, where {} is fzf's placeholder and $line/$kind/
+# $payload are bound there — expanding them in this shell would defeat the preview.
 preview='line={}
 kind=$(printf "%s" "$line" | cut -f2)
 payload=$(printf "%s" "$line" | cut -f3)
@@ -44,12 +47,12 @@ case "$kind" in
 esac'
 
 selected=$(build_menu |
-	fzf --reverse \
-		--prompt="Go ❯ " \
-		--delimiter='\t' \
-		--with-nth=1 \
-		--preview="$preview" \
-		--preview-window="right:55%:wrap:border-left")
+  fzf --reverse \
+    --prompt="Go ❯ " \
+    --delimiter='\t' \
+    --with-nth=1 \
+    --preview="$preview" \
+    --preview-window="right:55%:wrap:border-left")
 
 [[ -z "$selected" ]] && exit 0
 
@@ -58,15 +61,15 @@ payload=$(printf '%s' "$selected" | cut -f3)
 
 case "$kind" in
 eng)
-	# Create the engagement session if it isn't open yet, then switch.
-	name=$(basename "$payload" | tr '[:upper:] .' '[:lower:]__')
-	if ! tmux has-session -t "$name" 2>/dev/null; then
-		tmux new-session -ds "$name" -c "$payload"
-		tmux set-environment -t "$name" ENGAGEMENT "$payload"
-	fi
-	tmux switch-client -t "$name"
-	;;
+  # Create the engagement session if it isn't open yet, then switch.
+  name=$(basename "$payload" | tr '[:upper:] .' '[:lower:]__')
+  if ! tmux has-session -t "$name" 2>/dev/null; then
+    tmux new-session -ds "$name" -c "$payload"
+    tmux set-environment -t "$name" ENGAGEMENT "$payload"
+  fi
+  tmux switch-client -t "$name"
+  ;;
 switch)
-	tmux switch-client -t "$payload"
-	;;
+  tmux switch-client -t "$payload"
+  ;;
 esac

@@ -74,7 +74,17 @@ log "═══════════ dotfiles-maint start ($(uname -s) $(hostn
 
 # ── Homebrew ──────────────────────────────────────────────────────────────────
 if have brew || [[ -x /opt/homebrew/bin/brew || -x /home/linuxbrew/.linuxbrew/bin/brew ]]; then
-  have brew || eval "$([[ -x /opt/homebrew/bin/brew ]] && /opt/homebrew/bin/brew shellenv || /home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+  # Put brew on PATH if a scheduler handed us a minimal env without it. Explicit
+  # if/else (not `A && B || C`): under SC2015 that idiom silently runs C when B
+  # fails, and conflates "test failed" with "shellenv failed" — here we want a
+  # plain Apple-Silicon-else-Linuxbrew branch.
+  if ! have brew; then
+    if [[ -x /opt/homebrew/bin/brew ]]; then
+      eval "$(/opt/homebrew/bin/brew shellenv)"
+    else
+      eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    fi
+  fi
   step "brew update" _to "$MAINT_BREW_TIMEOUT" brew update
   step "brew upgrade" _to "$MAINT_BREW_TIMEOUT" brew upgrade
   step "brew cleanup" brew cleanup -s
@@ -107,6 +117,9 @@ fi
 # to zsh (-f: skip rc files; $1: the resolved ZDOTDIR). Failures are non-fatal.
 if have zsh; then
   ZDOTDIR_RESOLVED="${ZDOTDIR:-$HOME/.config/zsh}"
+  # shellcheck disable=SC2016  # single quotes are intentional: $zd/$f/$1 are
+  # expanded by the INNER `zsh -f -c` (with $1 = ZDOTDIR passed as an arg below),
+  # not by this outer bash. Expanding them here would break the compile loop.
   step "zsh: byte-compile modules + plugins" zsh -f -c '
     emulate -L zsh
     setopt extended_glob null_glob
@@ -152,6 +165,7 @@ fi
 # Distro detection for the Kali / opt-in apply guard below.
 OS_ID=""
 [[ -r /etc/os-release ]] && OS_ID="$(
+  # shellcheck source=/dev/null  # generated system file; nothing to follow at lint time
   . /etc/os-release 2>/dev/null
   echo "$ID"
 )"

@@ -41,7 +41,6 @@ sesh/sesh.toml.example
 tmux/tmux.conf            # main config; sources tmux.reset.conf first, os.conf last
 tmux/tmux.reset.conf      # the keybinding layer (prefix C-a lives here) — MUST be symlinked
 tmux/scripts/             # tmux-menu / tmux-scratch / tmux-sesh / tmux-netinfo (popups + status)
-#                           (tmux-sessionizer.sh is superseded by tmux-sesh.sh)
 # ── maintenance runner (invoked by the scheduler maint.zsh installs) ──────────
 maint/dotfiles-maint.sh
 # ── git — portable config; credential/identity split to OS+local ──────────────
