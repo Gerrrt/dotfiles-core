@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# bin/test-core.sh
+# scripts/test-core.sh
 # ──────────────────────────────────────────────────────────────────────────────
-# BEHAVIORAL tests for Core — the layer bin/audit-core.sh's static analysis can't
+# BEHAVIORAL tests for Core — the layer scripts/audit-core.sh's static analysis can't
 # reach. audit-core.sh proves the modules PARSE (zsh -n) and that the manifest and
 # exec-bits are consistent; this proves the modules actually LOAD TOGETHER in the
 # canonical order and that the pure shell functions DO what they claim. A defect
@@ -26,8 +26,8 @@
 # call from CI, pre-commit, and a developer's laptop alike.
 #
 # Usage:
-#   ./bin/test-core.sh            # run every section
-#   ./bin/test-core.sh --quiet    # only print SKIP/FAIL + the summary
+#   ./scripts/test-core.sh            # run every section
+#   ./scripts/test-core.sh --quiet    # only print SKIP/FAIL + the summary
 # ──────────────────────────────────────────────────────────────────────────────
 
 # This harness embeds zsh code as single-quoted literals on purpose: the `$…`

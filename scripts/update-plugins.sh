@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bin/update-plugins.sh
+# scripts/update-plugins.sh
 # ──────────────────────────────────────────────────────────────────────────────
 # Deliberately roll the pinned zsh-plugin revisions in zsh/plugins.zsh forward to
 # each upstream's current default-branch HEAD. This is the runtime-plugin mirror of
@@ -13,8 +13,8 @@
 # to be repeated here and can never drift from what actually loads.
 #
 # Usage:
-#   ./bin/update-plugins.sh            # bump every pin to upstream HEAD, in place
-#   ./bin/update-plugins.sh --dry-run  # show what WOULD change, touch nothing
+#   ./scripts/update-plugins.sh            # bump every pin to upstream HEAD, in place
+#   ./scripts/update-plugins.sh --dry-run  # show what WOULD change, touch nothing
 # ──────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 

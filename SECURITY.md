@@ -8,8 +8,9 @@ into every OS repo via `git subtree`, so a defect here **fans out N-way**. That
 makes two classes of issue worth a security report rather than a normal issue:
 
 - a tracked file that leaks a secret, token, or other sensitive value, and
-- a Core script (`bin/*.sh`, `maint/dotfiles-maint.sh`, `tmux/scripts/*`) that can
-  be coerced into running untrusted input on a consumer's machine.
+- a Core script (`bin/clip*`, `maint/dotfiles-maint.sh`, `tmux/scripts/*`, or the
+  `scripts/*.sh` dev tooling) that can be coerced into running untrusted input on a
+  consumer's or maintainer's machine.
 
 ## Reporting a vulnerability
 
@@ -24,7 +25,7 @@ Include, where you can:
 - a minimal reproduction.
 
 You can expect an acknowledgement within a few days. A confirmed fix lands here
-first, then propagates to each OS repo on the next `./bin/sync-core.sh`.
+first, then propagates to each OS repo on the next `./scripts/sync-core.sh`.
 
 ## Scope
 

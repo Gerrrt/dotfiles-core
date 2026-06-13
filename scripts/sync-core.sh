@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bin/sync-core.sh
+# scripts/sync-core.sh
 # ──────────────────────────────────────────────────────────────────────────────
 # THE MAINTAIN BUTTON.
 #
@@ -13,9 +13,9 @@
 #       git subtree add --prefix=core <core-remote> main --squash
 #
 # Usage:
-#   ./bin/sync-core.sh                # pull core into every repo found
-#   ./bin/sync-core.sh --dry-run      # show what would happen, touch nothing
-#   ./bin/sync-core.sh dotfiles-Fedora dotfiles-Arch   # only these
+#   ./scripts/sync-core.sh                # pull core into every repo found
+#   ./scripts/sync-core.sh --dry-run      # show what would happen, touch nothing
+#   ./scripts/sync-core.sh dotfiles-Fedora dotfiles-Arch   # only these
 #
 # Env overrides:
 #   REPOS_ROOT   parent dir holding the repos   (default: parent of this repo)

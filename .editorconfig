@@ -4,7 +4,7 @@
 # the multi-language tree (bash, zsh, lua, toml, yaml): it keeps everything on one
 # consistent 2-space style at edit time. NB: neither shfmt nor stylua is wired
 # into CI or pre-commit (shfmt would expand the deliberate compact one-liner
-# style — see bin/audit-core.sh); the enforced checks are shellcheck + luacheck
+# style — see scripts/audit-core.sh); the enforced checks are shellcheck + luacheck
 # (real bugs) plus the behavioral/manifest audit. Formatting stays editorconfig.
 root = true
 [*]

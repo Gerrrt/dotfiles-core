@@ -28,7 +28,7 @@ ZPLUGINDIR="${ZDOTDIR:-$HOME/.config/zsh}/plugins"
 # GitHub Actions by SHA. An unpinned `master` clone means an upstream breaking
 # change — or a compromised tag — fans out to every machine on the next install.
 # So pin each to a commit, exactly like the rest of the toolchain. Keyed by the
-# FULL owner/name slug so `make update-plugins` (bin/update-plugins.sh) can
+# FULL owner/name slug so `make update-plugins` (scripts/update-plugins.sh) can
 # ls-remote each and rewrite the SHA deliberately — the runtime never floats.
 # A plugin with no entry here falls back to the old floating `--depth=1` clone.
 typeset -gA ZPLUGIN_PINS=(

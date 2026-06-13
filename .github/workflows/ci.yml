@@ -4,7 +4,7 @@ name: ci
 # A defect that lands here fans out N-way — so gate every push/PR with the same
 # audit the maintainer runs locally. CI installs the linters that a bare box may
 # lack (shellcheck/shfmt/luacheck/zsh) and then hands off entirely to
-# bin/audit-core.sh, so there is ONE definition of "Core is healthy".
+# scripts/audit-core.sh, so there is ONE definition of "Core is healthy".
 
 on:
   push:
@@ -139,14 +139,14 @@ jobs:
           nvim --version | head -1
 
       - name: Run Core audit (manifest, exec bits, syntax, lint, behavioral)
-        run: ./bin/audit-core.sh
+        run: ./scripts/audit-core.sh
 
   # Alpine (musl libc + busybox coreutils) is a named target repo, and functions.zsh
   # + the maint/test scripts explicitly claim busybox compatibility — yet the matrix
   # above only proves glibc Ubuntu and BSD macOS, never musl/busybox. This leg closes
   # that asserted-but-unverified gap. We deliberately do NOT use `container: alpine`
   # (its musl libc breaks the glibc Node that actions/checkout ships, a known failure);
-  # instead we check out on the host and run the SAME bin/audit-core.sh inside an Alpine
+  # instead we check out on the host and run the SAME scripts/audit-core.sh inside an Alpine
   # container with the workspace bind-mounted. Only bash/zsh/git/shellcheck/python are
   # installed — luacheck, markdownlint and nvim skip gracefully here and are already
   # covered on the glibc legs. The value is everything ELSE running against busybox
@@ -165,7 +165,7 @@ jobs:
             # without this, git 2.35+ refuses it as "dubious ownership" and the audit
             # cannot read ls-files/ls-tree. Scope the exception to the mounted path.
             git config --global --add safe.directory /core
-            ./bin/audit-core.sh
+            ./scripts/audit-core.sh
           '
 
   # Author-time hygiene gate. The .pre-commit-config.yaml hooks only fire for
@@ -216,4 +216,4 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends zsh hyperfine
       - name: Benchmark Core startup (report-only)
-        run: ./bin/bench-core.sh
+        run: ./scripts/bench-core.sh

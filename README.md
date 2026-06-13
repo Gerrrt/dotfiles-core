@@ -42,17 +42,19 @@ showcase repos people will browse.
 To update every OS repo after a Core change, run the loop helper from this repo:
 
 ```bash
-./bin/sync-core.sh          # subtree-pulls main into all 9 OS repos
-./bin/sync-core.sh --dry-run
+./scripts/sync-core.sh          # subtree-pulls main into all 9 OS repos
+./scripts/sync-core.sh --dry-run
 ```
 
 > Run `make` (no target) for a discoverable list of every entry point —
 > `make audit` / `test` / `bench` / `sync` / `hooks` all shell out to the
-> `bin/*.sh` scripts above, which stay the single source of truth.
+> `scripts/*.sh` dev tooling, which stays the single source of truth. (`bin/`
+> holds only what ships — `clip`/`clip-paste`; the gate scripts live in `scripts/`.)
 
 The OS repo's `bootstrap.sh` then symlinks `core/zsh/*.zsh`, `core/tmux/`,
 `core/nvim/`, `core/git/`, `core/starship/`, `core/mise/`, and `core/bin/` into
-place alongside its own OS-native files.
+place alongside its own OS-native files. (`core/bin/` is just `clip`/`clip-paste`
+now — the dev scripts in `core/scripts/` are repo tooling and aren't symlinked.)
 
 ---
 
@@ -76,13 +78,15 @@ each OS repo's vendored `core/`. The canonical inventory is `core.manifest`;
 this tree is the human-readable version of it.
 
 ```text
-bin/
+bin/                      SHIPPED — vendored into every OS repo (in core.manifest):
   clip                    cross-OS "copy to clipboard"   (WSL/macOS/Wayland/X11)
   clip-paste              cross-OS "paste from clipboard"
-  sync-core.sh            loop git-subtree pull across all OS repos (the maintain button)
+scripts/                  DEV TOOLING — runs the gate HERE, never vendored out:
   audit-core.sh           THE gate: manifest/exec-bit/syntax/lint/behavioral (CI + pre-commit run this)
-  test-core.sh            behavioral suite: load-order smoke + functions.zsh unit tests
+  test-core.sh            behavioral suite: clip ladder + load-order smoke + functions + nvim load
   bench-core.sh           hermetic hyperfine benchmark of the canonical zsh load chain
+  sync-core.sh            loop git-subtree pull across all OS repos (the maintain button)
+  update-plugins.sh       roll the pinned zsh-plugin SHAs (zsh/plugins.zsh) to upstream HEAD
 zsh/                      sourced by each OS repo's .zshrc loader, IN THIS ORDER:
   tools.zsh               detection + single init point (zoxide/starship/atuin/mise) — load FIRST
   options.zsh             setopts + completion system (compinit, cached) + zstyles
@@ -137,4 +141,4 @@ this is now just the procedure for the occasional **new** Core file:
 3. Strip anything OS-specific out into the OS repo (clipboard, paths, pkg mgr).
 4. Add the path to `core.manifest` — that's the contract the audits read.
 5. Wire the symlink into each OS repo's `bootstrap.sh` if the file needs one.
-6. `./bin/sync-core.sh` to push it into every OS repo's vendored `core/`.
+6. `./scripts/sync-core.sh` to push it into every OS repo's vendored `core/`.

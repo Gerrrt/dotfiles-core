@@ -2,7 +2,7 @@
 // dotfiles-core is a public showcase repo, so its markdown (README, PORTING-MATRIX,
 // CONTRIBUTING, CHANGELOG, SECURITY) is a deliverable. This config is the single
 // definition of "docs are healthy", mirrored by the pre-commit hook and the
-// markdown section in bin/audit-core.sh — same one-gate philosophy as the rest.
+// markdown section in scripts/audit-core.sh — same one-gate philosophy as the rest.
 //
 // Two rules are deliberately off; everything else (the default rule set) stays on
 // to catch real structural defects — bad headings, broken lists, stray HTML, the

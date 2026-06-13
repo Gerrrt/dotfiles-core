@@ -30,20 +30,20 @@ enforces this in both directions:
 - every tracked file must be either listed in the manifest or in the audit's
   repo-meta allowlist (docs, CI config, dev tooling).
 
-Repo-meta and dev tooling (this file, `LICENSE`, `.github/`, `bin/sync-core.sh`,
-`bin/audit-core.sh`, …) are **not** vendored into OS repos, so they live in the
-allowlist in `bin/audit-core.sh` rather than the manifest.
+Repo-meta and dev tooling (this file, `LICENSE`, `.github/`, `scripts/sync-core.sh`,
+`scripts/audit-core.sh`, …) are **not** vendored into OS repos, so they live in the
+allowlist in `scripts/audit-core.sh` rather than the manifest.
 
 ## Run the audit before you push
 
-`bin/audit-core.sh` is the test suite. It checks manifest↔filesystem drift,
+`scripts/audit-core.sh` is the test suite. It checks manifest↔filesystem drift,
 executable-bit invariants, shell syntax (`bash -n` / `zsh -n`), `luacheck`, and
 `shellcheck`. It degrades gracefully — a missing linter is skipped, not failed —
 so it runs on a bare box as well as in CI.
 
 ```bash
-./bin/audit-core.sh           # full run
-./bin/audit-core.sh --quiet   # only skips/failures + summary
+./scripts/audit-core.sh           # full run
+./scripts/audit-core.sh --quiet   # only skips/failures + summary
 ```
 
 The same script runs in CI (`.github/workflows/ci.yml`) on every push and PR, so
@@ -68,8 +68,9 @@ itself at commit time. Two deliberate non-checks:
 
 ## Conventions
 
-- **Executable bits matter.** Anything invoked by path (the `bin/` and
-  `tmux/scripts/` scripts, the maint runner) must be `+x`; the `zsh/*.zsh`
+- **Executable bits matter.** Anything invoked by path (the `bin/` clip shims, the
+  `scripts/` dev tooling and `tmux/scripts/` popups, the maint runner) must be `+x`;
+  the `zsh/*.zsh`
   modules are **sourced**, so they must stay non-executable. The audit asserts
   both, so a regression fails CI rather than reaching a machine.
 - **Indentation** is 2-space across the tree (`.editorconfig`).
@@ -100,5 +101,5 @@ same commit.
 3. Strip out anything OS-specific.
 4. Add the path to `core.manifest`.
 5. Wire the symlink into each OS repo's `bootstrap.sh` if it needs one.
-6. `./bin/audit-core.sh` — green before you push.
-7. `./bin/sync-core.sh` to vendor it into every OS repo.
+6. `./scripts/audit-core.sh` — green before you push.
+7. `./scripts/sync-core.sh` to vendor it into every OS repo.

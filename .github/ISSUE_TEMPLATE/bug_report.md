@@ -18,15 +18,15 @@ A clear description of the bug.
 
 ## Which Core file(s)
 
-e.g. `zsh/tools.zsh`, `bin/audit-core.sh`, `nvim/lua/gerrrt/...`
+e.g. `zsh/tools.zsh`, `scripts/audit-core.sh`, `nvim/lua/gerrrt/...`
 
 ## How to reproduce
 
 Steps, or a minimal command. If it's a load-order/runtime break, the output of:
 
 ```bash
-./bin/audit-core.sh        # the one gate
-./bin/test-core.sh         # behavioral (load-order + function units)
+./scripts/audit-core.sh        # the one gate
+./scripts/test-core.sh         # behavioral (load-order + function units)
 ```
 
 ## Expected vs actual
