@@ -52,7 +52,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       # ── Linux: pinned shellcheck binary (deterministic, faster than apt's index) ──
       - name: Install shellcheck ${{ env.SHELLCHECK_VERSION }} (Linux, pinned)
@@ -163,7 +163,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Audit on Alpine (musl + busybox)
         run: |
           docker run --rm -v "$PWD:/core" -w /core alpine:3.21 sh -euc '
@@ -188,7 +188,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       # Cache the hook environments pre-commit clones+builds, keyed on the config so a
       # hook-rev bump (or a new hook) rotates the key automatically.
       - name: Cache pre-commit hooks
@@ -216,7 +216,7 @@ jobs:
     timeout-minutes: 10
     continue-on-error: true
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Install zsh + hyperfine
         run: |
           set -euxo pipefail
