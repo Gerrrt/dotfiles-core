@@ -27,6 +27,11 @@ concurrency:
 env:
   SHELLCHECK_VERSION: "0.10.0"
   LUACHECK_VERSION: "1.2.0"
+  # nvim/ is the largest body of Core; test-core.sh now does a headless config-load
+  # smoke test, so CI must ship a real nvim for it to run (not skip). Pinned for the
+  # same reproducibility reason as the linters above — a new nvim release can't turn
+  # the gate red with zero repo changes. Bump deliberately.
+  NVIM_VERSION: "0.12.3"
   # pre-commit has no dependabot ecosystem here (like the linters above), so this is
   # the deliberate manual bump point for the hygiene gate's runner version.
   PRECOMMIT_VERSION: "4.0.1"
@@ -107,6 +112,23 @@ jobs:
       - name: Install markdownlint-cli2 (pinned)
         run: npm install -g markdownlint-cli2@0.22.1
 
+      # ── neovim: Linux gets the maintainer's pinned release tarball (deterministic,
+      # like shellcheck above); macOS uses brew, mirroring the shellcheck/luarocks
+      # macOS path (the runner's preinstalled-tap route, no per-arch tarball juggling).
+      # Drives test-core.sh's headless config-load smoke test. ──
+      - name: Install neovim ${{ env.NVIM_VERSION }} (Linux, pinned)
+        if: runner.os == 'Linux'
+        run: |
+          set -euxo pipefail
+          ver="${NVIM_VERSION}"
+          url="https://github.com/neovim/neovim/releases/download/v${ver}/nvim-linux-x86_64.tar.gz"
+          curl -fsSL "$url" | sudo tar -xz -C /opt
+          sudo ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
+
+      - name: Install neovim (macOS)
+        if: runner.os == 'macOS'
+        run: brew install neovim
+
       - name: Tool versions
         run: |
           shellcheck --version | head -2
@@ -114,6 +136,7 @@ jobs:
           zsh --version
           bash --version | head -1
           markdownlint-cli2 --version
+          nvim --version | head -1
 
       - name: Run Core audit (manifest, exec bits, syntax, lint, behavioral)
         run: ./bin/audit-core.sh

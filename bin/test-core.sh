@@ -154,6 +154,65 @@ _clip_is "clip-paste → xclip -o on X11" "$CLIPPASTE" XCLIP
 _clip_reset
 _clip_fails "clip-paste exits non-zero with no backend" "$CLIPPASTE"
 
+# ── D. Neovim config load (nvim/, headless) ───────────────────────────────────
+# nvim/ is the largest body of code in Core yet was validated only by luacheck
+# (static). Lua that is luacheck-clean can still be a BROKEN config — a bad vim API
+# call, a malformed lazy spec — that surfaces only when nvim actually starts, and it
+# fans out to 9 repos. This loads the AUTHORED Lua headlessly: the pure config layer
+# (globals/options/keymaps/autocmds/clipboard/providers) AND every plugin SPEC file
+# (require evaluates the spec TABLE; lazy's deferred config/keys callbacks do NOT run,
+# so no plugin needs to be installed — every plugin `require` in this tree is inside
+# such a callback). Hermetic + offline, mirroring how the zsh tests pre-seed empty
+# plugin dirs; graceful skip when nvim is absent, exactly like the linters. Real
+# plugin RUNTIME (the deferred callbacks) is out of scope — luacheck covers its syntax.
+hdr "neovim config load (nvim/ headless)"
+if have nvim; then
+  probe="$SANDBOX/nvim-probe.lua"
+  cat >"$probe" <<'LUA'
+vim.opt.runtimepath:prepend(vim.env.CORE_NVIM_DIR)
+local errs = {}
+local function try(mod)
+  local ok, err = pcall(require, mod)
+  if not ok then errs[#errs + 1] = mod .. " → " .. tostring(err) end
+end
+for _, m in ipairs({
+  "gerrrt.config.globals", "gerrrt.config.options", "gerrrt.config.keymaps",
+  "gerrrt.config.autocmds", "gerrrt.config.clipboard", "gerrrt.config.providers",
+}) do try(m) end
+-- every plugin spec must require cleanly and return a lazy spec table
+local pdir = vim.env.CORE_NVIM_DIR .. "/lua/gerrrt/plugins"
+for _, f in ipairs(vim.fn.readdir(pdir) or {}) do
+  local name = f:match("^(.+)%.lua$")
+  if name then
+    local mod = "gerrrt.plugins." .. name
+    local ok, res = pcall(require, mod)
+    if not ok then
+      errs[#errs + 1] = mod .. " → " .. tostring(res)
+    elseif type(res) ~= "table" then
+      errs[#errs + 1] = mod .. " → did not return a spec table"
+    end
+  end
+end
+if #errs > 0 then
+  io.stderr:write(table.concat(errs, "\n") .. "\n")
+  vim.cmd("cquit 1")
+end
+vim.cmd("quitall!")
+LUA
+  # -u the probe AS init (so the repo's real bootstrap never runs → no lazy clone, no
+  # network), headless, no shada/swap. A clean exit means every authored module and
+  # spec loaded; the probe `:cquit 1`s with the offending modules on stderr otherwise.
+  nvim_err="$SANDBOX/nvim.err"
+  if CORE_NVIM_DIR="$HERE/nvim" nvim --headless -u "$probe" -i NONE -n +qa >/dev/null 2>"$nvim_err"; then
+    pass "nvim loaded all config + plugin specs (no lua errors)"
+  else
+    fail "nvim config/plugin-spec load error:"
+    [[ -s "$nvim_err" ]] && sed 's/^/    /' "$nvim_err" >&2
+  fi
+else
+  skip "nvim config load (nvim not installed — runs in CI)"
+fi
+
 # ── zsh-gated sections (A load-order, B function units) ───────────────────────
 # Everything below needs a real zsh. On a bare box we SKIP it (not fail) and fall
 # through to the shared summary, so a Section-C failure still surfaces as exit 1.
