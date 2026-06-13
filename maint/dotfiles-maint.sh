@@ -96,13 +96,21 @@ if have mise; then
   step "mise upgrade" mise upgrade --yes
 fi
 
-# ── zsh plugins (mirrors your zplugin-update: fast-forward pull each repo) ─────
+# ── zsh plugins (mirrors your zplugin-update) ─────────────────────────────────
+# Pin-aware: plugins.zsh now pins each plugin to a commit (detached HEAD). A pinned
+# plugin has NO upstream branch, so `pull --ff-only` would log a false failure every
+# run — and worse, moving it here would float the runtime off its pin. So we only
+# fast-forward plugins that are ON A BRANCH (unpinned); pinned ones are held until a
+# deliberate `make update-plugins` rolls the SHA. `symbolic-ref -q HEAD` succeeds on
+# a branch, fails on a detached (pinned) checkout — the exact discriminator we want.
 if [[ -d "$ZPLUGINDIR" ]]; then
   log "▶ zsh plugins ($ZPLUGINDIR)"
   for d in "$ZPLUGINDIR"/*/; do
     [[ -d "$d/.git" ]] || continue
     name="$(basename "$d")"
-    if git -C "$d" pull --ff-only >>"$LOG" 2>&1; then log "  ✓ ${name}"; else log "  ✗ ${name} (pull failed) — continuing"; fi
+    if ! git -C "$d" symbolic-ref -q HEAD >/dev/null 2>&1; then
+      log "  • ${name} pinned ($(git -C "$d" rev-parse --short HEAD 2>/dev/null)) — held"
+    elif git -C "$d" pull --ff-only >>"$LOG" 2>&1; then log "  ✓ ${name}"; else log "  ✗ ${name} (pull failed) — continuing"; fi
   done
 fi
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bin/bench-core.sh
+# scripts/bench-core.sh
 # ──────────────────────────────────────────────────────────────────────────────
 # Measure Core's contribution to interactive-shell startup time — the metric this
 # repo invests in (cached starship/zoxide/mise/atuin init in tools.zsh, deferred
@@ -7,7 +7,7 @@
 # ship silently to all 9 OS repos. This is the missing perf guard: run it before
 # and after a change to the load path to see the delta.
 #
-# It benchmarks the SAME canonical load chain bin/test-core.sh asserts, in the
+# It benchmarks the SAME canonical load chain scripts/test-core.sh asserts, in the
 # SAME hermetic sandbox (throwaway HOME/ZDOTDIR, pre-seeded EMPTY plugin dirs so
 # the first-run clone is a no-op) — so the number reflects Core's own load cost,
 # reproducibly and with no network.
@@ -24,9 +24,9 @@
 # is unchanged (report only). Graceful skip still wins on a box with no zsh/hyperfine.
 #
 # Usage:
-#   ./bin/bench-core.sh                      # report the canonical-chain mean
-#   CORE_BENCH_RUNS=20 ./bin/bench-core.sh    # override the min run count
-#   CORE_BENCH_BUDGET_MS=60 ./bin/bench-core.sh  # FAIL if mean > 60 ms (gate mode)
+#   ./scripts/bench-core.sh                      # report the canonical-chain mean
+#   CORE_BENCH_RUNS=20 ./scripts/bench-core.sh    # override the min run count
+#   CORE_BENCH_BUDGET_MS=60 ./scripts/bench-core.sh  # FAIL if mean > 60 ms (gate mode)
 # ──────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
@@ -54,7 +54,7 @@ SANDBOX="$(mktemp -d "${TMPDIR:-/tmp}/core-bench.XXXXXX")"
 trap 'rm -rf "$SANDBOX"' EXIT
 
 # Pre-seed empty plugin dirs so plugins.zsh's first-run `git clone` is a no-op
-# (hermetic, no network) — identical to bin/test-core.sh.
+# (hermetic, no network) — identical to scripts/test-core.sh.
 mkdir -p "$SANDBOX/zdot/plugins"
 for plug in zsh-defer zsh-vi-mode zsh-history-substring-search \
   zsh-autosuggestions fast-syntax-highlighting fzf-tab zsh-you-should-use; do

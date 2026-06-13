@@ -6,7 +6,7 @@
 #   manual:    pre-commit run --all-files
 #
 # zsh modules are intentionally excluded from shellcheck/shfmt (shellcheck has no
-# zsh mode); bin/audit-core.sh runs `zsh -n` on them instead. Each hook scopes
+# zsh mode); scripts/audit-core.sh runs `zsh -n` on them instead. Each hook scopes
 # itself via `files:`, so there is no global exclude (a global one would also
 # suppress the luacheck hook below).
 
@@ -21,7 +21,7 @@ repos:
       # Parse-check the config/data files that fan out to all 9 OS repos: a broken
       # starship.toml / mise config.toml / workflow yaml is valid text (shellcheck
       # & zsh -n never see it) but dead at runtime for every consumer. Mirrors the
-      # toml/yaml section in bin/audit-core.sh.
+      # toml/yaml section in scripts/audit-core.sh.
       - id: check-toml
       - id: check-yaml
       - id: check-executables-have-shebangs
@@ -45,7 +45,7 @@ repos:
       - id: markdownlint-cli2
 
   # NB: shfmt is intentionally NOT enforced — the scripts here use a deliberate
-  # compact one-liner style that shfmt would expand (see bin/audit-core.sh).
+  # compact one-liner style that shfmt would expand (see scripts/audit-core.sh).
   # luacheck is NOT a standalone hook either: it discovers .luacheckrc by
   # searching up from the CWD, so run from repo root it misses nvim/.luacheckrc
   # and floods false "undefined vim" warnings. The audit-core hook below runs it
@@ -58,7 +58,7 @@ repos:
     hooks:
       - id: audit-core
         name: Core manifest/exec-bit audit
-        entry: ./bin/audit-core.sh --quiet
+        entry: ./scripts/audit-core.sh --quiet
         language: script
         pass_filenames: false
         always_run: true

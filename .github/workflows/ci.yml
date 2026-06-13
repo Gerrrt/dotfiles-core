@@ -4,7 +4,7 @@ name: ci
 # A defect that lands here fans out N-way — so gate every push/PR with the same
 # audit the maintainer runs locally. CI installs the linters that a bare box may
 # lack (shellcheck/shfmt/luacheck/zsh) and then hands off entirely to
-# bin/audit-core.sh, so there is ONE definition of "Core is healthy".
+# scripts/audit-core.sh, so there is ONE definition of "Core is healthy".
 
 on:
   push:
@@ -27,6 +27,11 @@ concurrency:
 env:
   SHELLCHECK_VERSION: "0.10.0"
   LUACHECK_VERSION: "1.2.0"
+  # nvim/ is the largest body of Core; test-core.sh now does a headless config-load
+  # smoke test, so CI must ship a real nvim for it to run (not skip). Pinned for the
+  # same reproducibility reason as the linters above — a new nvim release can't turn
+  # the gate red with zero repo changes. Bump deliberately.
+  NVIM_VERSION: "0.12.3"
   # pre-commit has no dependabot ecosystem here (like the linters above), so this is
   # the deliberate manual bump point for the hygiene gate's runner version.
   PRECOMMIT_VERSION: "4.0.1"
@@ -82,7 +87,9 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.luarocks
-          key: luacheck-${{ runner.os }}-${{ env.LUACHECK_VERSION }}
+          # `-lua54` busts any tree a prior run cached against brew's now-default Lua 5.5
+          # (which luacheck 1.2.0 can't load) and pins the cache to the 5.4 install below.
+          key: luacheck-${{ runner.os }}-${{ env.LUACHECK_VERSION }}-lua54
 
       - name: Install luacheck ${{ env.LUACHECK_VERSION }} (Linux, pinned)
         if: runner.os == 'Linux'
@@ -97,8 +104,13 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           set -euxo pipefail
-          brew install luarocks
-          luarocks --local install luacheck "${LUACHECK_VERSION}"
+          # Pin to Lua 5.4: brew's luarocks now pulls Lua 5.5 as its default interpreter,
+          # and luacheck 1.2.0 (the last release) fails to even load under 5.5 — 5.5 made
+          # some locals const, tripping "attempt to assign to const variable" in luacheck's
+          # own source. Install luacheck against an explicit lua@5.4 so the gate is stable
+          # until a luacheck release supports 5.5. --lua-dir points luarocks at that keg.
+          brew install lua@5.4 luarocks
+          luarocks --lua-version 5.4 --lua-dir "$(brew --prefix lua@5.4)" --local install luacheck "${LUACHECK_VERSION}"
           echo "$HOME/.luarocks/bin" >> "$GITHUB_PATH"
 
       # markdownlint gates the docs (the deliverable on this showcase repo). Pinned
@@ -107,6 +119,23 @@ jobs:
       - name: Install markdownlint-cli2 (pinned)
         run: npm install -g markdownlint-cli2@0.22.1
 
+      # ── neovim: Linux gets the maintainer's pinned release tarball (deterministic,
+      # like shellcheck above); macOS uses brew, mirroring the shellcheck/luarocks
+      # macOS path (the runner's preinstalled-tap route, no per-arch tarball juggling).
+      # Drives test-core.sh's headless config-load smoke test. ──
+      - name: Install neovim ${{ env.NVIM_VERSION }} (Linux, pinned)
+        if: runner.os == 'Linux'
+        run: |
+          set -euxo pipefail
+          ver="${NVIM_VERSION}"
+          url="https://github.com/neovim/neovim/releases/download/v${ver}/nvim-linux-x86_64.tar.gz"
+          curl -fsSL "$url" | sudo tar -xz -C /opt
+          sudo ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
+
+      - name: Install neovim (macOS)
+        if: runner.os == 'macOS'
+        run: brew install neovim
+
       - name: Tool versions
         run: |
           shellcheck --version | head -2
@@ -114,9 +143,37 @@ jobs:
           zsh --version
           bash --version | head -1
           markdownlint-cli2 --version
+          nvim --version | head -1
 
       - name: Run Core audit (manifest, exec bits, syntax, lint, behavioral)
-        run: ./bin/audit-core.sh
+        run: ./scripts/audit-core.sh
+
+  # Alpine (musl libc + busybox coreutils) is a named target repo, and functions.zsh
+  # + the maint/test scripts explicitly claim busybox compatibility — yet the matrix
+  # above only proves glibc Ubuntu and BSD macOS, never musl/busybox. This leg closes
+  # that asserted-but-unverified gap. We deliberately do NOT use `container: alpine`
+  # (its musl libc breaks the glibc Node that actions/checkout ships, a known failure);
+  # instead we check out on the host and run the SAME scripts/audit-core.sh inside an Alpine
+  # container with the workspace bind-mounted. Only bash/zsh/git/shellcheck/python are
+  # installed — luacheck, markdownlint and nvim skip gracefully here and are already
+  # covered on the glibc legs. The value is everything ELSE running against busybox
+  # applets (awk/grep/sed/date/tar/gzip): the behavioral suite, the clip ladder, and
+  # the manifest/exec-bit/syntax checks, on the one userland Ubuntu can never surface.
+  audit-alpine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Audit on Alpine (musl + busybox)
+        run: |
+          docker run --rm -v "$PWD:/core" -w /core alpine:3.21 sh -euc '
+            apk add --no-cache bash zsh git shellcheck python3 py3-yaml
+            # The repo is owned by the host runner uid but the container runs as root;
+            # without this, git 2.35+ refuses it as "dubious ownership" and the audit
+            # cannot read ls-files/ls-tree. Scope the exception to the mounted path.
+            git config --global --add safe.directory /core
+            ./scripts/audit-core.sh
+          '
 
   # Author-time hygiene gate. The .pre-commit-config.yaml hooks only fire for
   # contributors who ran `pre-commit install`; without this job a push carrying
@@ -166,4 +223,4 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends zsh hyperfine
       - name: Benchmark Core startup (report-only)
-        run: ./bin/bench-core.sh
+        run: ./scripts/bench-core.sh

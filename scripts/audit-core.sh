@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# bin/audit-core.sh
+# scripts/audit-core.sh
 # ──────────────────────────────────────────────────────────────────────────────
 # THE AUDIT BUTTON — this repo's test suite.
 #
 # core.manifest calls itself "the contract. Audit scripts and the promotion
 # checklist read it." This is that audit script. It verifies Core is internally
-# consistent BEFORE it gets vendored (via bin/sync-core.sh) into all 9 OS repos,
+# consistent BEFORE it gets vendored (via scripts/sync-core.sh) into all 9 OS repos,
 # where a defect would fan out N-way.
 #
 # Checks (each is a section; a failure in one does not abort the others):
@@ -29,8 +29,8 @@
 # tools are installed. Exit status is non-zero only on a real FAIL.
 #
 # Usage:
-#   ./bin/audit-core.sh            # run every section
-#   ./bin/audit-core.sh --quiet    # only print SKIP/FAIL + the summary
+#   ./scripts/audit-core.sh            # run every section
+#   ./scripts/audit-core.sh --quiet    # only print SKIP/FAIL + the summary
 # ──────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
@@ -69,13 +69,16 @@ have() { command -v "$1" >/dev/null 2>&1; }
 META_ALLOWLIST=(
   README.md PORTING-MATRIX.md CONTRIBUTING.md CHANGELOG.md LICENSE SECURITY.md
   core.manifest .gitignore .gitattributes .editorconfig .pre-commit-config.yaml .markdownlint.jsonc
-  bin/sync-core.sh bin/audit-core.sh bin/test-core.sh bin/bench-core.sh
   Makefile
   nvim/.luacheckrc
   CODEOWNERS pull_request_template.md
 )
-# Directory prefixes whose tracked contents are allowlisted wholesale.
-META_PREFIXES=(examples/ .github/)
+# Directory prefixes whose tracked contents are allowlisted wholesale. scripts/ is
+# this repo's DEV TOOLING (audit/test/bench/sync/update-plugins) — the gate scripts
+# themselves, never vendored into an OS repo (only bin/clip* + the manifest paths
+# are). Listing the dir, not each script, means a new dev tool is covered the moment
+# it lands here — the bin/-vs-scripts/ split is exactly what makes that unambiguous.
+META_PREFIXES=(examples/ .github/ scripts/)
 
 # ── 1. manifest <-> filesystem drift ─────────────────────────────────────────
 hdr "manifest ↔ filesystem"
@@ -234,13 +237,17 @@ fi
 # in canonical order and that the pure functions behave. Delegated to test-core.sh
 # (single source of truth) but folded into ONE audit summary via CORE_TEST_NESTED.
 # Self-gates on zsh: with none installed it SKIPs, exactly like sections 3–5.
-hdr "behavioral (bin/test-core.sh)"
+hdr "behavioral (scripts/test-core.sh)"
 TEST_ARGS=()
 ((QUIET)) && TEST_ARGS=(--quiet)
-if CORE_TEST_NESTED=1 ./bin/test-core.sh "${TEST_ARGS[@]}"; then
+# `${arr[@]+"${arr[@]}"}`, not `"${arr[@]}"`: under `set -u`, expanding an EMPTY array
+# raises "unbound variable" on bash < 4.4 — i.e. macOS's stock bash 3.2, which this
+# gate must run on. The `+` form expands to nothing when unset/empty and to the quoted
+# elements otherwise, so the non-QUIET (empty TEST_ARGS) path stops aborting on macOS.
+if CORE_TEST_NESTED=1 ./scripts/test-core.sh ${TEST_ARGS[@]+"${TEST_ARGS[@]}"}; then
   pass "behavioral tests (load-order smoke + function units)"
 else
-  fail "behavioral tests failed — run: ./bin/test-core.sh"
+  fail "behavioral tests failed — run: ./scripts/test-core.sh"
 fi
 
 # ── summary ──────────────────────────────────────────────────────────────────
