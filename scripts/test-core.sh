@@ -149,15 +149,18 @@ _stub() {
   chmod +x "$CBIN/$1"
 }
 # Fresh fake bin + cleared env before each scenario. `bash` is symlinked so the
-# shebang resolves under the stripped PATH; `uname`/`grep` default to "Linux, not
-# WSL" and Darwin/WSL cases override them.
+# shebang resolves under the stripped PATH; `uname` defaults to "Linux" and Darwin
+# cases override it. The WSL probe now reads /proc/version via a bash builtin (no
+# grep fork — see bin/clip), so we point CLIP_PROC_VERSION at a NON-WSL fixture; the
+# WSL cases either set WSL_DISTRO_NAME or overwrite that fixture with a microsoft one.
 _clip_reset() {
   rm -rf "$CBIN"
   mkdir -p "$CBIN"
   unset WSL_DISTRO_NAME WAYLAND_DISPLAY
   ln -s "$_real_bash" "$CBIN/bash"
   _stub uname 'echo Linux'
-  _stub grep 'exit 1'
+  printf 'Linux version 6.1.0-0 (gcc) #1 SMP\n' >"$CBIN/procversion"
+  export CLIP_PROC_VERSION="$CBIN/procversion"
 }
 # Assert prog's stdout is exactly the marker the chosen backend prints.
 _clip_is() { # _clip_is <label> <prog> <expected>
@@ -178,6 +181,11 @@ export WSL_DISTRO_NAME=Ubuntu
 _stub clip.exe 'echo WSL'
 _clip_is "clip → clip.exe when WSL_DISTRO_NAME set" "$CLIP" WSL
 unset WSL_DISTRO_NAME
+_clip_reset
+# WSL with NO WSL_DISTRO_NAME — detection must come from /proc/version content.
+printf 'Linux version 5.15.0-microsoft-standard-WSL2\n' >"$CBIN/procversion"
+_stub clip.exe 'echo WSL'
+_clip_is "clip → clip.exe via /proc/version (no WSL_DISTRO_NAME)" "$CLIP" WSL
 _clip_reset
 _stub uname 'echo Darwin'
 _stub pbcopy 'echo MAC'
@@ -203,6 +211,12 @@ ln -s "$_real_tr" "$CBIN/tr"
 _stub powershell.exe 'printf "WSLPASTE\r"'
 _clip_is "clip-paste → powershell + CR-strip on WSL" "$CLIPPASTE" WSLPASTE
 unset WSL_DISTRO_NAME
+_clip_reset
+# WSL detected from /proc/version alone (no WSL_DISTRO_NAME).
+printf 'Linux version 5.15.0-microsoft-standard-WSL2\n' >"$CBIN/procversion"
+ln -s "$_real_tr" "$CBIN/tr"
+_stub powershell.exe 'printf "WSLPASTE\r"'
+_clip_is "clip-paste → powershell via /proc/version (no WSL_DISTRO_NAME)" "$CLIPPASTE" WSLPASTE
 _clip_reset
 _stub uname 'echo Darwin'
 _stub pbpaste 'echo MAC'
