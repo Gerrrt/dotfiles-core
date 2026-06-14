@@ -500,6 +500,66 @@ else
   pass "all ${#CORE_MODULES[@]} modules loaded in canonical order (clean stderr)"
 fi
 
+# ── A2. consumer integration (Core + os/local layers) ─────────────────────────
+# Core NEVER loads alone in production: each OS repo's .zshrc sources it in canonical
+# order and THEN its own os.zsh + local.zsh (README: tools→…→update→os→local). Section
+# A proves Core-in-isolation; this proves the documented CONSUMPTION — that the Core→OS
+# CONTRACT holds at the real 9-repo fan-out shape. The os.zsh stub here uses exactly
+# what an OS layer relies on Core to have left defined: _cache_eval (tools.zsh's API for
+# the OS layer's gh/uv/ty inits — NOT unfunctioned like _have is), the _core_* UX
+# primitives, and an alias override (the macOS rm→trash pattern). local.zsh overrides a
+# Core default. If Core ever stops exporting one of those, this fails — where Section A,
+# loading Core alone, would stay green.
+hdr "consumer integration (Core + os/local layers, canonical loader)"
+INTEG="$SANDBOX/integ"
+mkdir -p "$INTEG/plugins"
+for plug in zsh-defer zsh-vi-mode zsh-history-substring-search \
+  zsh-autosuggestions fast-syntax-highlighting fzf-tab zsh-you-should-use; do
+  mkdir -p "$INTEG/plugins/$plug"
+done
+# os.zsh: realistic OS-layer file. Exercises the Core helpers an OS repo depends on;
+# any reference to an undefined helper prints to stderr (the failure signal below).
+cat >"$INTEG/os.zsh" <<'OSZSH'
+# stub os.zsh — must be able to use the API Core promises the OS layer.
+(( $+functions[_cache_eval] )) || print -u2 "os.zsh: _cache_eval missing (tools.zsh API gone)"
+(( $+functions[_core_ok]    )) || print -u2 "os.zsh: _core_ok missing (ui.zsh API gone)"
+# the documented gh/uv/ty pattern: _cache_eval a tool AFTER options.zsh set NO_CLOBBER.
+# The generator must emit SOURCEABLE zsh (real tools emit an init script); a comment is
+# a valid no-op init and proves the generate→cache→source path works under NO_CLOBBER.
+_cache_eval faketool printf '# faketool cached init (integration stub)\n' >/dev/null
+alias rm='rm -i'   # OS layer overriding a safety net (macOS does rm→trash here)
+OSZSH
+# local.zsh: machine-specific overrides (identity/toggles). Overriding a Core default
+# is the whole reason it loads LAST.
+cat >"$INTEG/local.zsh" <<'LOCALZSH'
+# stub local.zsh — last word on this machine.
+UPDATE_CHECK_ENABLED=0
+LOCALZSH
+{
+  printf 'for _m in %s; do source "$CORE_DIR/$_m.zsh"; done\n' "${CORE_MODULES[*]}"
+  printf 'source "$ZDOTDIR/os.zsh"\n'
+  printf 'source "$ZDOTDIR/local.zsh"\n'
+  printf 'print -r -- "INTEG_OK"\n'
+} >"$INTEG/.zshrc"
+integ_out="$(
+  HOME="$SANDBOX" ZDOTDIR="$INTEG" \
+    XDG_CACHE_HOME="$SANDBOX/integ-cache" XDG_STATE_HOME="$SANDBOX/integ-state" \
+    XDG_RUNTIME_DIR="$SANDBOX/run" CORE_DIR="$CORE_DIR" \
+    zsh -i -c exit 2>"$INTEG/integ.err"
+)"
+integ_errs="$(grep -Ei \
+  'command not found|parse error|: no such file or directory|not defined|missing|bad pattern|bad math expression|maximum nested' \
+  "$INTEG/integ.err" 2>/dev/null || true)"
+if ! printf '%s' "$integ_out" | grep -q '^INTEG_OK$'; then
+  fail "consumer load (Core+os+local) did not reach the end — a layer aborted"
+  [[ -s "$INTEG/integ.err" ]] && sed 's/^/    /' "$INTEG/integ.err" >&2
+elif [[ -n "$integ_errs" ]]; then
+  fail "errors during consumer load (Core→OS contract broken):"
+  printf '%s\n' "$integ_errs" | sed 's/^/    /' >&2
+else
+  pass "Core + os + local loaded in canonical order (Core→OS contract holds)"
+fi
+
 # ── B. function unit tests ────────────────────────────────────────────────────
 hdr "function unit tests (functions.zsh)"
 FN="$HERE/zsh/functions.zsh"
