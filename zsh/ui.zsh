@@ -54,6 +54,24 @@ _core_usage() { # "usage: …" → stderr
   else print -u2 -r -- "usage: $*"; fi
 }
 
+# ── help ──────────────────────────────────────────────────────────────────────
+# _core_wants_help <arg>  → true when arg is -h/--help. Lets every Core verb answer
+# `cmd -h`/`cmd --help` uniformly. A help REQUEST is success, not misuse — so the
+# verb returns 0 and prints to STDOUT (the _core_usage error path is stderr+return 1).
+# This also fixes verbs where --help used to be mis-read as an operand (e.g. `up`
+# treated it as not-`-y` and proceeded; `serve`/`extract` rejected it as a bad port/
+# file): the guard short-circuits before any of that.
+_core_wants_help() { [[ "$1" == (-h|--help) ]]; }
+# _core_help <synopsis> [description line...]  → print a verb's help to STDOUT
+# (so `cmd --help | less` works) using the same dim "usage:" idiom as _core_usage.
+_core_help() {
+  local synopsis="$1"
+  shift
+  if _core_color 1; then print -r -- "${_CORE_C_DIM}usage:${_CORE_C_RST} $synopsis"
+  else print -r -- "usage: $synopsis"; fi
+  (($#)) && print -r -- "  $*"
+}
+
 # ── confirm ───────────────────────────────────────────────────────────────────
 # _core_confirm <prompt>  → 0 = yes, non-zero = no. Defensive by default: with no
 # controlling TTY (a pipe, a cron job, a captured run) it DECLINES rather than

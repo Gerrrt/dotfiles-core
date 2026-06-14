@@ -563,6 +563,16 @@ check "serve rejects a non-numeric port" \
   'serve abc 2>/dev/null; (( $? != 0 ))'
 check "serve rejects an out-of-range port" \
   'serve 99999 2>/dev/null; (( $? != 0 ))'
+# Uniform -h/--help contract (U6): every user-facing verb answers --help on STDOUT
+# and returns 0 (a help REQUEST is success, not misuse). This also guards the bugs
+# where --help used to be mis-read as an operand — serve as a bad port, extract as a
+# missing file (both returned non-zero); the guard must short-circuit before that.
+check "mkcd --help prints usage to stdout and returns 0" \
+  'out=$(mkcd --help); (( $? == 0 )) && [[ $out == *"usage: mkcd"* ]]'
+check "serve --help returns 0 (not mis-read as a bad port)" \
+  'out=$(serve --help); (( $? == 0 )) && [[ $out == *"usage: serve"* ]]'
+check "extract -h returns 0 (not mis-read as a missing file)" \
+  'out=$(extract -h); (( $? == 0 )) && [[ $out == *"usage: extract"* ]]'
 # core-help (U5): the width-aware renderer must emit every verb and never crash on its
 # kw arithmetic — including a pathologically narrow terminal where the key column clamps.
 check "core-help renders all verbs (wide terminal)" \
@@ -656,6 +666,14 @@ ucheck "update: _pkgup_mgr detects apt from an isolated PATH" \
 _pm_only ""
 ucheck "update: _pkgup_mgr reports none on a bare PATH" \
   "source '$UPD'; [[ \$(_pkgup_mgr) == none ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# up --help must print usage and return 0 WITHOUT attempting an update — the bug the
+# help guard fixes (it used to fall through, not being -y, and run the upgrade). Run
+# on a bare PATH so a regressed guard reaching _pkgup_mgr → none → returns 1, failing
+# this test loudly instead of silently passing.
+_pm_only ""
+ucheck "update: up --help returns 0 and does not attempt an update" \
+  "source '$UI'; source '$UPD'; out=\$(up --help); (( \$? == 0 )) && [[ \$out == *'usage: up'* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 
 # maint.zsh: _maint_scheduler must always resolve to a REAL scheduler token, never empty

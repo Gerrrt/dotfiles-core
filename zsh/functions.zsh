@@ -7,6 +7,7 @@
 
 # mkcd — make a directory and cd into it
 mkcd() {
+  _core_wants_help "$1" && { _core_help "mkcd <dir>" "make a directory (and parents) and cd into it"; return 0; }
   [[ -z "$1" ]] && { _core_usage "mkcd <dir>"; return 1; }
   mkdir -p -- "$1" && cd -- "$1"
 }
@@ -17,6 +18,7 @@ mkcd() {
 # you wondering why you didn't move.
 cdup() {
   emulate -L zsh
+  _core_wants_help "$1" && { _core_help "cdup [n]" "climb n directories (default 1); cdup 3 == cd ../../.."; return 0; }
   local n="${1:-1}" p=""
   if [[ "$n" != <-> ]] || ((n < 1)); then
     _core_err "cdup: count must be a positive integer (got '$n')"
@@ -63,6 +65,7 @@ _extract_dispatch() {
 # sails straight through untouched.
 extract() {
   emulate -L zsh
+  _core_wants_help "$1" && { _core_help "extract <archive>" "unpack any archive (tar/zip/7z/rar/…); guards tarbombs + clobbers"; return 0; }
   [[ -z "$1" ]] && { _core_usage "extract <archive>"; return 1; }
   [[ -f "$1" ]] || {
     _core_err "extract: '$1' is not a file"
@@ -124,6 +127,7 @@ extract() {
 
 # fcd — fuzzy-cd into any subdirectory (needs fzf + fd, degrades to find)
 fcd() {
+  _core_wants_help "$1" && { _core_help "fcd" "fuzzy-cd into any subdirectory (fzf + fd, degrades to find)"; return 0; }
   _core_have fzf || {
     _core_err "fcd: requires fzf"
     _core_hint "install fzf, then retry"
@@ -144,6 +148,7 @@ fcd() {
 # in a non-interactive context too.
 please() {
   emulate -L zsh
+  _core_wants_help "$1" && { _core_help "please" "re-run the last command with sudo (previews + confirms first)"; return 0; }
   local last
   last="$(fc -ln -1 2>/dev/null)"
   if [[ -z "${last//[[:space:]]/}" ]]; then
@@ -163,6 +168,7 @@ please() {
 # (the rest of functions.zsh — mkcd, extract — guards the same way).
 mkbak() {
   emulate -L zsh
+  _core_wants_help "$1" && { _core_help "mkbak <file>" "timestamped .bak copy of a file before you edit it"; return 0; }
   [[ -z "$1" ]] && {
     _core_usage "mkbak <file>"
     return 1
@@ -181,6 +187,7 @@ mkbak() {
 #   serve 8080       # port 8080
 serve() {
   emulate -L zsh
+  _core_wants_help "$1" && { _core_help "serve [port]" "HTTP server in the CWD (default 8000); binds all interfaces"; return 0; }
   local port="${1:-8000}" ip
   # Defensive input handling: a typo'd port should be rejected cleanly, not handed to
   # python to fail with a stack trace (or, worse, a non-numeric value coerced oddly).

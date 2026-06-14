@@ -108,7 +108,10 @@ _pkgup_refresh() {
 }
 
 # Manual force: `update-check`
-update-check() { _pkgup_refresh && _pkgup_notice; }
+update-check() {
+  _core_wants_help "$1" && { _core_help "update-check" "refresh the cached 'updates available' nudge now"; return 0; }
+  _pkgup_refresh && _pkgup_notice
+}
 
 # Print the one-line nudge from cache (instant; no work).
 _pkgup_notice() {
@@ -178,6 +181,9 @@ if ((CORE_WELCOME)) && [[ -t 1 ]]; then _core_welcome; fi
 # ══════════════════════════════════════════════════════════════════════════════
 up() {
   emulate -L zsh
+  # Help BEFORE anything else: without this, `up --help` fell through (not `-y`, so
+  # yes=0) and proceeded to actually apply updates — a help flag must never do that.
+  _core_wants_help "$1" && { _core_help "up [-y|--yes]" "apply package updates (interactive; -y auto-confirms where safe)"; return 0; }
   local yes=0
   [[ "$1" == (-y|--yes) ]] && yes=1
   local y=()

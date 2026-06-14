@@ -103,6 +103,7 @@ zle -N _tmux_sessionizer
 # Global utility: fif — find text inside files
 # =========================================================
 fif() {
+  _core_wants_help "$1" && { _core_help "fif <search_term>" "find text inside files (rg + fzf + preview)"; return 0; }
   [[ -z "$1" ]] && { _core_usage "fif <search_term>"; return 1; }
   FIF_TERM="$1" rg --files-with-matches --no-messages "$1" | fzf \
     --height 80% --layout=reverse --border=rounded \
@@ -117,6 +118,7 @@ fif() {
 # Global utility: fbr — fuzzy git branch checkout
 # =========================================================
 fbr() {
+  _core_wants_help "$1" && { _core_help "fbr" "fuzzy git-branch checkout (local + remote)"; return 0; }
   local branch
   branch=$(git branch --all 2>/dev/null | grep -v HEAD |
     fzf --preview 'git log --oneline --color=always {1} | head -20' |
