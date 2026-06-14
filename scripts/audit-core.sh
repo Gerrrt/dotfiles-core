@@ -117,7 +117,7 @@ while (($#)); do
   --changed) CHANGED=1 ;;
   -h | --help)
     cat <<'EOF'
-usage: audit-core.sh [-q|--quiet] [--scope LIST] [-h|--help]
+usage: audit-core.sh [-q|--quiet] [--scope LIST] [--changed] [-h|--help]
 
 THE audit button — manifest/exec-bit/syntax/lint/config/markdown/workflow/
 version/behavioral checks. CI and pre-commit run this exact script.
@@ -177,6 +177,13 @@ _changed_scope() {
   out="$(printf '%s\n' "$files" | "$HERE/scripts/ci-classify.sh" 2>/dev/null)"
   sh="$(printf '%s\n' "$out" | sed -n 's/^shell=//p')"
   nv="$(printf '%s\n' "$out" | sed -n 's/^nvim=//p')"
+  # The classifier must emit BOTH keys as true/false. If it errored (non-executable,
+  # internal failure) or produced no/garbage output, sh/nv won't be valid — fail SAFE
+  # to the full run rather than silently returning "none" and skipping every slow gate.
+  if { [[ "$sh" != true && "$sh" != false ]]; } || { [[ "$nv" != true && "$nv" != false ]]; }; then
+    printf 'all'
+    return
+  fi
   [[ "$sh" == true ]] && scope="shell"
   [[ "$nv" == true ]] && scope="${scope:+$scope,}nvim"
   printf '%s' "${scope:-none}"

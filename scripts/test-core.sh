@@ -426,6 +426,7 @@ _classify_is "zsh/ change → shell gate only" 'zsh/ui.zsh' true false
 _classify_is "nvim/ change → nvim gate only" 'nvim/init.lua' false true
 _classify_is "docs (*.md) change → no gate" 'README.md' false false
 _classify_is "infra (scripts/) change → full run" 'scripts/audit-core.sh' true true
+_classify_is "infra (.shellcheckrc) change → full run" '.shellcheckrc' true true
 _classify_is "__ALL__ sentinel → full run" '__ALL__' true true
 _classify_is "unrecognised path → FAIL CLOSED to full run" 'newdir/thing.xyz' true true
 _classify_is "mixed shell+nvim set → union of both" $'zsh/ui.zsh\nnvim/init.lua' true true
