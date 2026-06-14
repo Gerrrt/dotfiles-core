@@ -19,6 +19,7 @@
 #   6. config files                     — toml/yaml parse-check (if python3 present)
 #   7. markdown                          — markdownlint (if markdownlint-cli2 present)
 #   8. workflows                         — actionlint on .github/workflows (if present)
+#  8b. secrets                           — gitleaks working-tree scan (if present)
 #   9. version consistency              — pre-commit hook revs == tool-versions.env
 #  10. behavioral                       — load-order smoke + function units (test-core.sh)
 #
@@ -361,6 +362,26 @@ else
   skip "actionlint (not installed — go install github.com/rhysd/actionlint/cmd/actionlint@latest)"
 fi
 
+# ── 8b. secrets (gitleaks) ────────────────────────────────────────────────────
+# Core ships 1Password helpers (zsh/op.zsh), a git-identity template, and history
+# secret-ignore patterns — and fans out to 9 PUBLIC repos, where a committed token
+# amplifies N-way. None of the gates above look for secrets: shellcheck/zsh -n read
+# syntax, the toml/yaml/json checks read structure, markdownlint reads prose. So
+# scan the working tree for credentials. `gitleaks dir` is the filesystem scan (every
+# tracked + untracked file at HEAD), the CI mirror of the gitleaks pre-commit hook
+# (which guards the commit diff at author time). Always-on + graceful skip, exactly
+# like the linters above; CI installs it pinned (GITLEAKS_VERSION) so it runs there.
+hdr "secrets (gitleaks)"
+if have gitleaks; then
+  if gitleaks dir . --no-banner --redact >/dev/null 2>&1; then
+    pass "gitleaks (no secrets in the working tree)"
+  else
+    fail "gitleaks found potential secrets — run: gitleaks dir . --redact"
+  fi
+else
+  skip "gitleaks (not installed — https://github.com/gitleaks/gitleaks/releases)"
+fi
+
 # ── 9. version consistency (tool-versions.env ↔ .pre-commit-config.yaml) ──────
 # scripts/tool-versions.env is the SINGLE SOURCE for the pinned dev-tool versions.
 # CI loads it directly (no literals left in ci.yml), but .pre-commit-config.yaml is
@@ -387,6 +408,7 @@ if [[ -r "$VERSIONS_ENV" && -r "$PRECOMMIT_CFG" ]]; then
   }
   _check_pin "koalaman/shellcheck-precommit" SHELLCHECK_VERSION shellcheck
   _check_pin "DavidAnson/markdownlint-cli2" MARKDOWNLINT_VERSION markdownlint
+  _check_pin "gitleaks/gitleaks" GITLEAKS_VERSION gitleaks
   _check_pin "pre-commit/pre-commit-hooks" PRECOMMIT_HOOKS_VERSION pre-commit-hooks
 else
   skip "version consistency ($VERSIONS_ENV or $PRECOMMIT_CFG unreadable)"
