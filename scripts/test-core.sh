@@ -50,8 +50,9 @@ while (($#)); do
     cat <<'EOF'
 usage: test-core.sh [-q|--quiet] [-h|--help]
 
-Behavioral suite: clipboard ladder + nvim headless load + zsh load-order smoke
-+ function/unit + detection tests. Degrades gracefully when zsh/nvim are absent.
+Behavioral suite: clipboard ladder + nvim headless load + nvim event callbacks
++ zsh load-order smoke + function/unit + detection tests. Degrades gracefully
+when zsh/nvim are absent.
 
   -q, --quiet   only print SKIP/FAIL lines and the final summary
   -h, --help    show this help and exit
@@ -259,6 +260,61 @@ LUA
   fi
 else
   skip "nvim config load (nvim not installed — runs in CI)"
+fi
+
+# ── D2. Neovim event-driven autocmd callbacks (nvim/, headless) ───────────────
+# Section D proves the modules LOAD; it does not prove their EVENT CALLBACKS run.
+# An autocmd registers fine and only its callback fires later — on a yank, a save,
+# an LSP attach — so a bad vim API call inside one is luacheck-clean, load-clean, and
+# breaks only when you actually edit. That blind spot shipped a real bug: the
+# TextYankPost highlight called a non-existent `vim.hl.hl_op`, throwing on every yank
+# AND delete (TextYankPost fires on both) while the edit still ran — a red error with
+# no failing gate, fanned out to 9 repos. This closes it: load the autocmds, then
+# FIRE the events and assert the callbacks ran clean.
+#
+# Events are triggered via post-startup `-c` commands (NOT inside the `-u` init): an
+# autocmd error during init makes headless nvim block on a "Press ENTER" prompt,
+# whereas a `-c` error is reported and nvim proceeds to the next command — so the
+# gate can never hang in CI. The require itself stays in `-u` and `cquit`s on failure
+# (no prompt). Detection is STDERR-NON-EMPTY, not exit code: a fired-callback error
+# does not change nvim's exit status (both clean and broken runs exit 0), it only
+# prints — exactly the signature the bug has. BufWritePre (format-on-save) and
+# LspAttach are deliberately NOT fired here: their callbacks require plugins
+# (mini.trailspace/conform) or a live LSP attach, neither present in this hermetic
+# probe — luacheck covers their syntax; runtime is out of scope.
+hdr "neovim event callbacks (nvim/ headless)"
+if have nvim; then
+  evt_probe="$SANDBOX/nvim-events.lua"
+  cat >"$evt_probe" <<'LUA'
+vim.opt.runtimepath:prepend(vim.env.CORE_NVIM_DIR)
+-- Register the autocmds. A require failure cquit's immediately (no ENTER prompt);
+-- the EVENTS themselves are fired by the caller's -c flags, after startup.
+local ok, err = pcall(require, "gerrrt.config.autocmds")
+if not ok then
+  io.stderr:write("require gerrrt.config.autocmds → " .. tostring(err) .. "\n")
+  vim.cmd("cquit 1")
+end
+LUA
+  evt_file="$SANDBOX/probe.txt"
+  printf 'one\ntwo\nthree\n' >"$evt_file"
+  evt_err="$SANDBOX/nvim-events.err"
+  # Fire each registered event once: yank + delete (TextYankPost — the regression
+  # above), a markdown FileType (the per-filetype view options), and a real file open
+  # (BufReadPost — cursor restore). Any callback that throws prints to stderr.
+  CORE_NVIM_DIR="$HERE/nvim" nvim --headless -u "$evt_probe" -i NONE -n \
+    -c 'call setline(1, ["alpha","bravo","charlie"])' \
+    -c 'normal! yy' -c 'normal! dd' \
+    -c 'setfiletype markdown' \
+    -c "edit $evt_file" \
+    -c 'qa!' </dev/null >/dev/null 2>"$evt_err"
+  if [[ -s "$evt_err" ]]; then
+    fail "nvim autocmd callback errored when fired (e.g. the yank/delete highlight):"
+    sed 's/^/    /' "$evt_err" >&2
+  else
+    pass "nvim event callbacks fired clean (TextYankPost yank+delete, FileType, BufReadPost)"
+  fi
+else
+  skip "nvim event callbacks (nvim not installed — runs in CI)"
 fi
 
 # ── E. CI path classifier (scripts/ci-classify.sh) ────────────────────────────

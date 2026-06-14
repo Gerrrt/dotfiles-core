@@ -23,9 +23,11 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 	group = highlight_yank_group,
 	pattern = "*",
 	callback = function()
-		-- vim.hl.on_yank was deprecated in 0.13 (removal slated for 0.14); hl_op is the
-		-- drop-in replacement taking the same options.
-		vim.hl.hl_op({
+		-- vim.hl.on_yank is the current API (it succeeded vim.highlight.on_yank when the
+		-- highlight helpers moved to the vim.hl namespace). TextYankPost fires on yanks
+		-- AND deletes, so a bad call here throws E5108 on every such edit — the op still
+		-- runs, but a red error trails it. There is no vim.hl.hl_op.
+		vim.hl.on_yank({
 			higroup = "IncSearch",
 			timeout = 200,
 		})
