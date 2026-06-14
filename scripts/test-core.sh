@@ -50,9 +50,10 @@ SCOPE_NVIM=1
 _set_scope() { # _set_scope <comma-list: shell,nvim | all | none>
   SCOPE_SHELL=0
   SCOPE_NVIM=0
-  local tok
+  local tok had=0
   local IFS=,
   for tok in $1; do
+    had=1
     case "$tok" in
     shell) SCOPE_SHELL=1 ;;
     nvim) SCOPE_NVIM=1 ;;
@@ -60,7 +61,7 @@ _set_scope() { # _set_scope <comma-list: shell,nvim | all | none>
       SCOPE_SHELL=1
       SCOPE_NVIM=1
       ;;
-    none | "") ;;
+    none) ;;
     *)
       printf 'test-core.sh: unknown scope %s — running full (fail-safe)\n' "$tok" >&2
       SCOPE_SHELL=1
@@ -68,6 +69,13 @@ _set_scope() { # _set_scope <comma-list: shell,nvim | all | none>
       ;;
     esac
   done
+  # Empty scope is ambiguous → fail SAFE to the full run (mirrors audit-core.sh);
+  # `none` is the explicit "always-on checks only" token.
+  ((had)) || {
+    printf 'test-core.sh: empty scope — running full (fail-safe)\n' >&2
+    SCOPE_SHELL=1
+    SCOPE_NVIM=1
+  }
 }
 
 # Same flag contract as audit-core.sh: parse EVERY arg and reject an unknown option or
@@ -77,8 +85,15 @@ while (($#)); do
   case "$1" in
   -q | --quiet) QUIET=1 ;;
   --scope)
+    # Require an explicit value (mirrors audit-core.sh): `--scope --quiet` must not
+    # eat the next flag as the scope list.
+    if (($# < 2)) || [[ "$2" == -* ]]; then
+      printf 'test-core.sh: --scope requires a value (shell,nvim|all|none)\n' >&2
+      printf 'try: test-core.sh --help\n' >&2
+      exit 2
+    fi
     shift
-    _set_scope "${1:-}"
+    _set_scope "$1"
     ;;
   --scope=*) _set_scope "${1#*=}" ;;
   -h | --help)
@@ -370,12 +385,14 @@ LUA
   evt_err="$SANDBOX/nvim-events.err"
   # Fire each registered event once: yank + delete (TextYankPost — the regression
   # above), a markdown FileType (the per-filetype view options), and a real file open
-  # (BufReadPost — cursor restore). Any callback that throws prints to stderr.
-  CORE_NVIM_DIR="$HERE/nvim" nvim --headless -u "$evt_probe" -i NONE -n \
+  # (BufReadPost — cursor restore). Any callback that throws prints to stderr. The file
+  # path is passed via $CORE_EVT_FILE and opened through fnameescape() rather than
+  # interpolated into the Ex command, so a $SANDBOX/$TMPDIR containing spaces is safe.
+  CORE_NVIM_DIR="$HERE/nvim" CORE_EVT_FILE="$evt_file" nvim --headless -u "$evt_probe" -i NONE -n \
     -c 'call setline(1, ["alpha","bravo","charlie"])' \
     -c 'normal! yy' -c 'normal! dd' \
     -c 'setfiletype markdown' \
-    -c "edit $evt_file" \
+    -c 'execute "edit" fnameescape($CORE_EVT_FILE)' \
     -c 'qa!' </dev/null >/dev/null 2>"$evt_err"
   if [[ -s "$evt_err" ]]; then
     fail "nvim autocmd callback errored when fired (e.g. the yank/delete highlight):"

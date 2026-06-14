@@ -52,9 +52,10 @@ SCOPE_NVIM=1
 _set_scope() { # _set_scope <comma-list: shell,nvim | all | none>
   SCOPE_SHELL=0
   SCOPE_NVIM=0
-  local tok
+  local tok had=0
   local IFS=,
   for tok in $1; do
+    had=1
     case "$tok" in
     shell) SCOPE_SHELL=1 ;;
     nvim) SCOPE_NVIM=1 ;;
@@ -62,7 +63,7 @@ _set_scope() { # _set_scope <comma-list: shell,nvim | all | none>
       SCOPE_SHELL=1
       SCOPE_NVIM=1
       ;;
-    none | "") ;;
+    none) ;;
     *) # unknown token → run EVERYTHING (fail-safe), matching ci.yml's safe default
       printf 'audit-core.sh: unknown scope %s — running full (fail-safe)\n' "$tok" >&2
       SCOPE_SHELL=1
@@ -70,6 +71,14 @@ _set_scope() { # _set_scope <comma-list: shell,nvim | all | none>
       ;;
     esac
   done
+  # An EMPTY scope (no tokens — e.g. `--scope=` or a value that split to nothing) is
+  # ambiguous, so fail SAFE to the full run rather than silently skipping every slow
+  # gate. `none` is the EXPLICIT token for "run only the always-on checks".
+  ((had)) || {
+    printf 'audit-core.sh: empty scope — running full (fail-safe)\n' >&2
+    SCOPE_SHELL=1
+    SCOPE_NVIM=1
+  }
 }
 # Render the active scope as test-core.sh expects it (shell,nvim | shell | nvim | none).
 _scope_str() {
@@ -87,8 +96,15 @@ while (($#)); do
   case "$1" in
   -q | --quiet) QUIET=1 ;;
   --scope)
+    # Require an explicit value: without this, `--scope --quiet` would swallow the
+    # next flag as the scope list and silently drop it.
+    if (($# < 2)) || [[ "$2" == -* ]]; then
+      printf 'audit-core.sh: --scope requires a value (shell,nvim|all|none)\n' >&2
+      printf 'try: audit-core.sh --help\n' >&2
+      exit 2
+    fi
     shift
-    _set_scope "${1:-}"
+    _set_scope "$1"
     ;;
   --scope=*) _set_scope "${1#*=}" ;;
   -h | --help)
