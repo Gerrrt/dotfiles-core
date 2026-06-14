@@ -48,6 +48,12 @@ case "${1:-}" in
   exit 2
   ;;
 esac
+# Reject a stray extra operand too (e.g. `--dry-run extra`), matching the arg discipline
+# in scripts/bench-core.sh / audit-core.sh — a silent ignore makes typos easy to miss.
+if (($# > 1)); then
+  printf 'update-nvim-plugins.sh: unexpected argument: %s (try --help)\n' "$2" >&2
+  exit 2
+fi
 
 # Shared palette + have() (one definition for every gate script).
 # shellcheck source=scripts/lib/common.sh
