@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+# .claude/hooks/session-start.sh — provision the Core gate toolchain for
+# Claude Code on the web, so `make audit` runs FOR REAL in a remote session.
+# ──────────────────────────────────────────────────────────────────────────────
+# WHY THIS EXISTS: a fresh remote container ships bash + python only, so
+# `scripts/audit-core.sh` SKIPS every meaningful gate (zsh -n, shellcheck, the
+# behavioral suite, luacheck, markdownlint, actionlint) and still reports "audit
+# OK" — a FALSE green. This installs exactly the linters CI installs, at the SAME
+# pins (scripts/tool-versions.env is the single source), so an agent session can
+# verify changes the way CI does instead of trusting a green-because-absent run.
+#
+# Mirrors .github/workflows/ci.yml's install steps. Best-effort + idempotent +
+# non-interactive: every tool is guarded by `have`, so a re-run (or a cached
+# container that already has them) is a fast no-op, and one tool failing never
+# blocks the session — a doctor summary at the end shows what's present.
+# ──────────────────────────────────────────────────────────────────────────────
+set -uo pipefail
+
+# Web/remote sessions only. On a local box you bring your own toolchain (or run
+# `make setup`); this hook must never reach for sudo/apt on a developer's laptop.
+[ "${CLAUDE_CODE_REMOTE:-}" = "true" ] || exit 0
+
+ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+cd "$ROOT" || exit 0
+
+# Single source of truth for the pinned versions — the same file CI loads into
+# $GITHUB_ENV and `make setup` reads. Bump a pin there and this follows.
+if [ -r scripts/tool-versions.env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . scripts/tool-versions.env
+  set +a
+fi
+
+have() { command -v "$1" >/dev/null 2>&1; }
+log() { printf '[session-start] %s\n' "$*"; }
+# Prefer sudo when not already root; degrade to bare (container often runs as root).
+SUDO=""; [ "$(id -u)" -ne 0 ] && have sudo && SUDO="sudo"
+
+# ── apt base packages (zsh, hyperfine, luarocks + lua dev headers) ────────────
+# Some prebaked images carry third-party PPAs with expired/forbidden signing that
+# abort `apt-get update` wholesale; we only need the base Ubuntu repos, so on a
+# failed update we move non-Ubuntu source lists aside and retry (idempotent).
+apt_update() {
+  $SUDO apt-get update -qq 2>/dev/null && return 0
+  log "apt-get update failed — disabling third-party sources, retrying"
+  $SUDO mkdir -p /etc/apt/sources.list.d.disabled 2>/dev/null || true
+  for f in /etc/apt/sources.list.d/*; do
+    [ -e "$f" ] || continue
+    case "${f##*/}" in
+    ubuntu.sources | ubuntu.list) ;;
+    *) $SUDO mv "$f" /etc/apt/sources.list.d.disabled/ 2>/dev/null || true ;;
+    esac
+  done
+  $SUDO apt-get update -qq 2>/dev/null || true
+}
+
+if ! have zsh || ! have hyperfine || ! have luarocks; then
+  if have apt-get; then
+    apt_update
+    DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y -qq --no-install-recommends \
+      zsh hyperfine luarocks lua5.4 liblua5.4-dev >/dev/null 2>&1 ||
+      log "apt install hit issues (some tools may be missing — see doctor below)"
+  else
+    log "no apt-get — skipping zsh/hyperfine/luarocks (install them by hand)"
+  fi
+fi
+
+# Trust the system CA for tools that bundle their own (npm) — remote envs often
+# sit behind a TLS-terminating proxy whose root is only in the OS trust store.
+CA=/etc/ssl/certs/ca-certificates.crt
+[ -r "$CA" ] && export NODE_EXTRA_CA_CERTS="$CA"
+
+# Helper: install a pinned release tarball to /usr/local/bin (like CI does).
+install_tarball() { # install_tarball <bin> <url> <tar-flags> [member]
+  local bin="$1" url="$2" flags="$3" member="${4:-}"
+  have "$bin" && return 0
+  local tmp
+  tmp="$(mktemp -d)"
+  if curl -fsSL "$url" | tar "$flags" -C "$tmp" ${member:+"$member"} 2>/dev/null; then
+    local found
+    found="$(find "$tmp" -type f -name "$bin" 2>/dev/null | head -n1)"
+    [ -n "$found" ] && $SUDO install -m755 "$found" "/usr/local/bin/$bin" 2>/dev/null
+  fi
+  rm -rf "$tmp"
+  have "$bin" || log "could not install $bin from $url"
+}
+
+# ── shellcheck (pinned) ───────────────────────────────────────────────────────
+[ -n "${SHELLCHECK_VERSION:-}" ] && install_tarball shellcheck \
+  "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" -xJ
+
+# ── actionlint (pinned) ───────────────────────────────────────────────────────
+[ -n "${ACTIONLINT_VERSION:-}" ] && install_tarball actionlint \
+  "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" -xz actionlint
+
+# ── neovim (pinned) — extracted to /opt, symlinked onto PATH (CI's Linux path) ─
+if [ -n "${NVIM_VERSION:-}" ] && ! have nvim; then
+  if curl -fsSL "https://github.com/neovim/neovim/releases/download/v${NVIM_VERSION}/nvim-linux-x86_64.tar.gz" | $SUDO tar -xz -C /opt 2>/dev/null; then
+    $SUDO ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim 2>/dev/null
+  fi
+  have nvim || log "could not install neovim"
+fi
+
+# ── luacheck (pinned, via luarocks against Lua 5.4) ───────────────────────────
+if [ -n "${LUACHECK_VERSION:-}" ] && ! have luacheck && have luarocks; then
+  $SUDO luarocks --lua-version 5.4 install luacheck "${LUACHECK_VERSION}" >/dev/null 2>&1 ||
+    log "luacheck install via luarocks failed (needs lua5.4 + liblua5.4-dev)"
+fi
+
+# ── markdownlint-cli2 (pinned, via npm) ───────────────────────────────────────
+if [ -n "${MARKDOWNLINT_VERSION:-}" ] && ! have markdownlint-cli2 && have npm; then
+  $SUDO --preserve-env=NODE_EXTRA_CA_CERTS npm install -g "markdownlint-cli2@${MARKDOWNLINT_VERSION}" >/dev/null 2>&1 || true
+  # Some images put the npm global bin off PATH; locate + symlink it.
+  if ! have markdownlint-cli2; then
+    mdl="$(find /opt /usr/local /usr/lib -name markdownlint-cli2 -type f 2>/dev/null | head -n1)"
+    [ -n "$mdl" ] && $SUDO ln -sf "$mdl" /usr/local/bin/markdownlint-cli2 2>/dev/null
+  fi
+  have markdownlint-cli2 || log "could not install markdownlint-cli2"
+fi
+
+# ── PyYAML (the audit's YAML parse section imports it; tomllib/json are stdlib) ─
+if have python3 && ! python3 -c 'import yaml' 2>/dev/null; then
+  python3 -m pip install --quiet --break-system-packages pyyaml >/dev/null 2>&1 || true
+fi
+
+# ── doctor: report what the audit will actually be able to run ────────────────
+log "toolchain ready — gate availability:"
+for t in zsh shellcheck luacheck nvim markdownlint-cli2 actionlint hyperfine python3; do
+  if have "$t"; then printf '  ✓ %s\n' "$t"; else printf '  – %s (gate will skip)\n' "$t"; fi
+done
+log "run \`make audit\` to verify Core end-to-end"
+exit 0

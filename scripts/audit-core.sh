@@ -156,7 +156,9 @@ META_ALLOWLIST=(
 # themselves, never vendored into an OS repo (only bin/clip* + the manifest paths
 # are). Listing the dir, not each script, means a new dev tool is covered the moment
 # it lands here — the bin/-vs-scripts/ split is exactly what makes that unambiguous.
-META_PREFIXES=(examples/ .github/ scripts/)
+# .claude/ holds the Claude-Code-on-the-web SessionStart hook (provisions the gate
+# toolchain in a remote session) — repo-meta tooling, likewise never vendored out.
+META_PREFIXES=(examples/ .github/ scripts/ .claude/)
 
 # ── 1. manifest <-> filesystem drift ─────────────────────────────────────────
 hdr "manifest ↔ filesystem"

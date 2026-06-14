@@ -9,4 +9,10 @@ mise.local.toml
 .env
 .env.*
 !.env.example
-.claude/
+# Claude Code: ignore local/transient session state, but DO track the shared
+# Claude-Code-on-the-web setup (the SessionStart hook that provisions the gate
+# toolchain + its settings) so every remote session can run `make audit` for real.
+.claude/*
+!.claude/hooks/
+!.claude/settings.json
+.claude/settings.local.json
