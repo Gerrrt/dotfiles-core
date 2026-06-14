@@ -15,6 +15,30 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- `zsh/ui.zsh` — shared terminal-UX primitives (`_core_err`/`_core_warn`/`_core_ok`/
+  `_core_hint`/`_core_usage`/`_core_confirm`/`_core_spin`), gum-aware with a plain
+  fallback on every helper. Loads right after `tools` in the canonical chain and is
+  adopted across `functions.zsh`, `op.zsh`, `update.zsh`, and `plugins.zsh`, replacing
+  ad-hoc `echo "Usage: …"` lines with one consistent voice (colour only on a TTY,
+  `NO_COLOR` honoured, diagnostics to stderr).
+- `core-help` (alias `cheat`): a grouped, column-aligned cheat sheet of Core's
+  functions, keybindings, and maintenance verbs — the shell counterpart to which-key.
+  Plus a once-per-machine first-run hint pointing at it (`CORE_WELCOME=0` to silence).
+- First-party zsh completions (`zsh/completions/`) for Core's own verbs — `up`,
+  `extract` (archive files only), `mkcd`, `mkbak`, `maint-log`, `openv` — fpath-added
+  by `options.zsh` (symlink-safe; no bootstrap symlink needed). The audit now `zsh -n`s
+  them alongside `zsh/*.zsh`.
+- `scripts/lib/common.sh` — one definition of the colour palette + `pass`/`skip`/`fail`/
+  `hdr`/`have` shared by all five gate scripts (the block had been copy-pasted ×5). A
+  sourced lib, so — like `zsh/*.zsh` — it stays mode 100644; the audit's exec-bit
+  section gained a `scripts/lib/*.sh` arm to assert exactly that.
+- `scripts/tool-versions.env` — single source for the pinned dev-tool versions, read by
+  CI (loaded into `$GITHUB_ENV`), `make setup`, and the audit. `scripts/setup.sh` +
+  `make setup`: a one-command dev bootstrap (pre-commit hooks + version doctor + audit).
+- `actionlint` gate on the workflows: an audit section (graceful skip when absent) plus
+  a pinned CI install — the workflow YAML is now validated, not just parsed.
+- Audit version-consistency section: the `.pre-commit-config.yaml` hook revs are gated
+  to equal `scripts/tool-versions.env`, so a one-sided pin bump fails the audit.
 - Hermetic behavioral tests for `bin/clip` / `bin/clip-paste` (the highest-fan-out
   runtime artifact — used by zsh, tmux, and nvim): a new section in
   `scripts/test-core.sh` drives the WSL→macOS→Wayland→X11 detection ladder against a
@@ -54,6 +78,22 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Changed
 
+- Defensive confirms on impactful interactive actions: `please` now previews the exact
+  `sudo …` line and confirms before eval'ing it as root (and refuses with no previous
+  command); `up` pre-confirms `Apply updates with <mgr>?` before touching the system
+  (skipped by `-y`); `serve` warns plainly that it binds `0.0.0.0` and exposes the CWD.
+- First-run plugin install shows a spinner on the network-bound `git fetch`/`clone`
+  (gum spin when present, a hand-rolled braille spinner otherwise), guarded so an OS
+  loader that hasn't adopted `ui.zsh` yet still installs plainly.
+- CI is now incremental: a `changes` job classifies the diff and gates the narrow,
+  expensive legs — `nvim`+`luacheck` installs run only when `nvim/` changed, and the
+  Alpine and bench jobs only when the shell layer changed. SAFE DEFAULT: an unresolved
+  diff base or any infra change runs everything, so detection can never hide a check.
+- The startup-perf `bench` CI job is now an enforced regression gate
+  (`CORE_BENCH_BUDGET_MS=120` over 50 warmed runs), not a report-only, continue-on-error
+  step — a gross startup regression now fails the build instead of shipping silently.
+- The pinned linter versions moved out of `ci.yml`'s `env:` block into
+  `scripts/tool-versions.env`; CI loads them via a "Load pinned tool versions" step.
 - Split `bin/` into shipped vs. tooling: `bin/` now holds only what is vendored into
   the OS repos (`clip`, `clip-paste`); the gate scripts moved to `scripts/`
   (`audit-core.sh`, `test-core.sh`, `bench-core.sh`, `sync-core.sh`,
