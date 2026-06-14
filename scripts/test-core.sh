@@ -629,6 +629,20 @@ ucheck "maint: _maint_scheduler resolves to a valid scheduler" \
   "source '$UI'; source '$MNT'; [[ \$(_maint_scheduler) == (systemd|launchd|cron) ]]" \
   PATH="$PMBIN"
 
+# update.zsh: the first-run welcome (U2 — the cheat-sheet discoverability hint) must
+# greet EXACTLY ONCE per machine. Drive _core_welcome directly (the TTY gate lives at
+# its call site, so a captured run can exercise the greet+sentinel logic): first call
+# prints the core-help pointer and persists the sentinel; a second call is silent.
+# An isolated XDG_STATE_HOME keeps the sentinel out of the shared sandbox.
+ucheck "update: _core_welcome greets once, then the sentinel silences it" \
+  "source '$UPD'; o1=\$(_core_welcome); [[ \$o1 == *core-help* ]] || exit 1; [[ -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]] || exit 1; o2=\$(_core_welcome); [[ -z \$o2 ]]" \
+  XDG_STATE_HOME="$SANDBOX/welcome-once" NO_COLOR=1 UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# …and the startup hook stays SILENT without an interactive tty (captured/piped/CI):
+# sourcing update.zsh prints no greet and writes no sentinel, so it never spams logs.
+ucheck "update: welcome stays silent (no greet, no sentinel) without a tty" \
+  "o=\$(source '$UPD'); [[ \$o != *core-help* && ! -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]]" \
+  XDG_STATE_HOME="$SANDBOX/welcome-notty" NO_COLOR=1 UPDATE_CHECK_ENABLED=0 CORE_WELCOME=1
+
 # ── summary ───────────────────────────────────────────────────────────────────
 summary
 ((FAIL == 0)) || {
