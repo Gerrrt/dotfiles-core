@@ -18,8 +18,9 @@
 #   5. lint                             — shellcheck            (if present)
 #   6. config files                     — toml/yaml parse-check (if python3 present)
 #   7. markdown                          — markdownlint (if markdownlint-cli2 present)
-#   8. version consistency              — pre-commit hook revs == tool-versions.env
-#   9. behavioral                       — load-order smoke + function units (test-core.sh)
+#   8. workflows                         — actionlint on .github/workflows (if present)
+#   9. version consistency              — pre-commit hook revs == tool-versions.env
+#  10. behavioral                       — load-order smoke + function units (test-core.sh)
 #
 # We deliberately do NOT enforce shfmt: the hand-tuned scripts here use an
 # intentional compact one-liner style that shfmt would expand. shellcheck (real
@@ -224,7 +225,25 @@ else
   skip "markdownlint (markdownlint-cli2 not installed — npm i -g markdownlint-cli2)"
 fi
 
-# ── 8. version consistency (tool-versions.env ↔ .pre-commit-config.yaml) ──────
+# ── 8. workflows (actionlint) ─────────────────────────────────────────────────
+# .github/workflows/*.yml is a fan-out artifact with no gate of its own: the YAML
+# parse in section 6 proves it's well-formed text, not that the workflow is VALID —
+# a bad `needs:`, an undefined job output, or a shellcheck error inside a run: block
+# all parse as YAML and still break CI for every push. actionlint catches those (and
+# runs shellcheck on the run: scripts). Graceful skip when absent, like every linter
+# above; CI installs it pinned (ACTIONLINT_VERSION) so the gate actually runs there.
+hdr "workflows (actionlint)"
+if have actionlint; then
+  if actionlint >/dev/null 2>&1; then
+    pass "actionlint (workflows valid)"
+  else
+    fail "actionlint reported issues — run: actionlint"
+  fi
+else
+  skip "actionlint (not installed — go install github.com/rhysd/actionlint/cmd/actionlint@latest)"
+fi
+
+# ── 9. version consistency (tool-versions.env ↔ .pre-commit-config.yaml) ──────
 # scripts/tool-versions.env is the SINGLE SOURCE for the pinned dev-tool versions.
 # CI loads it directly (no literals left in ci.yml), but .pre-commit-config.yaml is
 # static YAML that can't read it — so the hook `rev:` fields are the one place a pin
@@ -255,7 +274,7 @@ else
   skip "version consistency ($VERSIONS_ENV or $PRECOMMIT_CFG unreadable)"
 fi
 
-# ── 9. behavioral tests (load-order smoke + function unit tests) ──────────────
+# ── 10. behavioral tests (load-order smoke + function unit tests) ─────────────
 # Static analysis above proves the modules PARSE; this proves they LOAD TOGETHER
 # in canonical order and that the pure functions behave. Delegated to test-core.sh
 # (single source of truth) but folded into ONE audit summary via CORE_TEST_NESTED.

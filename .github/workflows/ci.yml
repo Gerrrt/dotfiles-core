@@ -170,6 +170,19 @@ jobs:
       - name: Install markdownlint-cli2 (pinned)
         run: npm install -g "markdownlint-cli2@${MARKDOWNLINT_VERSION}"
 
+      # actionlint gates the workflows themselves (the one fan-out artifact with no
+      # gate of its own). Pinned release binary, Linux-only (workflows are OS-agnostic,
+      # so no need to also install on the macOS leg — the audit section skips there).
+      - name: Install actionlint (Linux, pinned)
+        if: runner.os == 'Linux'
+        run: |
+          set -euxo pipefail
+          ver="${ACTIONLINT_VERSION}"
+          url="https://github.com/rhysd/actionlint/releases/download/v${ver}/actionlint_${ver}_linux_amd64.tar.gz"
+          curl -fsSL "$url" | tar -xz actionlint
+          sudo install -m755 actionlint /usr/local/bin/actionlint
+          rm -f actionlint
+
       # ── neovim: Linux gets the maintainer's pinned release tarball (deterministic,
       # like shellcheck above); macOS uses brew, mirroring the shellcheck/luarocks
       # macOS path (the runner's preinstalled-tap route, no per-arch tarball juggling).
@@ -191,7 +204,7 @@ jobs:
       # actually present instead of failing on a deliberately-absent tool.
       - name: Tool versions
         run: |
-          for t in shellcheck luacheck zsh bash markdownlint-cli2 nvim; do
+          for t in shellcheck luacheck zsh bash markdownlint-cli2 actionlint nvim; do
             if command -v "$t" >/dev/null 2>&1; then
               printf '%s: ' "$t"; "$t" --version | head -1
             else

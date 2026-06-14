@@ -56,6 +56,7 @@ _doctor shellcheck "$(_ver SHELLCHECK_VERSION)" shellcheck --version
 _doctor luacheck "$(_ver LUACHECK_VERSION)" luacheck --version
 _doctor nvim "$(_ver NVIM_VERSION)" nvim --version
 _doctor markdownlint-cli2 "$(_ver MARKDOWNLINT_VERSION)" markdownlint-cli2 --version
+_doctor actionlint "$(_ver ACTIONLINT_VERSION)" actionlint --version
 if have zsh; then pass "zsh → $(zsh --version | grep -oE '[0-9]+\.[0-9]+' | head -n1)"; else skip "zsh absent (the behavioral tests need it)"; fi
 if have python3; then pass "python3 present (toml/yaml parse checks)"; else skip "python3 absent (toml/yaml checks skip)"; fi
 
