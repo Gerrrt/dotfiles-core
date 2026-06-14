@@ -40,22 +40,59 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 1
 
 QUIET=0
+# Scope mirrors audit-core.sh: gate the slow AREA-specific sections so a per-area run
+# does less. FAIL-CLOSED default (no --scope → both areas run). The cross-cutting,
+# pure-bash sections (clipboard ladder, CI-classifier) ALWAYS run — they are fast and
+# guard runtime artifacts shared by every area. audit-core.sh passes the classifier's
+# verdict here; a bare `./scripts/test-core.sh` runs everything.
+SCOPE_SHELL=1
+SCOPE_NVIM=1
+_set_scope() { # _set_scope <comma-list: shell,nvim | all | none>
+  SCOPE_SHELL=0
+  SCOPE_NVIM=0
+  local tok
+  local IFS=,
+  for tok in $1; do
+    case "$tok" in
+    shell) SCOPE_SHELL=1 ;;
+    nvim) SCOPE_NVIM=1 ;;
+    all | full)
+      SCOPE_SHELL=1
+      SCOPE_NVIM=1
+      ;;
+    none | "") ;;
+    *)
+      printf 'test-core.sh: unknown scope %s — running full (fail-safe)\n' "$tok" >&2
+      SCOPE_SHELL=1
+      SCOPE_NVIM=1
+      ;;
+    esac
+  done
+}
+
 # Same flag contract as audit-core.sh: parse EVERY arg and reject an unknown option or
 # a stray extra operand instead of ignoring it; -h/--help prints usage. (audit-core.sh
-# invokes this with --quiet or nothing.)
+# invokes this with --quiet/--scope or nothing.)
 while (($#)); do
   case "$1" in
   -q | --quiet) QUIET=1 ;;
+  --scope)
+    shift
+    _set_scope "${1:-}"
+    ;;
+  --scope=*) _set_scope "${1#*=}" ;;
   -h | --help)
     cat <<'EOF'
-usage: test-core.sh [-q|--quiet] [-h|--help]
+usage: test-core.sh [-q|--quiet] [--scope LIST] [-h|--help]
 
 Behavioral suite: clipboard ladder + nvim headless load + nvim event callbacks
 + zsh load-order smoke + function/unit + detection tests. Degrades gracefully
 when zsh/nvim are absent.
 
-  -q, --quiet   only print SKIP/FAIL lines and the final summary
-  -h, --help    show this help and exit
+  -q, --quiet     only print SKIP/FAIL lines and the final summary
+  --scope LIST    limit the slow area sections: shell, nvim, all (default), none.
+                  The clipboard + CI-classifier sections always run.
+  -h, --help      show this help and exit
 EOF
     exit 0
     ;;
@@ -193,7 +230,9 @@ _clip_fails "clip-paste exits non-zero with no backend" "$CLIPPASTE"
 # plugin dirs; graceful skip when nvim is absent, exactly like the linters. Real
 # plugin RUNTIME (the deferred callbacks) is out of scope — luacheck covers its syntax.
 hdr "neovim config load (nvim/ headless)"
-if have nvim; then
+if ! ((SCOPE_NVIM)); then
+  skip "nvim config load (out of scope)"
+elif have nvim; then
   probe="$SANDBOX/nvim-probe.lua"
   cat >"$probe" <<'LUA'
 vim.opt.runtimepath:prepend(vim.env.CORE_NVIM_DIR)
@@ -283,7 +322,9 @@ fi
 # (mini.trailspace/conform) or a live LSP attach, neither present in this hermetic
 # probe — luacheck covers their syntax; runtime is out of scope.
 hdr "neovim event callbacks (nvim/ headless)"
-if have nvim; then
+if ! ((SCOPE_NVIM)); then
+  skip "nvim event callbacks (out of scope)"
+elif have nvim; then
   evt_probe="$SANDBOX/nvim-events.lua"
   cat >"$evt_probe" <<'LUA'
 vim.opt.runtimepath:prepend(vim.env.CORE_NVIM_DIR)
@@ -346,9 +387,13 @@ _classify_is "mixed shell+nvim set → union of both" $'zsh/ui.zsh\nnvim/init.lu
 # ── zsh-gated sections (A load-order, B function units) ───────────────────────
 # Everything below needs a real zsh. On a bare box we SKIP it (not fail) and fall
 # through to the shared summary, so a Section-C failure still surfaces as exit 1.
-if ! have zsh; then
+if ! ((SCOPE_SHELL)) || ! have zsh; then
   hdr "zsh behavioral sections (load-order + function units)"
-  skip "load-order smoke + function units (zsh not installed — runs in CI)"
+  if ! ((SCOPE_SHELL)); then
+    skip "zsh behavioral sections (out of scope)"
+  else
+    skip "load-order smoke + function units (zsh not installed — runs in CI)"
+  fi
   summary
   ((FAIL == 0)) || {
     [[ "$NESTED" == 1 ]] || printf '%stests FAILED%s\n' "$c_red" "$c_rst" >&2
