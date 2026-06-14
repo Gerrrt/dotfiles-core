@@ -513,10 +513,24 @@ check "mkcd creates and enters a nested dir" \
   'd=$(mktemp -d); cd "$d"; mkcd a/b/c; [[ ${PWD:t} == c && -d "$d/a/b/c" ]]'
 check "cdup climbs N directories" \
   'd=$(mktemp -d); mkdir -p "$d/a/b/c"; cd "$d/a/b/c"; cdup 2; [[ ${PWD:t} == a ]]'
+# Defensive input guards (U1): a bad count / missing file / bad port must be REJECTED
+# in Core's voice (non-zero), not silently no-op or handed to cp/python to fail raw.
+check "cdup rejects a non-numeric count" \
+  'cdup abc 2>/dev/null; (( $? != 0 ))'
+check "cdup rejects a zero count" \
+  'cdup 0 2>/dev/null; (( $? != 0 ))'
 check "mkbak writes a timestamped .bak copy" \
   'd=$(mktemp -d); cd "$d"; print hi > f; mkbak f; set -- f.*.bak; [[ -f $1 ]]'
 check "mkbak's .bak is byte-identical to the original" \
   'd=$(mktemp -d); cd "$d"; print -r -- payload > f; mkbak f; set -- f.*.bak; [[ -f $1 && "$(cat -- $1)" == payload ]]'
+check "mkbak rejects a missing file" \
+  'mkbak /no/such/file 2>/dev/null; (( $? != 0 ))'
+check "mkbak with no argument is rejected" \
+  'mkbak 2>/dev/null; (( $? != 0 ))'
+check "serve rejects a non-numeric port" \
+  'serve abc 2>/dev/null; (( $? != 0 ))'
+check "serve rejects an out-of-range port" \
+  'serve 99999 2>/dev/null; (( $? != 0 ))'
 check "extract rejects a non-existent file" \
   'extract /no/such/archive.tar.gz; (( $? != 0 ))'
 check "extract rejects a known file of unknown format" \

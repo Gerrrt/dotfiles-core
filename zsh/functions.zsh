@@ -12,9 +12,17 @@ mkcd() {
 }
 
 # cdup — climb N directories (cdup 3 == cd ../../..). NOT named `up`: that's the
-# package-updater in update.zsh.
+# package-updater in update.zsh. N defaults to 1 and must be a positive integer —
+# a typo'd `cdup x` should say so, not silently no-op (the loop never runs) and leave
+# you wondering why you didn't move.
 cdup() {
+  emulate -L zsh
   local n="${1:-1}" p=""
+  if [[ "$n" != <-> ]] || ((n < 1)); then
+    _core_err "cdup: count must be a positive integer (got '$n')"
+    _core_usage "cdup [n]"
+    return 1
+  fi
   while ((n-- > 0)); do p="../$p"; done
   cd "$p" || return
 }
@@ -150,8 +158,21 @@ please() {
   eval "sudo ${last}"
 }
 
-# mkbak — timestamped backup of a file before you edit it
-mkbak() { cp -- "$1" "$1.$(date +%Y%m%d-%H%M%S).bak"; }
+# mkbak — timestamped backup of a file before you edit it. Validates its input in
+# Core's voice instead of letting `cp` emit a raw "missing operand"/"No such file"
+# (the rest of functions.zsh — mkcd, extract — guards the same way).
+mkbak() {
+  emulate -L zsh
+  [[ -z "$1" ]] && {
+    _core_usage "mkbak <file>"
+    return 1
+  }
+  [[ -f "$1" ]] || {
+    _core_err "mkbak: '$1' is not a regular file"
+    return 1
+  }
+  cp -- "$1" "$1.$(date +%Y%m%d-%H%M%S).bak"
+}
 
 # serve — quick HTTP server in the CWD, printing the URLs it's actually reachable
 # at (tunnel IP first, then LAN). Replaces the old `serve` alias. Binds all
@@ -159,7 +180,20 @@ mkbak() { cp -- "$1" "$1.$(date +%Y%m%d-%H%M%S).bak"; }
 #   serve            # port 8000
 #   serve 8080       # port 8080
 serve() {
+  emulate -L zsh
   local port="${1:-8000}" ip
+  # Defensive input handling: a typo'd port should be rejected cleanly, not handed to
+  # python to fail with a stack trace (or, worse, a non-numeric value coerced oddly).
+  if [[ "$port" != <-> ]] || ((port < 1 || port > 65535)); then
+    _core_err "serve: port must be 1-65535 (got '$port')"
+    _core_usage "serve [port]"
+    return 1
+  fi
+  _core_have python3 || {
+    _core_err "serve: requires python3"
+    _core_hint "install python3, then retry"
+    return 1
+  }
   # Defensive: this binds ALL interfaces on purpose (ad-hoc file transfer), so say
   # so plainly — on an untrusted network the CWD is reachable by anyone who can
   # route to this host until you Ctrl-C.
