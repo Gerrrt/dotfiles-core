@@ -1,0 +1,4 @@
+#compdef core-help cheat
+# Completion for Core's `core-help` (alias: cheat; zsh/functions.zsh). It prints a
+# static cheat sheet and takes no arguments.
+_message 'core-help takes no arguments (prints the Core cheat sheet)'

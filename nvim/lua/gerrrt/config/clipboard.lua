@@ -30,6 +30,11 @@ if vim.fn.executable("clip") == 1 and vim.fn.executable("clip-paste") == 1 then
 			["+"] = "clip-paste",
 			["*"] = "clip-paste",
 		},
+		-- cache_enabled = 0 on purpose: every "+p reflects the LIVE system clipboard
+		-- (including copies made in other apps), never a stale value nvim cached. That
+		-- means nvim re-execs clip-paste per access, so the scripts themselves are kept
+		-- fork-light — their WSL probe reads /proc/version with a bash builtin instead
+		-- of forking grep each time (see bin/clip). Correctness kept, waste removed.
 		cache_enabled = 0,
 	}
 elseif vim.fn.executable("clip.exe") == 1 then

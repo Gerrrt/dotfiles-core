@@ -1,0 +1,4 @@
+#compdef cdup
+# Completion for Core's `cdup` (zsh/functions.zsh): how many directories to climb
+# (a positive integer; defaults to 1). Offer a small ladder as hints.
+_arguments '1:levels [default 1]:(1 2 3 4 5)'

@@ -7,7 +7,7 @@
 # pre-commit call the same scripts/audit-core.sh, so `make audit` == green CI.
 # ──────────────────────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help setup audit test bench lint sync sync-dry hooks update-hooks update-plugins
+.PHONY: help setup audit test bench lint sync sync-dry hooks update-hooks update-plugins update-nvim-plugins
 
 help: ## Show this help
 	@echo "dotfiles-core — make targets:"
@@ -44,3 +44,6 @@ update-hooks: ## Bump pinned pre-commit hook revisions (dependabot has no pre-co
 
 update-plugins: ## Roll the pinned zsh-plugin SHAs in zsh/plugins.zsh to upstream HEAD (deliberate bump)
 	@./scripts/update-plugins.sh
+
+update-nvim-plugins: ## Roll the pinned nvim plugin commits in nvim/lazy-lock.json forward (deliberate bump)
+	@./scripts/update-nvim-plugins.sh
