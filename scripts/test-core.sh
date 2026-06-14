@@ -639,6 +639,13 @@ check "core-help renders all verbs (wide terminal)" \
   'out=$(COLUMNS=120 core-help 2>&1); (( $? == 0 )) && [[ $out == *mkcd* && $out == *"maint-install"* && $out == *serve* ]]'
 check "core-help renders cleanly on a pathologically narrow terminal" \
   'out=$(COLUMNS=12 core-help 2>&1); (( $? == 0 )) && [[ $out == *mkcd* ]]'
+# _core_hint width-aware wrapping (U9): a known narrow width wraps with the
+# continuation aligned under the text; an UNKNOWN width (non-tty, COLUMNS=0 here) must
+# NOT wrap, so captured/logged hints stay one line (no regression for the other tests).
+check "_core_hint stays one line when the terminal width is unknown" \
+  'out=$(_core_hint install fzf, then retry 2>&1); L=("${(@f)out}"); (( ${#L} == 1 )) && [[ $out == *"hint: install"* ]]'
+check "_core_hint wraps a long hint at a narrow COLUMNS with aligned continuation" \
+  'out=$(COLUMNS=40 _core_hint alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima 2>&1); L=("${(@f)out}"); (( ${#L} >= 2 )) && [[ ${L[1]} == "  hint: "* && ${L[2]} == "        "* ]]'
 check "extract rejects a non-existent file" \
   'extract /no/such/archive.tar.gz; (( $? != 0 ))'
 check "extract rejects a known file of unknown format" \
