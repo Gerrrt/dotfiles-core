@@ -147,10 +147,20 @@ fi
 : "${CORE_WELCOME:=1}"
 if ((CORE_WELCOME)); then
   () {
+    # Greet only an interactive TERMINAL — a redirected/captured stdout (or the
+    # load-order smoke test) gets nothing.
+    [[ -t 1 ]] || return 0
     local stamp="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles-core/.welcomed"
     [[ -e "$stamp" ]] && return 0
-    mkdir -p "${stamp:h}" 2>/dev/null && : >|"$stamp" 2>/dev/null # >| : past NO_CLOBBER
-    print -P "%F{#7aa2f7}👋 dotfiles Core loaded%f %F{#565f89}— run \`core-help\` for functions, keys & maintenance%f"
+    # Only greet once the sentinel actually PERSISTS — otherwise a read-only state
+    # dir (write fails) would re-greet on every shell start, forever. `>|` forces
+    # past NO_CLOBBER; `|| return` bails (no greet) when we can't remember we did.
+    mkdir -p "${stamp:h}" 2>/dev/null && : >|"$stamp" 2>/dev/null || return 0
+    if [[ -z ${NO_COLOR:-} ]]; then
+      print -P "%F{#7aa2f7}👋 dotfiles Core loaded%f %F{#565f89}— run \`core-help\` for functions, keys & maintenance%f"
+    else
+      print -r -- "👋 dotfiles Core loaded — run \`core-help\` for functions, keys & maintenance"
+    fi
   }
 fi
 

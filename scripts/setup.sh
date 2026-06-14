@@ -50,7 +50,13 @@ _doctor() { # _doctor <bin> <pinned> <version-cmd...>
   # Each tool formats --version differently; pull the first semver-ish token.
   local got
   got="$("$@" 2>&1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)"
-  pass "$bin → ${got:-?}   (pinned $want)"
+  if [[ -z "$got" ]]; then
+    printf '%s⚠%s %s present, but its version string could not be parsed (pinned %s)\n' "$c_yel" "$c_rst" "$bin" "$want"
+  elif [[ "$got" == "$want" ]]; then
+    pass "$bin → $got   (matches pin)"
+  else
+    printf '%s⚠%s %s → %s does NOT match pinned %s — align with ci.yml to mirror CI\n' "$c_yel" "$c_rst" "$bin" "$got" "$want"
+  fi
 }
 _doctor shellcheck "$(_ver SHELLCHECK_VERSION)" shellcheck --version
 _doctor luacheck "$(_ver LUACHECK_VERSION)" luacheck --version

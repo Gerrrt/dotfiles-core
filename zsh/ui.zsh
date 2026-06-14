@@ -23,15 +23,18 @@ typeset -g _CORE_C_RED=$'\e[31m' _CORE_C_YEL=$'\e[33m' _CORE_C_GRN=$'\e[32m'
 typeset -g _CORE_C_DIM=$'\e[2;37m' _CORE_C_RST=$'\e[0m'
 
 _core_have() { command -v "$1" >/dev/null 2>&1; }
-# Colourise? fd 2 a terminal AND NO_COLOR unset (https://no-color.org).
-_core_color() { [[ -t 2 && -z ${NO_COLOR:-} ]]; }
+# Colourise fd $1 (default 2 = stderr)? The fd must be a terminal AND NO_COLOR
+# unset (https://no-color.org). Each helper asks about the stream it ACTUALLY
+# writes to — _core_ok (stdout) passes 1, the stderr helpers use the default 2 —
+# so `cmd | cat` (stdout piped, stderr still a TTY) never leaks colour into the pipe.
+_core_color() { [[ -t ${1:-2} && -z ${NO_COLOR:-} ]]; }
 
 # ── messages ──────────────────────────────────────────────────────────────────
 # err/warn/hint/usage go to STDERR (diagnostics, never pollute a captured stdout);
 # ok goes to STDOUT (it's a result). None of them exits — a zsh helper that called
 # `exit` would kill the user's interactive shell. Callers do `_core_err …; return 1`.
-_core_ok() { # success line → stdout
-  if _core_color; then print -r -- "${_CORE_C_GRN}✓${_CORE_C_RST} $*"
+_core_ok() { # success line → stdout (so it checks fd 1, not fd 2)
+  if _core_color 1; then print -r -- "${_CORE_C_GRN}✓${_CORE_C_RST} $*"
   else print -r -- "✓ $*"; fi
 }
 _core_err() { # error line → stderr
