@@ -37,12 +37,12 @@ maint-install() {
   emulate -L zsh
   local when="${1:-13:00}"
   if [[ "$when" != <0-23>:<0-59> ]]; then
-    echo "usage: maint-install [HH:MM]   (24h, e.g. 13:00)" >&2
+    _core_usage "maint-install [HH:MM]   (24h, e.g. 13:00)"
     return 1
   fi
   local hh="${when%%:*}" mm="${when##*:}"
   if [[ ! -f "$_MAINT_SH" ]]; then
-    echo "maint: runner not found at $_MAINT_SH" >&2
+    _core_err "maint: runner not found at $_MAINT_SH"
     return 1
   fi
   chmod +x "$_MAINT_SH" 2>/dev/null
@@ -75,9 +75,9 @@ WantedBy=timers.target
 EOF
     systemctl --user daemon-reload
     systemctl --user enable --now dotfiles-maint.timer
-    echo "✓ systemd user timer installed for $when. Next runs:"
+    _core_ok "systemd user timer installed for $when — next runs:"
     systemctl --user list-timers dotfiles-maint.timer --no-pager 2>/dev/null
-    echo "  (headless/server box that you're not always logged into? run: loginctl enable-linger $USER)"
+    _core_hint "headless/server box you're not always logged into? run: loginctl enable-linger $USER"
     ;;
   launchd)
     local plist="$HOME/Library/LaunchAgents/com.dotfiles.maint.plist"
@@ -97,7 +97,7 @@ EOF
 </dict></plist>
 EOF
     launchctl unload "$plist" 2>/dev/null
-    launchctl load "$plist" && echo "✓ launchd agent installed for $when (com.dotfiles.maint)"
+    launchctl load "$plist" && _core_ok "launchd agent installed for $when (com.dotfiles.maint)"
     ;;
   cron)
     local marker="# dotfiles-maint"
@@ -105,11 +105,11 @@ EOF
       crontab -l 2>/dev/null | grep -vF "$marker"
       echo "$mm $hh * * * /usr/bin/env bash $_MAINT_SH $marker"
     ) | crontab -
-    echo "✓ cron entry installed for $when"
+    _core_ok "cron entry installed for $when"
     crontab -l 2>/dev/null | grep -F "$marker"
     ;;
   *)
-    echo "maint: no supported scheduler (systemd/launchd/cron) found" >&2
+    _core_err "maint: no supported scheduler (systemd/launchd/cron) found"
     return 1
     ;;
   esac
@@ -143,17 +143,17 @@ maint-uninstall() {
     systemctl --user disable --now dotfiles-maint.timer 2>/dev/null
     rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/dotfiles-maint."{service,timer}
     systemctl --user daemon-reload
-    echo "✓ removed systemd timer"
+    _core_ok "removed systemd timer"
     ;;
   launchd)
     local p="$HOME/Library/LaunchAgents/com.dotfiles.maint.plist"
     launchctl unload "$p" 2>/dev/null
     rm -f "$p"
-    echo "✓ removed launchd agent"
+    _core_ok "removed launchd agent"
     ;;
   cron)
     (crontab -l 2>/dev/null | grep -vF "# dotfiles-maint") | crontab -
-    echo "✓ removed cron entry"
+    _core_ok "removed cron entry"
     ;;
   esac
 }

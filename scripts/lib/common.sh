@@ -20,13 +20,18 @@
 [[ -n "${_CORE_COMMON_SH:-}" ]] && return 0
 _CORE_COMMON_SH=1
 
-# Palette. Emitted unconditionally (these scripts have always coloured their
-# output; CI logs render or strip it). Kept here so the codes live in one place.
-c_grn=$'\e[32m'
-c_yel=$'\e[33m'
-c_red=$'\e[31m'
-c_blu=$'\e[34m'
-c_rst=$'\e[0m'
+# Palette. Coloured ONLY when stdout is a real terminal and NO_COLOR is unset
+# (https://no-color.org) — so `make audit > log`, `| less`, or a captured CI run
+# gets clean text instead of raw \e[..m escapes littering the file. This mirrors
+# zsh/ui.zsh, which gates its runtime helpers the same way: ONE colour rule across
+# the dev tooling and the shell layer. (fail() writes to stderr, but keying the whole
+# palette on stdout keeps it simple and means a redirect strips every escape at once;
+# a plain `2>&1 | tee log` therefore stays readable too.) Codes live here, once.
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  c_grn=$'\e[32m' c_yel=$'\e[33m' c_red=$'\e[31m' c_blu=$'\e[34m' c_rst=$'\e[0m'
+else
+  c_grn='' c_yel='' c_red='' c_blu='' c_rst=''
+fi
 
 # Tallies + quiet flag. Initialised with `:=` so a caller that runs under `set -u`
 # (all of them) never trips an unbound-variable error on the first pass()/skip().

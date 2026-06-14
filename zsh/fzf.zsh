@@ -103,7 +103,7 @@ zle -N _tmux_sessionizer
 # Global utility: fif — find text inside files
 # =========================================================
 fif() {
-  [[ -z "$1" ]] && { echo "Usage: fif <search_term>"; return 1; }
+  [[ -z "$1" ]] && { _core_usage "fif <search_term>"; return 1; }
   FIF_TERM="$1" rg --files-with-matches --no-messages "$1" | fzf \
     --height 80% --layout=reverse --border=rounded \
     --prompt="Text Match ❯ " \

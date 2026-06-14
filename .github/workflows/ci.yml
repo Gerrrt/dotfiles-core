@@ -64,20 +64,13 @@ jobs:
             files="$(git diff --name-only "$base" HEAD)"
             echo "changed files vs $base:"; printf '%s\n' "$files" | sed 's/^/  /'
           fi
-          shell=false; nvim=false
-          if [ "$files" = "__ALL__" ]; then
-            shell=true; nvim=true
-          else
-            # infra is cross-cutting → force the full run
-            if printf '%s\n' "$files" | grep -qE '^(scripts/|\.github/|core\.manifest|\.pre-commit-config\.yaml|Makefile)'; then
-              shell=true; nvim=true
-            fi
-            if printf '%s\n' "$files" | grep -qE '^(zsh/|bin/|maint/|tmux/|sesh/|starship/|mise/|git/)|\.sh$'; then shell=true; fi
-            if printf '%s\n' "$files" | grep -qE '^nvim/'; then nvim=true; fi
-          fi
-          echo "→ shell=$shell nvim=$nvim"
-          echo "shell=$shell" >> "$GITHUB_OUTPUT"
-          echo "nvim=$nvim" >> "$GITHUB_OUTPUT"
+          # The path→gate mapping lives in scripts/ci-classify.sh — shellcheck'd,
+          # unit-tested (scripts/test-core.sh), and FAIL-CLOSED on an unrecognised
+          # path — instead of drift-prone greps inlined in this YAML. It prints
+          # `shell=…`/`nvim=…`, which we echo and append straight to $GITHUB_OUTPUT.
+          out="$(printf '%s\n' "$files" | ./scripts/ci-classify.sh)"
+          printf '→ %s\n' "$out" | tr '\n' ' '; echo
+          echo "$out" >> "$GITHUB_OUTPUT"
 
   audit:
     needs: changes

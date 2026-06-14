@@ -1,0 +1,4 @@
+#compdef optoken
+# Completion for Core's `optoken` (zsh/op.zsh): the <vault>/<item> whose TOTP to copy.
+# Described, not fetched (see _opsecret), so completion stays instant and offline.
+_arguments '1:vault/item:'

@@ -1,0 +1,4 @@
+#compdef maint-run maint-status maint-uninstall
+# Completion for Core's argument-less maint verbs (zsh/maint.zsh). They take no
+# operands, so say so instead of falling back to the default file completion.
+_message 'no arguments'

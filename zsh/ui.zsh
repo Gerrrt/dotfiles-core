@@ -87,10 +87,20 @@ _core_spin() {
     gum spin --spinner dot --title "$title" --show-error -- "$@"
     return
   fi
-  setopt localoptions nomonitor
-  "$@" &
-  local pid=$! i=0
+  # localtraps scopes the INT trap below to THIS function; nomonitor silences the
+  # job-control "[1] <pid>"/"done" chatter the background job would otherwise emit.
+  setopt localoptions localtraps nomonitor
   local -a fr=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+  printf '\e[?25l' >&2 # hide the cursor so it doesn't blink ON TOP of the glyph
+  "$@" &
+  local pid=$!
+  # Ctrl-C during the spin would otherwise kill the loop mid-frame and leave a frozen
+  # glyph + a HIDDEN cursor behind. Trap it: FORWARD the interrupt to the wrapped job
+  # (SIGINT, not SIGTERM, so it actually stops a child that only handles ^C) and reap it
+  # with `wait` before returning — so the work really halts instead of lingering in the
+  # background — then clear the line, restore the cursor, and propagate as 130 (128+SIGINT).
+  trap 'kill -INT "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; printf "\r\e[K\e[?25h" >&2; return 130' INT
+  local i=0
   while kill -0 "$pid" 2>/dev/null; do
     printf '\r%s %s' "${fr[$((i % 10 + 1))]}" "$title" >&2
     sleep 0.1
@@ -98,6 +108,6 @@ _core_spin() {
   done
   wait "$pid"
   local rc=$?
-  printf '\r\e[K' >&2 # clear the spinner line
+  printf '\r\e[K\e[?25h' >&2 # clear the spinner line + restore the cursor
   return $rc
 }

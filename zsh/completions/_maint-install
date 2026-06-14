@@ -1,0 +1,4 @@
+#compdef maint-install
+# Completion for Core's `maint-install` (zsh/maint.zsh): the daily run time as HH:MM
+# (24-hour, e.g. 13:00). Free-form, so describe the argument.
+_arguments '1:run time (HH:MM, 24h):'
