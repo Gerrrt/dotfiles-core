@@ -24,6 +24,10 @@ repos:
       # toml/yaml section in scripts/audit-core.sh.
       - id: check-toml
       - id: check-yaml
+      # check-json only matches *.json (not the *.jsonc config files) — it guards
+      # nvim/lazy-lock.json, the reproducible-plugin pin set. Mirrors the json arm
+      # in scripts/audit-core.sh.
+      - id: check-json
       - id: check-executables-have-shebangs
       # The bug this whole effort started from: a script with a shebang that
       # isn't executable. Catches exec-bit regressions at commit time.
