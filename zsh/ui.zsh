@@ -72,7 +72,7 @@ _core_hint() { # dim follow-up "hint:" line → stderr (the fix, after an error)
   [[ -n "$cur" ]] && lines+=("$cur")
   ((${#lines})) || lines=('')
   local i body
-  for i in {1..${#lines}}; do
+  for ((i = 1; i <= ${#lines}; i++)); do
     ((i == 1)) && body="${prefix}${lines[i]}" || body="${indent}${lines[i]}"
     if _core_color; then print -u2 -r -- "${_CORE_C_DIM}${body}${_CORE_C_RST}"
     else print -u2 -r -- "$body"; fi
@@ -98,7 +98,10 @@ _core_help() {
   shift
   if _core_color 1; then print -r -- "${_CORE_C_DIM}usage:${_CORE_C_RST} $synopsis"
   else print -r -- "usage: $synopsis"; fi
-  (($#)) && print -r -- "  $*"
+  # One indented line PER remaining arg, honouring the "description line..." contract
+  # (callers pass a single line today, but this lets a verb give multi-line help).
+  local d
+  for d in "$@"; do print -r -- "  $d"; done
 }
 
 # ── confirm ───────────────────────────────────────────────────────────────────

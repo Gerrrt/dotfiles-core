@@ -94,6 +94,12 @@ install_tarball() { # install_tarball <bin> <url> <tar-flags> [member]
 [ -n "${ACTIONLINT_VERSION:-}" ] && install_tarball actionlint \
   "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" -xz actionlint
 
+# ── gitleaks (pinned) — the audit's secrets section runs `gitleaks dir`, so without
+# this a remote session's secrets gate would SKIP: a "green because absent" for secrets,
+# the exact false-green this hook exists to prevent. Same tarball pattern as above. ──
+[ -n "${GITLEAKS_VERSION:-}" ] && install_tarball gitleaks \
+  "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -xz gitleaks
+
 # ── neovim (pinned) — extracted to /opt, symlinked onto PATH (CI's Linux path) ─
 if [ -n "${NVIM_VERSION:-}" ] && ! have nvim; then
   if curl -fsSL "https://github.com/neovim/neovim/releases/download/v${NVIM_VERSION}/nvim-linux-x86_64.tar.gz" | $SUDO tar -xz -C /opt 2>/dev/null; then
@@ -126,7 +132,7 @@ fi
 
 # ── doctor: report what the audit will actually be able to run ────────────────
 log "toolchain ready — gate availability:"
-for t in zsh shellcheck luacheck nvim markdownlint-cli2 actionlint hyperfine python3; do
+for t in zsh shellcheck luacheck nvim markdownlint-cli2 actionlint gitleaks hyperfine python3; do
   if have "$t"; then printf '  ✓ %s\n' "$t"; else printf '  – %s (gate will skip)\n' "$t"; fi
 done
 log "run \`make audit\` to verify Core end-to-end"
