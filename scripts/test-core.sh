@@ -782,14 +782,15 @@ ucheck "update: up --dry-run lists pending packages and exits 0 (applies nothing
   "source '$UI'; source '$UPD'; out=\$(up --dry-run); (( \$? == 0 )) && [[ \$out == *foo* && \$out == *bar* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 # up strict flag parsing: every arg is parsed (not just $1), so an unknown flag is
-# REJECTED in Core's voice (rc 2) instead of silently falling through to a real,
-# privileged update — and -y/-n together (apply vs inspect-only) is refused as
-# contradictory. Both rejections happen BEFORE _pkgup_mgr, so the manager doesn't matter.
-ucheck "update: up rejects an unknown flag (rc 2, does not attempt an update)" \
-  "source '$UI'; source '$UPD'; out=\$(up --bogus 2>&1); (( \$? == 2 )) && [[ \$out == *'unexpected argument'* ]]" \
+# REJECTED in Core's voice (rc 1 — the verb-layer usage-error convention, same as
+# serve/mkcd/…) instead of silently falling through to a real, privileged update —
+# and -y/-n together (apply vs inspect-only) is refused as contradictory. Both
+# rejections happen BEFORE _pkgup_mgr, so the manager doesn't matter.
+ucheck "update: up rejects an unknown flag (rc 1, does not attempt an update)" \
+  "source '$UI'; source '$UPD'; out=\$(up --bogus 2>&1); (( \$? == 1 )) && [[ \$out == *'unexpected argument'* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
-ucheck "update: up refuses -y and -n together (mutually exclusive, rc 2)" \
-  "source '$UI'; source '$UPD'; out=\$(up -y -n 2>&1); (( \$? == 2 )) && [[ \$out == *'mutually exclusive'* ]]" \
+ucheck "update: up refuses -y and -n together (mutually exclusive, rc 1)" \
+  "source '$UI'; source '$UPD'; out=\$(up -y -n 2>&1); (( \$? == 1 )) && [[ \$out == *'mutually exclusive'* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 # core-help context-awareness (U7): a row whose tool is ABSENT on this box must be
 # tagged "needs <tool>", while an always-on verb (mkcd) still renders normally. Drive

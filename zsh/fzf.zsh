@@ -95,7 +95,7 @@ _fzf_history_clean() {
   local result
   # Bound unconditionally in bindings.zsh (Ctrl-R), so guard here: on a box without
   # fzf, warn in Core's voice and repaint rather than spewing "command not found"
-  # from the missing fzf. Mirrors the Alt-Z (_fzf_zoxide_jump) guard below.
+  # from the missing fzf. Mirrors the Alt-Z (_fzf_zoxide_jump) guard above.
   if ! _core_have fzf; then
     _core_warn "Ctrl-R: needs fzf"
     zle reset-prompt

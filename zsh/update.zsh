@@ -220,7 +220,8 @@ up() {
   # flag or stray operand is REJECTED in Core's voice — matching the fail-closed
   # parsers in scripts/*.sh. The old `[[ "$1" == … ]]` form silently ignored a
   # second flag (`up -n -y`) and let a typo like `up --bogus` fall through to a real,
-  # privileged update.
+  # privileged update. Usage errors return 1, the convention every Core VERB uses
+  # (serve/mkcd/cdup/…); the gate SCRIPTS use 2, but `up` is a verb, not a gate.
   local yes=0 dry=0 arg
   for arg in "$@"; do
     case "$arg" in
@@ -229,7 +230,7 @@ up() {
     *)
       _core_err "up: unexpected argument: $arg"
       _core_usage "up [-y|--yes] [-n|--dry-run]"
-      return 2
+      return 1
       ;;
     esac
   done
@@ -238,7 +239,7 @@ up() {
   if ((yes && dry)); then
     _core_err "up: -y/--yes and -n/--dry-run are mutually exclusive"
     _core_usage "up [-y|--yes] [-n|--dry-run]"
-    return 2
+    return 1
   fi
   local y=()
   ((yes)) && y=(-y)
