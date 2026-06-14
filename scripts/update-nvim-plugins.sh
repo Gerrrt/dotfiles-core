@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# scripts/update-nvim-plugins.sh
+# ──────────────────────────────────────────────────────────────────────────────
+# Deliberately roll the pinned Neovim plugin revisions in nvim/lazy-lock.json
+# forward. This is the lazy.nvim counterpart of scripts/update-plugins.sh (which
+# bumps the zsh-plugin SHAs): pins exist so nothing floats silently into the 9 OS
+# repos, and THIS is the one place the nvim ones move — under review, not on their own.
+#
+# Why a committed lockfile at all: lazy.nvim clones plugins from their default
+# branches (config/lazy.lua), so without nvim/lazy-lock.json every box — and every
+# vendored OS repo — resolves a DIFFERENT commit, i.e. a non-reproducible editor.
+# The tracked lockfile pins all of them; `:Lazy restore` installs exactly those.
+#
+# How it works: run the REPO's real nvim config headlessly in a throwaway HOME whose
+# config dir is symlinked to nvim/, so lazy writes the lockfile straight back into
+# nvim/lazy-lock.json. `:Lazy! sync` installs/updates/cleans and rewrites the lock.
+# The throwaway data dir means this never touches the maintainer's own nvim install;
+# the trade-off is it re-clones the plugins each run — fine for an occasional,
+# reviewed bump (the same "deliberate, not automatic" philosophy as update-plugins.sh).
+#
+# Usage:
+#   ./scripts/update-nvim-plugins.sh            # bump pins to latest, rewrite the lock
+#   ./scripts/update-nvim-plugins.sh --dry-run  # show what WOULD change, restore the lock
+# ──────────────────────────────────────────────────────────────────────────────
+set -uo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$HERE" || exit 1
+LOCK="nvim/lazy-lock.json"
+
+DRY=0
+[[ "${1:-}" == "--dry-run" || "${1:-}" == "-n" ]] && DRY=1
+
+# Shared palette + have() (one definition for every gate script).
+# shellcheck source=scripts/lib/common.sh
+source "${BASH_SOURCE[0]%/*}/lib/common.sh"
+
+have nvim || {
+  printf '%s✗%s nvim not found — required to resolve and write the lockfile\n' "$c_red" "$c_rst" >&2
+  exit 1
+}
+have git || {
+  printf '%s✗%s git not found — required to clone the plugins\n' "$c_red" "$c_rst" >&2
+  exit 1
+}
+
+# Snapshot the current lock so --dry-run can restore it and a real run can diff.
+HAD_LOCK=0
+BEFORE="$(mktemp "${TMPDIR:-/tmp}/lazy-lock.before.XXXXXX")"
+[[ -f "$LOCK" ]] && {
+  cp "$LOCK" "$BEFORE"
+  HAD_LOCK=1
+}
+
+# Throwaway XDG tree; config/nvim → the repo, so lazy writes nvim/lazy-lock.json.
+SANDBOX="$(mktemp -d "${TMPDIR:-/tmp}/core-nvim-lock.XXXXXX")"
+cleanup() { rm -rf "$SANDBOX" "$BEFORE"; }
+trap cleanup EXIT
+mkdir -p "$SANDBOX/config" "$SANDBOX/data" "$SANDBOX/state" "$SANDBOX/cache"
+ln -s "$HERE/nvim" "$SANDBOX/config/nvim"
+
+printf '%s== syncing nvim plugins → upstream%s ==%s\n' \
+  "$c_blu" "$([[ $DRY == 1 ]] && echo '  (dry-run)')" "$c_rst"
+
+# DOTFILES_OFFLINE=0 so the offline guard never suppresses the sync we explicitly want.
+if ! HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/config" XDG_DATA_HOME="$SANDBOX/data" \
+  XDG_STATE_HOME="$SANDBOX/state" XDG_CACHE_HOME="$SANDBOX/cache" DOTFILES_OFFLINE=0 \
+  nvim --headless "+Lazy! sync" +qa </dev/null >"$SANDBOX/sync.log" 2>&1; then
+  printf '%s✗%s :Lazy! sync failed — last lines:\n' "$c_red" "$c_rst" >&2
+  tail -n 15 "$SANDBOX/sync.log" >&2
+  exit 1
+fi
+
+if [[ ! -f "$LOCK" ]]; then
+  printf '%s✗%s sync completed but %s was not written\n' "$c_red" "$c_rst" "$LOCK" >&2
+  exit 1
+fi
+
+# Report the delta (added/removed/changed plugin commits) in human terms.
+if cmp -s "$BEFORE" "$LOCK"; then
+  printf '%s✓ all nvim plugin pins already current.%s\n' "$c_grn" "$c_rst"
+else
+  # Show only the changed plugin entries (the lock is one JSON line per plugin).
+  git --no-pager diff --no-index -- "$BEFORE" "$LOCK" 2>/dev/null |
+    grep -E '^[+-][[:space:]]*"' || true
+  if ((DRY)); then
+    if ((HAD_LOCK)); then cp "$BEFORE" "$LOCK"; else rm -f "$LOCK"; fi # restore: touch nothing tracked
+    printf '%snvim plugin pins WOULD change. Re-run without --dry-run to apply.%s\n' "$c_blu" "$c_rst"
+  else
+    printf '%s✓ %s updated — review the diff, run make audit, then commit.%s\n' \
+      "$c_grn" "$LOCK" "$c_rst"
+  fi
+fi

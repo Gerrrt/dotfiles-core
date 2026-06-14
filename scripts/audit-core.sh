@@ -40,6 +40,54 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 1
 
 QUIET=0
+# Scope gates the SLOW, area-specific sections so a per-area push (driven by
+# scripts/ci-classify.sh) pays only for what it changed — e.g. a docs-only PR runs
+# the cheap structural/config/markdown checks but skips the zsh and nvim toolchains.
+# FAIL-CLOSED default: with no --scope, BOTH areas run (full audit), so a local
+# `make audit`, pre-commit, and an un-classified push are never silently narrowed.
+# Only ci.yml passes an explicit, classifier-derived --scope. The cheap, cross-cutting
+# checks (manifest, exec-bits, toml/yaml/json, markdown, workflows, version) ALWAYS run.
+SCOPE_SHELL=1
+SCOPE_NVIM=1
+_set_scope() { # _set_scope <comma-list: shell,nvim | all | none>
+  SCOPE_SHELL=0
+  SCOPE_NVIM=0
+  local tok had=0
+  local IFS=,
+  for tok in $1; do
+    had=1
+    case "$tok" in
+    shell) SCOPE_SHELL=1 ;;
+    nvim) SCOPE_NVIM=1 ;;
+    all | full)
+      SCOPE_SHELL=1
+      SCOPE_NVIM=1
+      ;;
+    none) ;;
+    *) # unknown token → run EVERYTHING (fail-safe), matching ci.yml's safe default
+      printf 'audit-core.sh: unknown scope %s — running full (fail-safe)\n' "$tok" >&2
+      SCOPE_SHELL=1
+      SCOPE_NVIM=1
+      ;;
+    esac
+  done
+  # An EMPTY scope (no tokens — e.g. `--scope=` or a value that split to nothing) is
+  # ambiguous, so fail SAFE to the full run rather than silently skipping every slow
+  # gate. `none` is the EXPLICIT token for "run only the always-on checks".
+  ((had)) || {
+    printf 'audit-core.sh: empty scope — running full (fail-safe)\n' >&2
+    SCOPE_SHELL=1
+    SCOPE_NVIM=1
+  }
+}
+# Render the active scope as test-core.sh expects it (shell,nvim | shell | nvim | none).
+_scope_str() {
+  local s=""
+  ((SCOPE_SHELL)) && s="shell"
+  ((SCOPE_NVIM)) && s="${s:+$s,}nvim"
+  printf '%s' "${s:-none}"
+}
+
 # Parse EVERY argument (not just $1), so an unknown flag OR a stray extra operand is
 # REJECTED with a hint rather than silently ignored — `audit-core.sh --quiet extra`
 # or a typo like `--hepl` used to slip through and just run the full audit, masking it.
@@ -47,15 +95,31 @@ QUIET=0
 while (($#)); do
   case "$1" in
   -q | --quiet) QUIET=1 ;;
+  --scope)
+    # Require an explicit value: without this, `--scope --quiet` would swallow the
+    # next flag as the scope list and silently drop it.
+    if (($# < 2)) || [[ "$2" == -* ]]; then
+      printf 'audit-core.sh: --scope requires a value (shell,nvim|all|none)\n' >&2
+      printf 'try: audit-core.sh --help\n' >&2
+      exit 2
+    fi
+    shift
+    _set_scope "$1"
+    ;;
+  --scope=*) _set_scope "${1#*=}" ;;
   -h | --help)
     cat <<'EOF'
-usage: audit-core.sh [-q|--quiet] [-h|--help]
+usage: audit-core.sh [-q|--quiet] [--scope LIST] [-h|--help]
 
 THE audit button — manifest/exec-bit/syntax/lint/config/markdown/workflow/
 version/behavioral checks. CI and pre-commit run this exact script.
 
-  -q, --quiet   only print SKIP/FAIL lines and the final summary
-  -h, --help    show this help and exit
+  -q, --quiet     only print SKIP/FAIL lines and the final summary
+  --scope LIST    limit the slow area-specific sections to a comma list:
+                  shell, nvim, all (default), none. Cheap structural/config/
+                  markdown/workflow/version checks always run. CI sets this from
+                  scripts/ci-classify.sh; omit it locally to run the full audit.
+  -h, --help      show this help and exit
 EOF
     exit 0
     ;;
@@ -72,6 +136,10 @@ done
 # Sourced AFTER QUIET is set so the lib's `: "${QUIET:=0}"` preserves it.
 # shellcheck source=scripts/lib/common.sh
 source "${BASH_SOURCE[0]%/*}/lib/common.sh"
+
+# Wall-clock from here, surfaced in the summary — so a long run (the headless nvim /
+# zsh legs) reads as "took Ns", not "hung", and a regression in audit cost is visible.
+SECONDS=0
 
 # Tracked files that live in dotfiles-core but are NOT vendored into OS repos'
 # core/ subtree — repo-meta and dev tooling. Anything tracked, not matched by the
@@ -163,19 +231,25 @@ hdr "shell syntax (bash -n / zsh -n)"
 while IFS= read -r f; do
   if bash -n "$f" 2>/dev/null; then pass "bash -n $f"; else fail "bash syntax error: $f"; fi
 done < <(git ls-files '*.sh' 'bin/clip' 'bin/clip-paste' 2>/dev/null)
-if have zsh; then
-  # The sourced modules AND the autoloaded completion functions (zsh/completions/_*,
-  # no .zsh extension) — both are zsh that fans out to 9 repos; both must parse.
-  while IFS= read -r f; do
-    if zsh -n "$f" 2>/dev/null; then pass "zsh -n  $f"; else fail "zsh syntax error: $f"; fi
-  done < <(git ls-files 'zsh/*.zsh' 'zsh/completions/*' 2>/dev/null)
+if ((SCOPE_SHELL)); then
+  if have zsh; then
+    # The sourced modules AND the autoloaded completion functions (zsh/completions/_*,
+    # no .zsh extension) — both are zsh that fans out to 9 repos; both must parse.
+    while IFS= read -r f; do
+      if zsh -n "$f" 2>/dev/null; then pass "zsh -n  $f"; else fail "zsh syntax error: $f"; fi
+    done < <(git ls-files 'zsh/*.zsh' 'zsh/completions/*' 2>/dev/null)
+  else
+    skip "zsh -n (zsh not installed)"
+  fi
 else
-  skip "zsh -n (zsh not installed)"
+  skip "zsh -n (out of scope)"
 fi
 
 # ── 4. lua ───────────────────────────────────────────────────────────────────
 hdr "lua (luacheck)"
-if have luacheck; then
+if ! ((SCOPE_NVIM)); then
+  skip "luacheck (out of scope)"
+elif have luacheck; then
   # luacheck discovers .luacheckrc by searching UP from the CWD, not the target —
   # so run it from inside nvim/, where nvim/.luacheckrc lives. From repo root it
   # would miss the config and emit hundreds of false "undefined vim" warnings.
@@ -190,7 +264,9 @@ fi
 
 # ── 5. lint (shellcheck) ─────────────────────────────────────────────────────
 hdr "lint (shellcheck)"
-if have shellcheck; then
+if ! ((SCOPE_SHELL)); then
+  skip "shellcheck (out of scope)"
+elif have shellcheck; then
   sc_fail=0
   while IFS= read -r f; do
     shellcheck -x "$f" >/dev/null 2>&1 || {
@@ -230,6 +306,20 @@ if have python3 && python3 -c 'import yaml' 2>/dev/null; then
   done < <(git ls-files '*.yml' '*.yaml' 2>/dev/null)
 else
   skip "yaml parse (python3 PyYAML not importable)"
+fi
+# JSON: nvim/lazy-lock.json pins every Neovim plugin's commit for a reproducible
+# editor across the 9 repos — a truncated/corrupt lock breaks `:Lazy restore` for
+# all of them, and like the toml/yaml above it's valid *text* the other gates skip.
+# `*.json` (not `*.jsonc`) so the JSONC config files keep their comments. json is in
+# the stdlib, so this only needs python3 — no extra import gate like PyYAML.
+if have python3; then
+  while IFS= read -r f; do
+    if python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$f" 2>/dev/null; then
+      pass "json $f"
+    else fail "json parse error: $f"; fi
+  done < <(git ls-files '*.json' 2>/dev/null)
+else
+  skip "json parse (python3 unavailable)"
 fi
 
 # ── 7. markdown (markdownlint) ────────────────────────────────────────────────
@@ -306,8 +396,8 @@ fi
 # (single source of truth) but folded into ONE audit summary via CORE_TEST_NESTED.
 # Self-gates on zsh: with none installed it SKIPs, exactly like sections 3–5.
 hdr "behavioral (scripts/test-core.sh)"
-TEST_ARGS=()
-((QUIET)) && TEST_ARGS=(--quiet)
+TEST_ARGS=(--scope "$(_scope_str)")
+((QUIET)) && TEST_ARGS+=(--quiet)
 # `${arr[@]+"${arr[@]}"}`, not `"${arr[@]}"`: under `set -u`, expanding an EMPTY array
 # raises "unbound variable" on bash < 4.4 — i.e. macOS's stock bash 3.2, which this
 # gate must run on. The `+` form expands to nothing when unset/empty and to the quoted
@@ -320,8 +410,9 @@ fi
 
 # ── summary ──────────────────────────────────────────────────────────────────
 printf '\n%s──────── audit summary ────────%s\n' "$c_blu" "$c_rst"
-printf '  %spass %d%s   %sskip %d%s   %sfail %d%s\n' \
-  "$c_grn" "$PASS" "$c_rst" "$c_yel" "$SKIP" "$c_rst" "$c_red" "$FAIL" "$c_rst"
+printf '  %spass %d%s   %sskip %d%s   %sfail %d%s   %s(%ds)%s\n' \
+  "$c_grn" "$PASS" "$c_rst" "$c_yel" "$SKIP" "$c_rst" "$c_red" "$FAIL" "$c_rst" \
+  "$c_blu" "$SECONDS" "$c_rst"
 ((FAIL == 0)) || {
   printf '%saudit FAILED%s\n' "$c_red" "$c_rst" >&2
   exit 1

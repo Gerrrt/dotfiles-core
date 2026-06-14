@@ -1,0 +1,4 @@
+#compdef please
+# Completion for Core's `please` (zsh/functions.zsh). It re-runs the PREVIOUS
+# command under sudo and takes no arguments of its own.
+_message 'please takes no arguments (re-runs your last command with sudo)'

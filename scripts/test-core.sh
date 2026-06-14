@@ -40,21 +40,74 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 1
 
 QUIET=0
+# Scope mirrors audit-core.sh: gate the slow AREA-specific sections so a per-area run
+# does less. FAIL-CLOSED default (no --scope → both areas run). The cross-cutting,
+# pure-bash sections (clipboard ladder, CI-classifier) ALWAYS run — they are fast and
+# guard runtime artifacts shared by every area. audit-core.sh passes the classifier's
+# verdict here; a bare `./scripts/test-core.sh` runs everything.
+SCOPE_SHELL=1
+SCOPE_NVIM=1
+_set_scope() { # _set_scope <comma-list: shell,nvim | all | none>
+  SCOPE_SHELL=0
+  SCOPE_NVIM=0
+  local tok had=0
+  local IFS=,
+  for tok in $1; do
+    had=1
+    case "$tok" in
+    shell) SCOPE_SHELL=1 ;;
+    nvim) SCOPE_NVIM=1 ;;
+    all | full)
+      SCOPE_SHELL=1
+      SCOPE_NVIM=1
+      ;;
+    none) ;;
+    *)
+      printf 'test-core.sh: unknown scope %s — running full (fail-safe)\n' "$tok" >&2
+      SCOPE_SHELL=1
+      SCOPE_NVIM=1
+      ;;
+    esac
+  done
+  # Empty scope is ambiguous → fail SAFE to the full run (mirrors audit-core.sh);
+  # `none` is the explicit "always-on checks only" token.
+  ((had)) || {
+    printf 'test-core.sh: empty scope — running full (fail-safe)\n' >&2
+    SCOPE_SHELL=1
+    SCOPE_NVIM=1
+  }
+}
+
 # Same flag contract as audit-core.sh: parse EVERY arg and reject an unknown option or
 # a stray extra operand instead of ignoring it; -h/--help prints usage. (audit-core.sh
-# invokes this with --quiet or nothing.)
+# invokes this with --quiet/--scope or nothing.)
 while (($#)); do
   case "$1" in
   -q | --quiet) QUIET=1 ;;
+  --scope)
+    # Require an explicit value (mirrors audit-core.sh): `--scope --quiet` must not
+    # eat the next flag as the scope list.
+    if (($# < 2)) || [[ "$2" == -* ]]; then
+      printf 'test-core.sh: --scope requires a value (shell,nvim|all|none)\n' >&2
+      printf 'try: test-core.sh --help\n' >&2
+      exit 2
+    fi
+    shift
+    _set_scope "$1"
+    ;;
+  --scope=*) _set_scope "${1#*=}" ;;
   -h | --help)
     cat <<'EOF'
-usage: test-core.sh [-q|--quiet] [-h|--help]
+usage: test-core.sh [-q|--quiet] [--scope LIST] [-h|--help]
 
-Behavioral suite: clipboard ladder + nvim headless load + zsh load-order smoke
-+ function/unit + detection tests. Degrades gracefully when zsh/nvim are absent.
+Behavioral suite: clipboard ladder + nvim headless load + nvim event callbacks
++ zsh load-order smoke + function/unit + detection tests. Degrades gracefully
+when zsh/nvim are absent.
 
-  -q, --quiet   only print SKIP/FAIL lines and the final summary
-  -h, --help    show this help and exit
+  -q, --quiet     only print SKIP/FAIL lines and the final summary
+  --scope LIST    limit the slow area sections: shell, nvim, all (default), none.
+                  The clipboard + CI-classifier sections always run.
+  -h, --help      show this help and exit
 EOF
     exit 0
     ;;
@@ -72,14 +125,19 @@ done
 # shellcheck source=scripts/lib/common.sh
 source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
+# Wall-clock for the standalone summary (mirrors audit-core.sh) — the headless nvim
+# leg can take a few seconds, so showing elapsed reads as progress, not a hang.
+SECONDS=0
+
 # When invoked from audit-core.sh (CORE_TEST_NESTED=1) the audit owns the summary,
 # so we suppress ours and only signal pass/fail via the exit code.
 NESTED="${CORE_TEST_NESTED:-0}"
 summary() {
   [[ "$NESTED" == 1 ]] && return 0
   printf '\n%s──────── test summary ────────%s\n' "$c_blu" "$c_rst"
-  printf '  %spass %d%s   %sskip %d%s   %sfail %d%s\n' \
-    "$c_grn" "$PASS" "$c_rst" "$c_yel" "$SKIP" "$c_rst" "$c_red" "$FAIL" "$c_rst"
+  printf '  %spass %d%s   %sskip %d%s   %sfail %d%s   %s(%ds)%s\n' \
+    "$c_grn" "$PASS" "$c_rst" "$c_yel" "$SKIP" "$c_rst" "$c_red" "$FAIL" "$c_rst" \
+    "$c_blu" "$SECONDS" "$c_rst"
 }
 
 # One throwaway sandbox for the whole run; clean it up no matter how we exit. It is
@@ -111,15 +169,18 @@ _stub() {
   chmod +x "$CBIN/$1"
 }
 # Fresh fake bin + cleared env before each scenario. `bash` is symlinked so the
-# shebang resolves under the stripped PATH; `uname`/`grep` default to "Linux, not
-# WSL" and Darwin/WSL cases override them.
+# shebang resolves under the stripped PATH; `uname` defaults to "Linux" and Darwin
+# cases override it. The WSL probe now reads /proc/version via a bash builtin (no
+# grep fork — see bin/clip), so we point CLIP_PROC_VERSION at a NON-WSL fixture; the
+# WSL cases either set WSL_DISTRO_NAME or overwrite that fixture with a microsoft one.
 _clip_reset() {
   rm -rf "$CBIN"
   mkdir -p "$CBIN"
   unset WSL_DISTRO_NAME WAYLAND_DISPLAY
   ln -s "$_real_bash" "$CBIN/bash"
   _stub uname 'echo Linux'
-  _stub grep 'exit 1'
+  printf 'Linux version 6.1.0-0 (gcc) #1 SMP\n' >"$CBIN/procversion"
+  export CLIP_PROC_VERSION="$CBIN/procversion"
 }
 # Assert prog's stdout is exactly the marker the chosen backend prints.
 _clip_is() { # _clip_is <label> <prog> <expected>
@@ -140,6 +201,11 @@ export WSL_DISTRO_NAME=Ubuntu
 _stub clip.exe 'echo WSL'
 _clip_is "clip → clip.exe when WSL_DISTRO_NAME set" "$CLIP" WSL
 unset WSL_DISTRO_NAME
+_clip_reset
+# WSL with NO WSL_DISTRO_NAME — detection must come from /proc/version content.
+printf 'Linux version 5.15.0-microsoft-standard-WSL2\n' >"$CBIN/procversion"
+_stub clip.exe 'echo WSL'
+_clip_is "clip → clip.exe via /proc/version (no WSL_DISTRO_NAME)" "$CLIP" WSL
 _clip_reset
 _stub uname 'echo Darwin'
 _stub pbcopy 'echo MAC'
@@ -165,6 +231,12 @@ ln -s "$_real_tr" "$CBIN/tr"
 _stub powershell.exe 'printf "WSLPASTE\r"'
 _clip_is "clip-paste → powershell + CR-strip on WSL" "$CLIPPASTE" WSLPASTE
 unset WSL_DISTRO_NAME
+_clip_reset
+# WSL detected from /proc/version alone (no WSL_DISTRO_NAME).
+printf 'Linux version 5.15.0-microsoft-standard-WSL2\n' >"$CBIN/procversion"
+ln -s "$_real_tr" "$CBIN/tr"
+_stub powershell.exe 'printf "WSLPASTE\r"'
+_clip_is "clip-paste → powershell via /proc/version (no WSL_DISTRO_NAME)" "$CLIPPASTE" WSLPASTE
 _clip_reset
 _stub uname 'echo Darwin'
 _stub pbpaste 'echo MAC'
@@ -192,7 +264,9 @@ _clip_fails "clip-paste exits non-zero with no backend" "$CLIPPASTE"
 # plugin dirs; graceful skip when nvim is absent, exactly like the linters. Real
 # plugin RUNTIME (the deferred callbacks) is out of scope — luacheck covers its syntax.
 hdr "neovim config load (nvim/ headless)"
-if have nvim; then
+if ! ((SCOPE_NVIM)); then
+  skip "nvim config load (out of scope)"
+elif have nvim; then
   probe="$SANDBOX/nvim-probe.lua"
   cat >"$probe" <<'LUA'
 vim.opt.runtimepath:prepend(vim.env.CORE_NVIM_DIR)
@@ -205,6 +279,16 @@ for _, m in ipairs({
   "gerrrt.config.globals", "gerrrt.config.options", "gerrrt.config.keymaps",
   "gerrrt.config.autocmds", "gerrrt.config.clipboard", "gerrrt.config.providers",
 }) do try(m) end
+-- :checkhealth gerrrt module — loaded only by checkhealth at runtime, so this is its
+-- only load gate. Require it AND assert it exposes a check() function.
+do
+  local ok, m = pcall(require, "gerrrt.health")
+  if not ok then
+    errs[#errs + 1] = "gerrrt.health → " .. tostring(m)
+  elseif type(m) ~= "table" or type(m.check) ~= "function" then
+    errs[#errs + 1] = "gerrrt.health → did not return a table with a check() function"
+  end
+end
 -- every plugin spec must require cleanly and return a lazy spec table
 local pdir = vim.env.CORE_NVIM_DIR .. "/lua/gerrrt/plugins"
 for _, f in ipairs(vim.fn.readdir(pdir) or {}) do
@@ -261,6 +345,65 @@ else
   skip "nvim config load (nvim not installed — runs in CI)"
 fi
 
+# ── D2. Neovim event-driven autocmd callbacks (nvim/, headless) ───────────────
+# Section D proves the modules LOAD; it does not prove their EVENT CALLBACKS run.
+# An autocmd registers fine and only its callback fires later — on a yank, a save,
+# an LSP attach — so a bad vim API call inside one is luacheck-clean, load-clean, and
+# breaks only when you actually edit. That blind spot shipped a real bug: the
+# TextYankPost highlight called a non-existent `vim.hl.hl_op`, throwing on every yank
+# AND delete (TextYankPost fires on both) while the edit still ran — a red error with
+# no failing gate, fanned out to 9 repos. This closes it: load the autocmds, then
+# FIRE the events and assert the callbacks ran clean.
+#
+# Events are triggered via post-startup `-c` commands (NOT inside the `-u` init): an
+# autocmd error during init makes headless nvim block on a "Press ENTER" prompt,
+# whereas a `-c` error is reported and nvim proceeds to the next command — so the
+# gate can never hang in CI. The require itself stays in `-u` and `cquit`s on failure
+# (no prompt). Detection is STDERR-NON-EMPTY, not exit code: a fired-callback error
+# does not change nvim's exit status (both clean and broken runs exit 0), it only
+# prints — exactly the signature the bug has. BufWritePre (format-on-save) and
+# LspAttach are deliberately NOT fired here: their callbacks require plugins
+# (mini.trailspace/conform) or a live LSP attach, neither present in this hermetic
+# probe — luacheck covers their syntax; runtime is out of scope.
+hdr "neovim event callbacks (nvim/ headless)"
+if ! ((SCOPE_NVIM)); then
+  skip "nvim event callbacks (out of scope)"
+elif have nvim; then
+  evt_probe="$SANDBOX/nvim-events.lua"
+  cat >"$evt_probe" <<'LUA'
+vim.opt.runtimepath:prepend(vim.env.CORE_NVIM_DIR)
+-- Register the autocmds. A require failure cquit's immediately (no ENTER prompt);
+-- the EVENTS themselves are fired by the caller's -c flags, after startup.
+local ok, err = pcall(require, "gerrrt.config.autocmds")
+if not ok then
+  io.stderr:write("require gerrrt.config.autocmds → " .. tostring(err) .. "\n")
+  vim.cmd("cquit 1")
+end
+LUA
+  evt_file="$SANDBOX/probe.txt"
+  printf 'one\ntwo\nthree\n' >"$evt_file"
+  evt_err="$SANDBOX/nvim-events.err"
+  # Fire each registered event once: yank + delete (TextYankPost — the regression
+  # above), a markdown FileType (the per-filetype view options), and a real file open
+  # (BufReadPost — cursor restore). Any callback that throws prints to stderr. The file
+  # path is passed via $CORE_EVT_FILE and opened through fnameescape() rather than
+  # interpolated into the Ex command, so a $SANDBOX/$TMPDIR containing spaces is safe.
+  CORE_NVIM_DIR="$HERE/nvim" CORE_EVT_FILE="$evt_file" nvim --headless -u "$evt_probe" -i NONE -n \
+    -c 'call setline(1, ["alpha","bravo","charlie"])' \
+    -c 'normal! yy' -c 'normal! dd' \
+    -c 'setfiletype markdown' \
+    -c 'execute "edit" fnameescape($CORE_EVT_FILE)' \
+    -c 'qa!' </dev/null >/dev/null 2>"$evt_err"
+  if [[ -s "$evt_err" ]]; then
+    fail "nvim autocmd callback errored when fired (e.g. the yank/delete highlight):"
+    sed 's/^/    /' "$evt_err" >&2
+  else
+    pass "nvim event callbacks fired clean (TextYankPost yank+delete, FileType, BufReadPost)"
+  fi
+else
+  skip "nvim event callbacks (nvim not installed — runs in CI)"
+fi
+
 # ── E. CI path classifier (scripts/ci-classify.sh) ────────────────────────────
 # ci.yml's change-detection picks which gates run per push. That logic now lives in
 # scripts/ci-classify.sh (pulled out of the workflow YAML so it can be linted + tested);
@@ -290,9 +433,13 @@ _classify_is "mixed shell+nvim set → union of both" $'zsh/ui.zsh\nnvim/init.lu
 # ── zsh-gated sections (A load-order, B function units) ───────────────────────
 # Everything below needs a real zsh. On a bare box we SKIP it (not fail) and fall
 # through to the shared summary, so a Section-C failure still surfaces as exit 1.
-if ! have zsh; then
+if ! ((SCOPE_SHELL)) || ! have zsh; then
   hdr "zsh behavioral sections (load-order + function units)"
-  skip "load-order smoke + function units (zsh not installed — runs in CI)"
+  if ! ((SCOPE_SHELL)); then
+    skip "zsh behavioral sections (out of scope)"
+  else
+    skip "load-order smoke + function units (zsh not installed — runs in CI)"
+  fi
   summary
   ((FAIL == 0)) || {
     [[ "$NESTED" == 1 ]] || printf '%stests FAILED%s\n' "$c_red" "$c_rst" >&2
@@ -398,10 +545,30 @@ check "mkcd creates and enters a nested dir" \
   'd=$(mktemp -d); cd "$d"; mkcd a/b/c; [[ ${PWD:t} == c && -d "$d/a/b/c" ]]'
 check "cdup climbs N directories" \
   'd=$(mktemp -d); mkdir -p "$d/a/b/c"; cd "$d/a/b/c"; cdup 2; [[ ${PWD:t} == a ]]'
+# Defensive input guards (U1): a bad count / missing file / bad port must be REJECTED
+# in Core's voice (non-zero), not silently no-op or handed to cp/python to fail raw.
+check "cdup rejects a non-numeric count" \
+  'cdup abc 2>/dev/null; (( $? != 0 ))'
+check "cdup rejects a zero count" \
+  'cdup 0 2>/dev/null; (( $? != 0 ))'
 check "mkbak writes a timestamped .bak copy" \
   'd=$(mktemp -d); cd "$d"; print hi > f; mkbak f; set -- f.*.bak; [[ -f $1 ]]'
 check "mkbak's .bak is byte-identical to the original" \
   'd=$(mktemp -d); cd "$d"; print -r -- payload > f; mkbak f; set -- f.*.bak; [[ -f $1 && "$(cat -- $1)" == payload ]]'
+check "mkbak rejects a missing file" \
+  'mkbak /no/such/file 2>/dev/null; (( $? != 0 ))'
+check "mkbak with no argument is rejected" \
+  'mkbak 2>/dev/null; (( $? != 0 ))'
+check "serve rejects a non-numeric port" \
+  'serve abc 2>/dev/null; (( $? != 0 ))'
+check "serve rejects an out-of-range port" \
+  'serve 99999 2>/dev/null; (( $? != 0 ))'
+# core-help (U5): the width-aware renderer must emit every verb and never crash on its
+# kw arithmetic — including a pathologically narrow terminal where the key column clamps.
+check "core-help renders all verbs (wide terminal)" \
+  'out=$(COLUMNS=120 core-help 2>&1); (( $? == 0 )) && [[ $out == *mkcd* && $out == *"maint-install"* && $out == *serve* ]]'
+check "core-help renders cleanly on a pathologically narrow terminal" \
+  'out=$(COLUMNS=12 core-help 2>&1); (( $? == 0 )) && [[ $out == *mkcd* ]]'
 check "extract rejects a non-existent file" \
   'extract /no/such/archive.tar.gz; (( $? != 0 ))'
 check "extract rejects a known file of unknown format" \
@@ -499,6 +666,27 @@ _pm_only crontab
 ucheck "maint: _maint_scheduler resolves to a valid scheduler" \
   "source '$UI'; source '$MNT'; [[ \$(_maint_scheduler) == (systemd|launchd|cron) ]]" \
   PATH="$PMBIN"
+
+# update.zsh: the first-run welcome (U2 — the cheat-sheet discoverability hint) must
+# greet EXACTLY ONCE per machine. Drive _core_welcome directly (the TTY gate lives at
+# its call site, so a captured run can exercise the greet+sentinel logic): first call
+# prints the core-help pointer and persists the sentinel; a second call is silent.
+# An isolated XDG_STATE_HOME keeps the sentinel out of the shared sandbox.
+ucheck "update: _core_welcome greets once, then the sentinel silences it" \
+  "source '$UPD'; o1=\$(_core_welcome); [[ \$o1 == *core-help* ]] || exit 1; [[ -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]] || exit 1; o2=\$(_core_welcome); [[ -z \$o2 ]]" \
+  XDG_STATE_HOME="$SANDBOX/welcome-once" NO_COLOR=1 UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# …and the startup hook stays SILENT without an interactive tty (captured/piped/CI):
+# sourcing update.zsh prints no greet and writes no sentinel, so it never spams logs.
+ucheck "update: welcome stays silent (no greet, no sentinel) without a tty" \
+  "o=\$(source '$UPD'); [[ \$o != *core-help* && ! -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]]" \
+  XDG_STATE_HOME="$SANDBOX/welcome-notty" NO_COLOR=1 UPDATE_CHECK_ENABLED=0 CORE_WELCOME=1
+
+# completions (U3): every first-party verb must have a #compdef that compinit picks up
+# off the vendored fpath dir — a missing/typo'd tag means no tab-completion for that
+# command across all 9 repos, with nothing else to catch it. Put the dir on fpath (as
+# options.zsh does), run compinit, and assert each verb resolved to a completion.
+ucheck "completions: compinit wires every Core first-party completion" \
+  "fpath=('$HERE/zsh/completions' \$fpath); autoload -Uz compinit && compinit -u -d '$SANDBOX/zcd-comp' >/dev/null 2>&1; for c in mkcd mkbak extract up serve cdup fcd please core-help cheat; do [[ -n \${_comps[\$c]:-} ]] || { print \"no completion registered for: \$c\"; exit 1; }; done"
 
 # ── summary ───────────────────────────────────────────────────────────────────
 summary

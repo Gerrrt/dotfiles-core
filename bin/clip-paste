@@ -2,7 +2,12 @@
 # core/bin/clip-paste — cross-OS "paste from clipboard" to stdout.
 # Mirror of `clip`. Detection order: WSL -> macOS -> Wayland -> X11.
 set -euo pipefail
-if [[ -n "${WSL_DISTRO_NAME:-}" ]] || grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null; then
+# Same hot-path WSL probe as `clip`: a fork-free `$(<file)` read of /proc/version
+# (overridable via CLIP_PROC_VERSION for the tests) instead of a per-invocation grep.
+shopt -s nocasematch
+_pv=""
+[[ -z "${WSL_DISTRO_NAME:-}" && -r "${CLIP_PROC_VERSION:-/proc/version}" ]] && _pv="$(<"${CLIP_PROC_VERSION:-/proc/version}")"
+if [[ -n "${WSL_DISTRO_NAME:-}" || "$_pv" == *microsoft* || "$_pv" == *wsl* ]]; then
   # strip the CRs that the Windows clipboard appends.
   # NB: this is script scope, not a function — `local`/`return` are illegal here
   # and would abort under `set -e`, breaking paste on WSL. Use a plain var + exit.

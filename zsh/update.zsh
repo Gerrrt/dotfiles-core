@@ -144,25 +144,29 @@ fi
 # A brand-new clone gives no clue that `serve`, `extract`, `fif`, or the Ctrl-F/G
 # widgets exist. Print ONE unobtrusive line the first time, throttled by a sentinel
 # (like the nudge above), then never again. Set CORE_WELCOME=0 to silence entirely.
+#
+# Factored into a named function (not an inline anonymous block) so it's unit-testable
+# — the greet-once / sentinel-persists / NO_COLOR contract is exercised by test-core.sh.
+# The TTY gate lives at the CALL SITE, so the function itself is pure greet+sentinel
+# logic the test can drive with captured stdout.
+_core_welcome() {
+  emulate -L zsh
+  local stamp="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles-core/.welcomed"
+  [[ -e "$stamp" ]] && return 0
+  # Only greet once the sentinel actually PERSISTS — otherwise a read-only state dir
+  # (write fails) would re-greet on every shell start, forever. `>|` forces past
+  # NO_CLOBBER; `|| return` bails (no greet) when we can't remember we did.
+  mkdir -p "${stamp:h}" 2>/dev/null && : >|"$stamp" 2>/dev/null || return 0
+  if [[ -z ${NO_COLOR:-} ]]; then
+    print -P "%F{#7aa2f7}👋 dotfiles Core loaded%f %F{#565f89}— run \`core-help\` for functions, keys & maintenance%f"
+  else
+    print -r -- "👋 dotfiles Core loaded — run \`core-help\` for functions, keys & maintenance"
+  fi
+}
+# Greet only an interactive TERMINAL — a redirected/captured stdout (or the load-order
+# smoke test) gets nothing — and only when not disabled.
 : "${CORE_WELCOME:=1}"
-if ((CORE_WELCOME)); then
-  () {
-    # Greet only an interactive TERMINAL — a redirected/captured stdout (or the
-    # load-order smoke test) gets nothing.
-    [[ -t 1 ]] || return 0
-    local stamp="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles-core/.welcomed"
-    [[ -e "$stamp" ]] && return 0
-    # Only greet once the sentinel actually PERSISTS — otherwise a read-only state
-    # dir (write fails) would re-greet on every shell start, forever. `>|` forces
-    # past NO_CLOBBER; `|| return` bails (no greet) when we can't remember we did.
-    mkdir -p "${stamp:h}" 2>/dev/null && : >|"$stamp" 2>/dev/null || return 0
-    if [[ -z ${NO_COLOR:-} ]]; then
-      print -P "%F{#7aa2f7}👋 dotfiles Core loaded%f %F{#565f89}— run \`core-help\` for functions, keys & maintenance%f"
-    else
-      print -r -- "👋 dotfiles Core loaded — run \`core-help\` for functions, keys & maintenance"
-    fi
-  }
-fi
+if ((CORE_WELCOME)) && [[ -t 1 ]]; then _core_welcome; fi
 
 # ══════════════════════════════════════════════════════════════════════════════
 # up — apply updates. INTERACTIVE by design. `up -y` auto-confirms ONLY on the
