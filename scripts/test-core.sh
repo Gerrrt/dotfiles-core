@@ -749,6 +749,13 @@ ln -s "$(command -v awk)" "$PMBIN/awk"
 ucheck "update: _pkgup_list surfaces upgradable package names (apt)" \
   "source '$UPD'; out=\$(_pkgup_list); [[ \$out == *foo* && \$out == *bar* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# core-help context-awareness (U7): a row whose tool is ABSENT on this box must be
+# tagged "needs <tool>", while an always-on verb (mkcd) still renders normally. Drive
+# it on a bare PATH so fzf is guaranteed missing, making the assertion deterministic.
+_pm_only ""
+ucheck "core-help annotates an unavailable tool (needs fzf when fzf absent)" \
+  "source '$UI'; source '$FN'; out=\$(COLUMNS=120 NO_COLOR=1 core-help); [[ \$out == *'needs fzf'* && \$out == *mkcd* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 
 # maint.zsh: _maint_scheduler must always resolve to a REAL scheduler token, never empty
 # or garbage. With systemctl absent (isolated PATH) and crontab present as the fallback,

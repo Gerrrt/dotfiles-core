@@ -234,23 +234,29 @@ core-help() {
   local title=$'\e[1;38;2;122;162;247m' te=$'\e[0m'
   local kc=$'\e[36m' ke=$'\e[0m' dc=$'\e[38;2;86;95;137m' de=$'\e[0m'
   if [[ ! -t 1 || -n ${NO_COLOR:-} ]]; then title='' te='' kc='' ke='' dc='' de=''; fi
+  # Rows are "key|description" or "key|description|requires" — the optional third
+  # field names a command this entry NEEDS. When it's absent on THIS box the row is
+  # dimmed and tagged "— needs <cmd>", so the cheat sheet reflects what actually works
+  # here instead of advertising widgets/verbs that would no-op (fzf/atuin/sesh/zoxide
+  # aren't on every box). Verbs that degrade gracefully (extract, up, maint) carry no
+  # requirement — they always work.
   local -a rows=(
     "§navigation & files"
     "mkcd <dir>|make a directory and cd into it"
     "cdup [n]|climb n directories (default 1)"
     "extract <archive>|unpack any archive (tar/zip/7z/rar/…)"
     "mkbak <file>|timestamped .bak copy before you edit"
-    "fcd|fuzzy-cd into any subdirectory (fzf)"
-    "serve [port]|HTTP server in the CWD, prints reachable URLs"
+    "fcd|fuzzy-cd into any subdirectory|fzf"
+    "serve [port]|HTTP server in the CWD, prints reachable URLs|python3"
     "§search"
-    "fif <text>|find text inside files (rg + fzf + preview)"
-    "fbr|fuzzy git-branch checkout"
+    "fif <text>|find text inside files (rg + fzf + preview)|fzf"
+    "fbr|fuzzy git-branch checkout|fzf"
     "§keybindings"
-    "Ctrl-F|file picker → insert path at cursor"
-    "Ctrl-R|history search"
-    "Ctrl-E|Atuin history TUI"
-    "Ctrl-G|session picker (sesh)"
-    "Alt-Z|zoxide project jump"
+    "Ctrl-F|file picker → insert path at cursor|fzf"
+    "Ctrl-R|history search|fzf"
+    "Ctrl-E|Atuin history TUI|atuin"
+    "Ctrl-G|session picker (sesh)|sesh"
+    "Alt-Z|zoxide project jump|zoxide"
     "Ctrl-\\|toggle autosuggestions"
     "§updates & maintenance"
     "up [-y]|apply package updates (interactive; confirms first)"
@@ -265,7 +271,8 @@ core-help() {
   # alignment past 22 chars) and isn't padded wider than the content needs. On a narrow
   # terminal, clamp it (and truncate an over-long key) so it can't swallow the whole
   # line and leave no room for the description.
-  local line key desc kw=0
+  local line key desc req kw=0
+  local -a parts
   for line in "${rows[@]}"; do
     [[ "$line" == §* ]] && continue
     key="${line%%|*}"
@@ -278,10 +285,17 @@ core-help() {
     if [[ "$line" == §* ]]; then
       print -r -- "${title}${line#§}${te}"
     else
-      key="${line%%|*}"
-      desc="${line#*|}"
-      key="${key[1,kw]}" # truncate an over-long key to the (possibly clamped) column
-      print -r -- "  ${kc}${(r:$kw:)key}${ke} ${dc}${desc}${de}"
+      parts=("${(@s:|:)line}")
+      key="${parts[1]}"
+      desc="${parts[2]}"
+      req="${parts[3]:-}" # optional: a command this row needs to actually work
+      key="${key[1,kw]}"  # truncate an over-long key to the (possibly clamped) column
+      if [[ -n "$req" ]] && ! _core_have "$req"; then
+        # Unavailable on this box — dim the whole row and name what to install.
+        print -r -- "  ${dc}${(r:$kw:)key} ${desc} — needs ${req}${de}"
+      else
+        print -r -- "  ${kc}${(r:$kw:)key}${ke} ${dc}${desc}${de}"
+      fi
     fi
   done
   print -r -- "${dc}  1Password: opsecret · openv · optoken · opssh    full reference: README.md${de}"
