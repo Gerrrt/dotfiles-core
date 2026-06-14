@@ -18,8 +18,18 @@
 #   ./scripts/sync-core.sh dotfiles-Fedora dotfiles-Arch   # only these
 #
 # Env overrides:
-#   REPOS_ROOT   parent dir holding the repos   (default: parent of this repo)
-#   CORE_REMOTE  remote name/URL for dotfiles-core in each OS repo (default: origin of core)
+#   REPOS_ROOT        parent dir holding the repos   (default: parent of this repo)
+#   CORE_REMOTE       remote name/URL for dotfiles-core in each OS repo (default: origin of core)
+#   SYNC_SKIP_AUDIT   set to 1 to skip the pre-fan-out audit gate (escape hatch; see below)
+#
+# FAN-OUT GATE: this is the single point where Core is vendored into all 9 repos, so a
+# defect here amplifies N-way — exactly what audit-core.sh exists to prevent. The repo's
+# thesis is "gate BEFORE vendoring", but nothing mechanically enforced that AT the step
+# that vendors: it relied on the operator remembering `make audit`. So this script now
+# runs the audit itself and REFUSES to fan out a red tree (--dry-run is exempt — it
+# touches nothing; SYNC_SKIP_AUDIT=1 is the documented escape hatch for a tree you just
+# audited). It also warns when local HEAD differs from the remote tip that actually fans
+# out, so you never sync a commit you didn't audit locally.
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -79,6 +89,30 @@ CORE_SHA="$(git ls-remote "$CORE_REMOTE" "$CORE_BRANCH" 2>/dev/null | awk 'NR==1
 echo ":: core remote = $CORE_REMOTE  (branch $CORE_BRANCH @ $CORE_SHA)"
 echo ":: repos root  = $REPOS_ROOT"
 echo
+
+# ── Pre-fan-out gate: Core must be audit-green, and what you audited must be what
+# fans out. Skipped for --dry-run (nothing is written) and via SYNC_SKIP_AUDIT=1. ──
+if ((! DRY)) && [[ "${SYNC_SKIP_AUDIT:-0}" != 1 ]]; then
+  # 1. The code must pass its own gate before it lands in 9 repos. We run the same
+  #    audit CI and pre-commit run — one definition of "Core is healthy".
+  echo ":: pre-fan-out audit (scripts/audit-core.sh --quiet)"
+  if ! "$HERE/scripts/audit-core.sh" --quiet; then
+    err "Core audit FAILED — refusing to fan out a red tree to $(( ${#TARGETS[@]} )) repos"
+    fail "fix the audit (or, if you must, re-run with SYNC_SKIP_AUDIT=1)"
+    exit 1
+  fi
+  ok "Core audit green — safe to fan out"
+  # 2. subtree pull fetches the REMOTE tip, not this working tree — so warn if local
+  #    HEAD differs from the $CORE_SHA that will actually be vendored. (Best-effort:
+  #    only when origin is resolvable; a detached/odd checkout just skips the check.)
+  local_head="$(git -C "$HERE" rev-parse --short=12 HEAD 2>/dev/null || echo '')"
+  if [[ -n "$local_head" && "$CORE_SHA" != unknown && "$local_head" != "$CORE_SHA" ]]; then
+    err "local HEAD ($local_head) != remote tip being fanned out ($CORE_SHA)"
+    fail "the audit above validated your LOCAL tree, not what will vendor — push/pull to align, or set SYNC_SKIP_AUDIT=1"
+    exit 1
+  fi
+  echo
+fi
 
 for repo in "${TARGETS[@]}"; do
   path="$REPOS_ROOT/$repo"
