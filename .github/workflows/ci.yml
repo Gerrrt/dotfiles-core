@@ -176,6 +176,19 @@ jobs:
           sudo install -m755 actionlint /usr/local/bin/actionlint
           rm -f actionlint
 
+      # gitleaks gates secrets (the one fan-out artifact the syntax/lint/config/doc
+      # checks never inspect). Pinned release binary, Linux-only — secrets are
+      # OS-agnostic, so the macOS leg's audit skips this section, mirroring actionlint.
+      - name: Install gitleaks (Linux, pinned)
+        if: runner.os == 'Linux'
+        run: |
+          set -euxo pipefail
+          ver="${GITLEAKS_VERSION}"
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${ver}/gitleaks_${ver}_linux_x64.tar.gz"
+          curl -fsSL "$url" | tar -xz gitleaks
+          sudo install -m755 gitleaks /usr/local/bin/gitleaks
+          rm -f gitleaks
+
       # ── neovim: Linux gets the maintainer's pinned release tarball (deterministic,
       # like shellcheck above); macOS uses brew, mirroring the shellcheck/luarocks
       # macOS path (the runner's preinstalled-tap route, no per-arch tarball juggling).
@@ -197,7 +210,7 @@ jobs:
       # actually present instead of failing on a deliberately-absent tool.
       - name: Tool versions
         run: |
-          for t in shellcheck luacheck zsh bash markdownlint-cli2 actionlint nvim; do
+          for t in shellcheck luacheck zsh bash markdownlint-cli2 actionlint gitleaks nvim; do
             if command -v "$t" >/dev/null 2>&1; then
               printf '%s: ' "$t"; "$t" --version | head -1
             else

@@ -46,12 +46,59 @@ _core_warn() { # warning line → stderr
   else print -u2 -r -- "⚠ $*"; fi
 }
 _core_hint() { # dim follow-up "hint:" line → stderr (the fix, after an error)
-  if _core_color; then print -u2 -r -- "${_CORE_C_DIM}  hint: $*${_CORE_C_RST}"
-  else print -u2 -r -- "  hint: $*"; fi
+  # Word-wrap to $COLUMNS so a long fix-it hint (e.g. extract's supported-formats list)
+  # doesn't overflow a narrow tmux split and hard-wrap mid-word. Pure zsh (no fold(1)
+  # dependency — this runs on busybox too); continuation lines align under the text.
+  emulate -L zsh
+  local prefix='  hint: ' indent='        ' # indent width == prefix width (8)
+  # Wrap only to a KNOWN terminal width. Non-interactive/piped zsh leaves COLUMNS at 0
+  # (or unset) — treat that as "width unknown → don't wrap", so captured/logged hints
+  # stay one line; a real narrow pane (small positive COLUMNS) wraps, floored so it
+  # can't collapse into useless slivers.
+  local width=${COLUMNS:-0}
+  if ((width <= 0)); then width=10000
+  elif ((width < 24)); then width=24; fi
+  local avail=$((width - ${#prefix}))
+  local -a words=(${=*}) lines=()
+  local cur='' w
+  for w in $words; do
+    if [[ -z "$cur" ]]; then cur="$w"
+    elif ((${#cur} + 1 + ${#w} <= avail)); then cur="$cur $w"
+    else
+      lines+=("$cur")
+      cur="$w"
+    fi
+  done
+  [[ -n "$cur" ]] && lines+=("$cur")
+  ((${#lines})) || lines=('')
+  local i body
+  for i in {1..${#lines}}; do
+    ((i == 1)) && body="${prefix}${lines[i]}" || body="${indent}${lines[i]}"
+    if _core_color; then print -u2 -r -- "${_CORE_C_DIM}${body}${_CORE_C_RST}"
+    else print -u2 -r -- "$body"; fi
+  done
 }
 _core_usage() { # "usage: …" → stderr
   if _core_color; then print -u2 -r -- "${_CORE_C_DIM}usage:${_CORE_C_RST} $*"
   else print -u2 -r -- "usage: $*"; fi
+}
+
+# ── help ──────────────────────────────────────────────────────────────────────
+# _core_wants_help <arg>  → true when arg is -h/--help. Lets every Core verb answer
+# `cmd -h`/`cmd --help` uniformly. A help REQUEST is success, not misuse — so the
+# verb returns 0 and prints to STDOUT (the _core_usage error path is stderr+return 1).
+# This also fixes verbs where --help used to be mis-read as an operand (e.g. `up`
+# treated it as not-`-y` and proceeded; `serve`/`extract` rejected it as a bad port/
+# file): the guard short-circuits before any of that.
+_core_wants_help() { [[ "$1" == (-h|--help) ]]; }
+# _core_help <synopsis> [description line...]  → print a verb's help to STDOUT
+# (so `cmd --help | less` works) using the same dim "usage:" idiom as _core_usage.
+_core_help() {
+  local synopsis="$1"
+  shift
+  if _core_color 1; then print -r -- "${_CORE_C_DIM}usage:${_CORE_C_RST} $synopsis"
+  else print -r -- "usage: $synopsis"; fi
+  (($#)) && print -r -- "  $*"
 }
 
 # ── confirm ───────────────────────────────────────────────────────────────────

@@ -48,6 +48,16 @@ repos:
     hooks:
       - id: markdownlint-cli2
 
+  # Secret scanning — Core ships 1Password helpers (zsh/op.zsh), a git-identity
+  # template, and fans out to 9 PUBLIC repos, so a leaked token here amplifies
+  # N-way. gitleaks at author time catches it in the commit diff before it lands;
+  # the audit's "secrets" section (scripts/audit-core.sh) is the CI mirror. Pinned
+  # rev kept in step with GITLEAKS_VERSION by the audit's version-consistency gate.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
   # NB: shfmt is intentionally NOT enforced — the scripts here use a deliberate
   # compact one-liner style that shfmt would expand (see scripts/audit-core.sh).
   # luacheck is NOT a standalone hook either: it discovers .luacheckrc by
