@@ -86,8 +86,15 @@ err() { fail "$@"; }
 CORE_SHA="$(git ls-remote "$CORE_REMOTE" "$CORE_BRANCH" 2>/dev/null | awk 'NR==1{print substr($1,1,12)}')"
 [[ -n "$CORE_SHA" ]] || CORE_SHA="$(git -C "$HERE" rev-parse --short=12 "$CORE_BRANCH" 2>/dev/null || echo unknown)"
 
-echo ":: core remote = $CORE_REMOTE  (branch $CORE_BRANCH @ $CORE_SHA)"
-echo ":: repos root  = $REPOS_ROOT"
+# Human-readable version stamp (core.version) — vendored into each OS repo so its
+# `core-version` verb can report which Core it carries. Surfaced here too so the
+# fan-out log records BOTH the SemVer and the commit that landed.
+CORE_VERSION="$(tr -d '[:space:]' <"$HERE/core.version" 2>/dev/null || echo unknown)"
+[[ -n "$CORE_VERSION" ]] || CORE_VERSION=unknown
+
+echo ":: core version = $CORE_VERSION"
+echo ":: core remote  = $CORE_REMOTE  (branch $CORE_BRANCH @ $CORE_SHA)"
+echo ":: repos root   = $REPOS_ROOT"
 echo
 
 # ── Pre-fan-out gate: Core must be audit-green, and what you audited must be what

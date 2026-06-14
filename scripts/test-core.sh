@@ -426,6 +426,7 @@ _classify_is "zsh/ change → shell gate only" 'zsh/ui.zsh' true false
 _classify_is "nvim/ change → nvim gate only" 'nvim/init.lua' false true
 _classify_is "docs (*.md) change → no gate" 'README.md' false false
 _classify_is "infra (scripts/) change → full run" 'scripts/audit-core.sh' true true
+_classify_is "infra (.shellcheckrc) change → full run" '.shellcheckrc' true true
 _classify_is "__ALL__ sentinel → full run" '__ALL__' true true
 _classify_is "unrecognised path → FAIL CLOSED to full run" 'newdir/thing.xyz' true true
 _classify_is "mixed shell+nvim set → union of both" $'zsh/ui.zsh\nnvim/init.lua' true true
@@ -633,6 +634,18 @@ check "serve --help returns 0 (not mis-read as a bad port)" \
   'out=$(serve --help); (( $? == 0 )) && [[ $out == *"usage: serve"* ]]'
 check "extract -h returns 0 (not mis-read as a missing file)" \
   'out=$(extract -h); (( $? == 0 )) && [[ $out == *"usage: extract"* ]]'
+# core-version (#4): reports the vendored Core stamp so an OS repo can tell WHICH Core
+# it carries. $_CORE_VERSION_FILE resolves (via %x) to this repo's core.version here.
+check "core-version prints the vendored SemVer stamp" \
+  'out=$(core-version); (( $? == 0 )) && [[ $out == "dotfiles-core "[0-9]* ]]'
+check "core-version --help returns 0 (not mis-read)" \
+  'out=$(core-version --help); (( $? == 0 )) && [[ $out == *"usage: core-version"* ]]'
+# core-doctor (#9): the shell-side health report. Must render and return 0 even on a
+# bare box (every tool ✗) — it's read-only diagnostics, never a hard failure.
+check "core-doctor renders a health report and returns 0" \
+  'out=$(NO_COLOR=1 core-doctor 2>&1); (( $? == 0 )) && [[ $out == *dotfiles-core* && $out == *"modern CLI"* ]]'
+check "core-doctor --help returns 0 (not mis-read)" \
+  'out=$(core-doctor --help); (( $? == 0 )) && [[ $out == *"usage: core-doctor"* ]]'
 # core-help (U5): the width-aware renderer must emit every verb and never crash on its
 # kw arithmetic — including a pathologically narrow terminal where the key column clamps.
 check "core-help renders all verbs (wide terminal)" \
@@ -756,12 +769,28 @@ ln -s "$(command -v awk)" "$PMBIN/awk"
 ucheck "update: _pkgup_list surfaces upgradable package names (apt)" \
   "source '$UPD'; out=\$(_pkgup_list); [[ \$out == *foo* && \$out == *bar* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# up --dry-run (#8): the non-destructive inspect — list what WOULD upgrade and exit 0,
+# applying nothing. Same apt stub as above; assert the names print and the rc is 0.
+ucheck "update: up --dry-run lists pending packages and exits 0 (applies nothing)" \
+  "source '$UI'; source '$UPD'; out=\$(up --dry-run); (( \$? == 0 )) && [[ \$out == *foo* && \$out == *bar* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 # core-help context-awareness (U7): a row whose tool is ABSENT on this box must be
 # tagged "needs <tool>", while an always-on verb (mkcd) still renders normally. Drive
 # it on a bare PATH so fzf is guaranteed missing, making the assertion deterministic.
 _pm_only ""
 ucheck "core-help annotates an unavailable tool (needs fzf when fzf absent)" \
   "source '$UI'; source '$FN'; out=\$(COLUMNS=120 NO_COLOR=1 core-help); [[ \$out == *'needs fzf'* && \$out == *mkcd* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# fzf.zsh verbs (fif/fbr) must degrade in Core's voice on a bare box — a raw "command
+# not found" is the bug this guards (fcd already did; fif/fbr/zoxide-jump did not).
+# Drive on an isolated PATH (fzf guaranteed absent) so the error path is deterministic.
+FZF_FILE="$HERE/zsh/fzf.zsh"
+_pm_only ""
+ucheck "fif rejects cleanly without fzf (Core error voice, not 'command not found')" \
+  "source '$UI'; source '$FZF_FILE' 2>/dev/null; out=\$(fif foo 2>&1); (( \$? != 0 )) && [[ \$out == *'fif: requires fzf'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "fbr rejects cleanly without fzf (Core error voice, not 'command not found')" \
+  "source '$UI'; source '$FZF_FILE' 2>/dev/null; out=\$(fbr 2>&1); (( \$? != 0 )) && [[ \$out == *'fbr: requires fzf'* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 # Colour degradation (U8): the nudge/welcome accents must drop from 24-bit hex to a
 # 256-colour code when the terminal doesn't advertise truecolor — so a 16/256-colour
@@ -801,7 +830,7 @@ ucheck "update: welcome stays silent (no greet, no sentinel) without a tty" \
 # command across all 9 repos, with nothing else to catch it. Put the dir on fpath (as
 # options.zsh does), run compinit, and assert each verb resolved to a completion.
 ucheck "completions: compinit wires every Core first-party completion" \
-  "fpath=('$HERE/zsh/completions' \$fpath); autoload -Uz compinit && compinit -u -d '$SANDBOX/zcd-comp' >/dev/null 2>&1; for c in mkcd mkbak extract up serve cdup fcd please core-help cheat; do [[ -n \${_comps[\$c]:-} ]] || { print \"no completion registered for: \$c\"; exit 1; }; done"
+  "fpath=('$HERE/zsh/completions' \$fpath); autoload -Uz compinit && compinit -u -d '$SANDBOX/zcd-comp' >/dev/null 2>&1; for c in mkcd mkbak extract up serve cdup fcd fif fbr please core-help cheat core-version core-doctor; do [[ -n \${_comps[\$c]:-} ]] || { print \"no completion registered for: \$c\"; exit 1; }; done"
 
 # ── summary ───────────────────────────────────────────────────────────────────
 summary

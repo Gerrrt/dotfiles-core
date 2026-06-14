@@ -7,7 +7,7 @@
 # pre-commit call the same scripts/audit-core.sh, so `make audit` == green CI.
 # ──────────────────────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help setup audit test bench lint sync sync-dry hooks update-hooks update-plugins update-nvim-plugins check-pins
+.PHONY: help setup audit audit-changed test bench lint sync sync-dry hooks update-hooks update-plugins update-nvim-plugins check-pins
 
 help: ## Show this help
 	@echo "dotfiles-core — make targets:"
@@ -19,6 +19,9 @@ setup: ## One-command dev bootstrap (pre-commit hooks + version doctor + audit) 
 
 audit: ## Run the full Core audit (manifest, exec-bits, syntax, lint, behavioral) — the one gate
 	@./scripts/audit-core.sh
+
+audit-changed: ## Audit only what your git diff touches (fast dev loop; same classifier as CI)
+	@./scripts/audit-core.sh --changed
 
 test: ## Run only the behavioral tests (load-order smoke + function units)
 	@./scripts/test-core.sh

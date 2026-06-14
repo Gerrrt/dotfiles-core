@@ -119,6 +119,7 @@ git/
   local.gitconfig.example identity template — seeded by bootstrap, never tracked
 nvim/                     entire lazy.nvim tree: lua/gerrrt/{config,plugins,servers,utils}
 core.manifest             the canonical list of Core files (drives sync + audits)
+core.version              human-readable Core version stamp (read by `core-version`)
 ```
 
 > Load order is load-bearing: `tools` inits atuin (registers its widget), `options`

@@ -25,6 +25,10 @@ source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 VERSIONS="scripts/tool-versions.env"
 _ver() { sed -n "s/^$1=//p" "$VERSIONS" 2>/dev/null | head -n1; }
 
+# Dim follow-up "→" hint line (the fix-it, after a skip/warn) — one consistent voice
+# for the actionable next step, mirroring zsh/ui.zsh's _core_hint in the runtime layer.
+hint() { printf '%s→%s %s\n' "$c_yel" "$c_rst" "$*"; }
+
 # ── 1. pre-commit hooks ───────────────────────────────────────────────────────
 hdr "pre-commit hooks"
 PRECOMMIT_VERSION="$(_ver PRECOMMIT_VERSION)"
@@ -46,8 +50,8 @@ fi
 # mise.local.toml from it and let `mise install` provision the linters the audit/CI
 # run. Best-effort + graceful like every other step: no mise → a hint, not a hard
 # stop; a tool mise can't supply just stays missing and the doctor below flags it.
-# luacheck has no clean mise source (luarocks) so it stays manual; pre-commit is
-# handled in step 1. The generated file is regenerated every run (idempotent) and is
+# luacheck has no clean mise source (luarocks) so step 2b below provisions it; pre-commit
+# is handled in step 1. The generated file is regenerated every run (idempotent) and is
 # NOT tracked — bumping a pin in tool-versions.env and re-running propagates here.
 hdr "hermetic dev toolchain (mise)"
 if have mise; then
@@ -71,6 +75,31 @@ if have mise; then
   fi
 else
   skip "mise absent — install it (https://mise.jdx.dev) to auto-provision the pinned toolchain; the doctor below lists what to install manually"
+fi
+
+# ── 2b. luacheck via luarocks (no clean mise source) ──────────────────────────
+# luacheck is a luarocks package — mise has no first-class source for it, so step 2
+# can't provision it and it used to be left wholly manual ("see ci.yml"). Close that
+# gap the same way CI does: when it's missing AND luarocks is present, install the
+# pinned version with --local (lands in ~/.luarocks/bin). Best-effort + graceful: no
+# luarocks → a precise hint, not a hard stop; the doctor below still reports the result.
+hdr "luacheck (luarocks)"
+LUACHECK_VERSION="$(_ver LUACHECK_VERSION)"
+if have luacheck; then
+  pass "luacheck already installed"
+elif have luarocks; then
+  if luarocks --local install luacheck "$LUACHECK_VERSION" >/dev/null 2>&1; then
+    pass "luacheck ${LUACHECK_VERSION} installed via luarocks (--local)"
+    # ~/.luarocks/bin is where --local drops the binary; surface it if it's not on PATH.
+    case ":$PATH:" in
+    *":$HOME/.luarocks/bin:"*) ;;
+    *) hint "add \$HOME/.luarocks/bin to PATH so luacheck resolves: export PATH=\"\$HOME/.luarocks/bin:\$PATH\"" ;;
+    esac
+  else
+    hint "luarocks present but 'luarocks --local install luacheck ${LUACHECK_VERSION}' failed — install lua + a dev toolchain, then retry"
+  fi
+else
+  skip "luacheck absent and luarocks not found — install luarocks, then: luarocks --local install luacheck ${LUACHECK_VERSION}"
 fi
 
 # ── 3. version doctor (present? vs the pin) ───────────────────────────────────

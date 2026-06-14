@@ -1,0 +1,4 @@
+#compdef fbr
+# Completion for Core's `fbr` (zsh/fzf.zsh). It takes NO arguments — the branch is
+# chosen interactively through fzf — so there is nothing to complete.
+_message 'fbr takes no arguments (it fuzzy-picks a git branch via fzf)'

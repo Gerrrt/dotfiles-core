@@ -5,6 +5,70 @@
 # Nothing OS-specific or offensive here — those live in the OS / Kali repos.
 # ──────────────────────────────────────────────────────────────────────────────
 
+# Resolved path to the vendored version stamp. core.version sits one dir ABOVE zsh/,
+# so from this module: %x = the file being sourced, :A resolves the bootstrap symlink
+# back into core/zsh/functions.zsh, :h:h climbs to core/, then /core.version. Captured
+# at source time (the proven pattern from options.zsh / maint.zsh).
+typeset -g _CORE_VERSION_FILE="${${(%):-%x}:A:h:h}/core.version"
+
+# core-version — print the vendored Core layer's version. Lets you tell WHICH Core a
+# given OS repo carries from inside it: the subtree squash records the commit, this
+# records the human SemVer (core.version, bumped at release to match the git tag).
+core-version() {
+  emulate -L zsh
+  _core_wants_help "$1" && { _core_help "core-version" "print the vendored Core layer's version"; return 0; }
+  if [[ -r "$_CORE_VERSION_FILE" ]]; then
+    print -r -- "dotfiles-core $(<"$_CORE_VERSION_FILE")"
+  else
+    _core_err "core-version: version stamp not found at $_CORE_VERSION_FILE"
+    return 1
+  fi
+}
+
+# core-doctor — the shell counterpart to nvim's `:checkhealth gerrrt`: a scannable
+# report of which modern-CLI tools Core detected on THIS box and which integrations are
+# live, so you can see at a glance what's degraded to a classic fallback. Probes live
+# via _core_have (command -v), so it's honest even if tools.zsh hasn't run, and shows
+# the RESOLVED binary names (fd vs fdfind, bat vs batcat) — the cross-distro detail that
+# silently changes behaviour. Read-only: it inspects, never installs.
+core-doctor() {
+  emulate -L zsh
+  _core_wants_help "$1" && { _core_help "core-doctor" "report Core's detected tools + active integrations on this box"; return 0; }
+  local g='' c='' d='' r=''
+  if [[ -t 1 && -z ${NO_COLOR:-} ]]; then
+    g=$'\e[32m' c=$'\e[36m' d=$'\e[2;37m' r=$'\e[0m'
+  fi
+  local ver="unknown"
+  [[ -r "$_CORE_VERSION_FILE" ]] && ver="$(<"$_CORE_VERSION_FILE")"
+  print -r -- "${c}dotfiles-core ${ver}${r} ${d}— core-doctor (✓ present · ✗ falls back to classic)${r}"
+
+  # Grouped tool report: "group label" then a space-separated tool list. A tool is
+  # ✓ when it resolves on PATH, ✗ (dimmed) when Core degrades to the classic command.
+  local -a groups=(
+    "modern CLI"   "eza bat fd rg fzf zoxide delta dust duf procs btop yazi"
+    "integrations" "starship atuin mise carapace gum sesh"
+    "data / net"   "jq yq gron sd xh doggo glow op"
+  )
+  local gi tool line
+  for ((gi = 1; gi <= ${#groups}; gi += 2)); do
+    print -r -- "${c}${groups[gi]}${r}"
+    line=""
+    for tool in ${=groups[gi + 1]}; do
+      if _core_have "$tool"; then line+="  ${g}✓${r} ${tool}"
+      else line+="  ${d}✗ ${tool}${r}"; fi
+    done
+    print -r -- " $line"
+  done
+
+  # Resolved binary names + the detected package manager — the behaviour-affecting bits
+  # a bare ✓/✗ hides (Debian's fd→fdfind/bat→batcat; which `up` manager fires here).
+  print -r -- "${c}resolved${r}"
+  print -r -- "  ${d}fd → ${FD_BIN:-(none)}    bat → ${BAT_BIN:-(none)}${r}"
+  if (($+functions[_pkgup_mgr])); then
+    print -r -- "  ${d}package manager → $(_pkgup_mgr)${r}"
+  fi
+}
+
 # mkcd — make a directory and cd into it
 mkcd() {
   _core_wants_help "$1" && { _core_help "mkcd <dir>" "make a directory (and parents) and cd into it"; return 0; }
@@ -273,7 +337,9 @@ core-help() {
     "maint-run|run daily maintenance now"
     "maint-log [-f]|view (or follow) the maintenance log"
   )
-  print -r -- "${title}dotfiles Core — cheat sheet${te} ${dc}(run \`core-help\` anytime)${de}"
+  local ver=""
+  [[ -r "$_CORE_VERSION_FILE" ]] && ver=" v$(<"$_CORE_VERSION_FILE")"
+  print -r -- "${title}dotfiles Core${ver} — cheat sheet${te} ${dc}(run \`core-help\` anytime)${de}"
   # Key column is derived from the WIDEST key, not a fixed 22 — so alignment stays
   # correct if a longer verb is ever added (the old hard-coded width silently broke
   # alignment past 22 chars) and isn't padded wider than the content needs. On a narrow
@@ -306,6 +372,6 @@ core-help() {
       fi
     fi
   done
-  print -r -- "${dc}  1Password: opsecret · openv · optoken · opssh    full reference: README.md${de}"
+  print -r -- "${dc}  1Password: opsecret · openv · optoken · opssh    health: core-doctor · version: core-version${de}"
 }
 alias cheat='core-help'

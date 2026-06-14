@@ -15,6 +15,23 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- `core.version` — a human-readable SemVer stamp vendored into every OS repo, plus a
+  `core-version` verb that reads it, so you can tell WHICH Core a given OS repo carries
+  from inside it (the subtree squash records the commit; this records the version).
+  `scripts/sync-core.sh` prints it on fan-out and the audit asserts it is well-formed.
+- `core-doctor` — the shell counterpart to nvim's `:checkhealth gerrrt`: a scannable
+  report of which modern-CLI tools Core detected on this box and which integrations are
+  live, including the RESOLVED binary names (`fd`/`fdfind`, `bat`/`batcat`) and the
+  detected package manager. Read-only.
+- `up -n`/`--dry-run` — list the packages that WOULD upgrade and exit, touching nothing
+  (the non-destructive inspect the count-only nudge didn't offer).
+- `make audit-changed` (`audit-core.sh --changed`) — scope the audit to what your local
+  git diff touches, via the SAME `scripts/ci-classify.sh` CI uses; fails safe to the
+  full run when the diff can't be resolved.
+- First-party completions for `fif`, `fbr`, `core-version`, and `core-doctor`, and a
+  `core.version`/`up --dry-run`-aware `_up`; the completion-parity test now covers them.
+- `.shellcheckrc` — repo-wide ShellCheck config (`external-sources`, `source-path`,
+  `shell=bash`) so author-time, CI, and editor lint identically.
 - `zsh/ui.zsh` — shared terminal-UX primitives (`_core_err`/`_core_warn`/`_core_ok`/
   `_core_hint`/`_core_usage`/`_core_confirm`/`_core_spin`), gum-aware with a plain
   fallback on every helper. Loads right after `tools` in the canonical chain and is
@@ -78,6 +95,8 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Changed
 
+- `scripts/setup.sh` provisions `luacheck` via `luarocks` (no clean mise source) and
+  emits precise, actionable install hints — closing the last manual onboarding gap.
 - Defensive confirms on impactful interactive actions: `please` now previews the exact
   `sudo …` line and confirms before eval'ing it as root (and refuses with no previous
   command); `up` pre-confirms `Apply updates with <mgr>?` before touching the system
@@ -111,8 +130,15 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   upstream breaking change — or a compromised tag — out to all nine machines on the
   next install; installs now fetch exactly the pinned commit.
 
-  ### Fixed
+### Fixed
 
+- fzf / fzf-tab previews hardcoded `bat`/`eza`, so every preview pane printed
+  "command not found" on Debian/Ubuntu (bat ships as `batcat`) and on any box without
+  eza. Previews now resolve `$BAT_BIN` with a `cat`/`ls` fallback, and a new audit
+  section (`fzf preview binary resolution`) locks it so the regression can't recur.
+- `fif`, `fbr`, and the Alt-Z zoxide-jump widget assumed `fzf`/`rg`/`git`/`zoxide`
+  were present; they now degrade in Core's voice (`_core_err`/`_core_hint`) like `fcd`,
+  instead of a raw "command not found".
 - Removed leaked `</content>`/`</invoke>` template artifacts from the end of this
   changelog — the exact bug class the new markdown gate now catches.
 - Restored non-executable mode (`100644`) on the twelve `zsh/*.zsh` modules. They

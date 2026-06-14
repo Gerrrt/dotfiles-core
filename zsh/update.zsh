@@ -215,9 +215,10 @@ up() {
   emulate -L zsh
   # Help BEFORE anything else: without this, `up --help` fell through (not `-y`, so
   # yes=0) and proceeded to actually apply updates — a help flag must never do that.
-  _core_wants_help "$1" && { _core_help "up [-y|--yes]" "apply package updates (interactive; -y auto-confirms where safe)"; return 0; }
-  local yes=0
+  _core_wants_help "$1" && { _core_help "up [-y|--yes] [-n|--dry-run]" "apply package updates (interactive; -y auto-confirms where safe; -n only lists)"; return 0; }
+  local yes=0 dry=0
   [[ "$1" == (-y|--yes) ]] && yes=1
+  [[ "$1" == (-n|--dry-run) ]] && dry=1
   local y=()
   ((yes)) && y=(-y)
   local mgr
@@ -225,6 +226,20 @@ up() {
   if [[ "$mgr" == none ]]; then
     _core_err "up: no supported package manager found"
     return 1
+  fi
+  # Dry run: show what WOULD upgrade and exit 0, touching nothing — the non-destructive
+  # inspect that the count-only nudge and the (interactive-only) pre-confirm preview
+  # didn't offer. Uses the same non-root, no-mutation _pkgup_list as the preview below.
+  if ((dry)); then
+    local -a pending
+    pending=(${(f)"$(_pkgup_list 2>/dev/null)"})
+    if ((${#pending})); then
+      _core_ok "up: ${#pending} package$([[ ${#pending} -ne 1 ]] && echo s) upgradable via ${mgr}:"
+      print -rl -- "${(@)pending/#/    }"
+    else
+      _core_ok "up: nothing to upgrade (via ${mgr})"
+    fi
+    return 0
   fi
   # Defensive pre-confirm (skipped by -y): name the manager BEFORE touching the
   # system, so `up` on the wrong box is a one-keystroke abort, not a surprise sync.
