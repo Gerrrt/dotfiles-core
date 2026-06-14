@@ -756,6 +756,15 @@ _pm_only ""
 ucheck "core-help annotates an unavailable tool (needs fzf when fzf absent)" \
   "source '$UI'; source '$FN'; out=\$(COLUMNS=120 NO_COLOR=1 core-help); [[ \$out == *'needs fzf'* && \$out == *mkcd* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# Colour degradation (U8): the nudge/welcome accents must drop from 24-bit hex to a
+# 256-colour code when the terminal doesn't advertise truecolor — so a 16/256-colour
+# TTY never receives a raw 24-bit escape. Assert both arms of the $COLORTERM gate.
+ucheck "update: accents degrade to 256-colour without truecolor" \
+  "source '$UPD'; [[ \$_PKGUP_ACCENT == 75 && \$_PKGUP_MUTED == 244 ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0 COLORTERM=
+ucheck "update: accents use truecolor hex when COLORTERM advertises it" \
+  "source '$UPD'; [[ \$_PKGUP_ACCENT == '#7aa2f7' ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0 COLORTERM=truecolor
 
 # maint.zsh: _maint_scheduler must always resolve to a REAL scheduler token, never empty
 # or garbage. With systemctl absent (isolated PATH) and crontab present as the fallback,

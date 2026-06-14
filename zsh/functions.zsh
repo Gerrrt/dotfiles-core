@@ -231,8 +231,16 @@ core-help() {
   # Raw ANSI (not prompt %F) + `print -r` below, so a literal backslash in a key
   # (Ctrl-\) survives — print -P would consume it as an escape. Colour only on a
   # TTY; piped/redirected output stays plain.
-  local title=$'\e[1;38;2;122;162;247m' te=$'\e[0m'
-  local kc=$'\e[36m' ke=$'\e[0m' dc=$'\e[38;2;86;95;137m' de=$'\e[0m'
+  # Truecolor accents ONLY when the terminal advertises 24-bit ($COLORTERM); else a
+  # 256-colour approximation, so a 16/256-colour TTY doesn't get raw 24-bit escapes it
+  # can't render (mirrors the nudge in update.zsh and Core's NO_COLOR discipline).
+  local title dc
+  if [[ "${COLORTERM:-}" == (24bit|truecolor) ]]; then
+    title=$'\e[1;38;2;122;162;247m' dc=$'\e[38;2;86;95;137m'
+  else
+    title=$'\e[1;38;5;111m' dc=$'\e[38;5;103m'
+  fi
+  local te=$'\e[0m' kc=$'\e[36m' ke=$'\e[0m' de=$'\e[0m'
   if [[ ! -t 1 || -n ${NO_COLOR:-} ]]; then title='' te='' kc='' ke='' dc='' de=''; fi
   # Rows are "key|description" or "key|description|requires" — the optional third
   # field names a command this entry NEEDS. When it's absent on THIS box the row is

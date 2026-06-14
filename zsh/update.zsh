@@ -27,6 +27,17 @@
 : "${UPDATE_CHECK_INTERVAL:=86400}"
 typeset -g _PKGUP_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/pkg-updates"
 
+# Accent colours for the nudge + welcome below. Use the truecolor hex ONLY when the
+# terminal advertises 24-bit ($COLORTERM); otherwise a 256-colour approximation, so a
+# 16/256-colour TTY (rescue shell, serial console — the bare boxes Core targets) gets a
+# sane colour instead of a raw 24-bit escape it would render as garbage. Same "degrade,
+# don't assume" rule as Core's NO_COLOR handling. These feed `print -P %F{…}`.
+if [[ "${COLORTERM:-}" == (24bit|truecolor) ]]; then
+  typeset -g _PKGUP_ACCENT='#7aa2f7' _PKGUP_MUTED='#565f89'
+else
+  typeset -g _PKGUP_ACCENT=75 _PKGUP_MUTED=244
+fi
+
 # privilege helper: sudo, else doas (Alpine), else run bare
 _pkgup_priv() {
   if command -v sudo >/dev/null 2>&1; then
@@ -140,7 +151,7 @@ _pkgup_notice() {
   local count
   count="$(sed -n 1p "$_PKGUP_CACHE" 2>/dev/null)"
   [[ "$count" == <1-> ]] || return 0 # zsh numeric-range glob: only positive ints
-  print -P "%F{#7aa2f7}󰚰 ${count} update$([[ $count -ne 1 ]] && print s) available%f %F{#565f89}— run \`up\` to apply%f"
+  print -P "%F{$_PKGUP_ACCENT}󰚰 ${count} update$([[ $count -ne 1 ]] && print s) available%f %F{$_PKGUP_MUTED}— run \`up\` to apply%f"
 }
 
 # ── Startup hook: throttle + background the check, then show cached nudge ──────
@@ -182,7 +193,7 @@ _core_welcome() {
   # NO_CLOBBER; `|| return` bails (no greet) when we can't remember we did.
   mkdir -p "${stamp:h}" 2>/dev/null && : >|"$stamp" 2>/dev/null || return 0
   if [[ -z ${NO_COLOR:-} ]]; then
-    print -P "%F{#7aa2f7}👋 dotfiles Core loaded%f %F{#565f89}— run \`core-help\` for functions, keys & maintenance%f"
+    print -P "%F{$_PKGUP_ACCENT}👋 dotfiles Core loaded%f %F{$_PKGUP_MUTED}— run \`core-help\` for functions, keys & maintenance%f"
   else
     print -r -- "👋 dotfiles Core loaded — run \`core-help\` for functions, keys & maintenance"
   fi
