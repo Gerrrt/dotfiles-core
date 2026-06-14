@@ -122,7 +122,15 @@ maint-run() {
   /usr/bin/env bash "$_MAINT_SH"
 }
 maint-log() {
+  emulate -L zsh
   _core_wants_help "$1" && { _core_help "maint-log [N|-f]" "show last N maintenance-log lines (default 50), or follow"; return 0; }
+  # Defensive input handling (mirrors serve/cdup/mkbak): a bad N must be rejected in
+  # Core's voice, not handed to `tail` to fail with a raw "tail: invalid number".
+  if [[ -n "$1" && "$1" != (-f|--follow) && "$1" != <1-> ]]; then
+    _core_err "maint-log: N must be a positive integer or -f/--follow (got '$1')"
+    _core_usage "maint-log [N|-f]"
+    return 1
+  fi
   [[ -r "$_MAINT_LOG" ]] || {
     echo "no log yet at $_MAINT_LOG"
     return 0

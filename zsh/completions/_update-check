@@ -1,0 +1,4 @@
+#compdef update-check
+# Completion for Core's `update-check` (zsh/update.zsh). It refreshes the cached
+# "updates available" nudge now and takes no arguments.
+_message 'update-check takes no arguments (refreshes the update nudge)'

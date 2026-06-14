@@ -1,0 +1,4 @@
+#compdef opssh
+# Completion for Core's `opssh` (zsh/op.zsh). It lists SSH keys stored in 1Password
+# and takes no arguments.
+_message 'opssh takes no arguments (lists 1Password SSH keys)'

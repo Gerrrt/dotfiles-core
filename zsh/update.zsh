@@ -216,9 +216,30 @@ up() {
   # Help BEFORE anything else: without this, `up --help` fell through (not `-y`, so
   # yes=0) and proceeded to actually apply updates — a help flag must never do that.
   _core_wants_help "$1" && { _core_help "up [-y|--yes] [-n|--dry-run]" "apply package updates (interactive; -y auto-confirms where safe; -n only lists)"; return 0; }
-  local yes=0 dry=0
-  [[ "$1" == (-y|--yes) ]] && yes=1
-  [[ "$1" == (-n|--dry-run) ]] && dry=1
+  # Parse EVERY argument (not just $1) so flag ORDER doesn't matter and an unknown
+  # flag or stray operand is REJECTED in Core's voice — matching the fail-closed
+  # parsers in scripts/*.sh. The old `[[ "$1" == … ]]` form silently ignored a
+  # second flag (`up -n -y`) and let a typo like `up --bogus` fall through to a real,
+  # privileged update.
+  local yes=0 dry=0 arg
+  for arg in "$@"; do
+    case "$arg" in
+    -y | --yes) yes=1 ;;
+    -n | --dry-run) dry=1 ;;
+    *)
+      _core_err "up: unexpected argument: $arg"
+      _core_usage "up [-y|--yes] [-n|--dry-run]"
+      return 2
+      ;;
+    esac
+  done
+  # -y (apply) and -n (inspect-only) are mutually exclusive — refuse the contradiction
+  # rather than silently letting one win.
+  if ((yes && dry)); then
+    _core_err "up: -y/--yes and -n/--dry-run are mutually exclusive"
+    _core_usage "up [-y|--yes] [-n|--dry-run]"
+    return 2
+  fi
   local y=()
   ((yes)) && y=(-y)
   local mgr
