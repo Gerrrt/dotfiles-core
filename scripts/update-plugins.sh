@@ -15,6 +15,12 @@
 # Usage:
 #   ./scripts/update-plugins.sh            # bump every pin to upstream HEAD, in place
 #   ./scripts/update-plugins.sh --dry-run  # show what WOULD change, touch nothing
+#   ./scripts/update-plugins.sh --check    # like --dry-run but EXIT 2 if any pin is
+#                                            stale — the freshness GATE the weekly
+#                                            .github/workflows/freshness.yml runs so a
+#                                            rotting pin is surfaced proactively (the
+#                                            runtime-plugin analog of dependabot, which
+#                                            only watches the github-actions ecosystem).
 # ──────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
@@ -22,8 +28,22 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 1
 PLUGINS_FILE="zsh/plugins.zsh"
 
+# --check is a non-mutating drift report (implies dry-run) that exits 2 when behind.
 DRY=0
-[[ "${1:-}" == "--dry-run" || "${1:-}" == "-n" ]] && DRY=1
+CHECK=0
+case "${1:-}" in
+--dry-run | -n) DRY=1 ;;
+--check) DRY=1 CHECK=1 ;;
+"") ;;
+-h | --help)
+  sed -n '15,24p' "$0"
+  exit 0
+  ;;
+*)
+  printf 'update-plugins.sh: unexpected argument: %s (try --help)\n' "$1" >&2
+  exit 2
+  ;;
+esac
 
 # Shared palette + have() (this script keeps its own ↑/– pin-row formatting below).
 # shellcheck source=scripts/lib/common.sh
@@ -82,6 +102,16 @@ done
 if ((fail)); then
   printf '%ssome upstreams were unreachable — pins left unchanged for those%s\n' "$c_red" "$c_rst" >&2
   exit 1
+fi
+if ((CHECK)); then
+  # Freshness gate: exit 2 (distinct from the unreachable-upstream exit 1 above) when
+  # any pin is behind, so the scheduled workflow can surface drift; 0 when all current.
+  if ((changed)); then
+    printf '%s%d plugin pin(s) are BEHIND upstream — run: make update-plugins%s\n' "$c_yel" "$changed" "$c_rst" >&2
+    exit 2
+  fi
+  printf '%s✓ all plugin pins current.%s\n' "$c_grn" "$c_rst"
+  exit 0
 fi
 if ((DRY)); then
   printf '%s%d pin(s) would change. Re-run without --dry-run to apply.%s\n' "$c_blu" "$changed" "$c_rst"

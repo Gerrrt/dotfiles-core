@@ -21,6 +21,10 @@
 # Usage:
 #   ./scripts/update-nvim-plugins.sh            # bump pins to latest, rewrite the lock
 #   ./scripts/update-nvim-plugins.sh --dry-run  # show what WOULD change, restore the lock
+#   ./scripts/update-nvim-plugins.sh --check    # like --dry-run but EXIT 2 if the lock
+#                                                 is stale — the lazy-lock half of the
+#                                                 weekly freshness gate (see
+#                                                 .github/workflows/freshness.yml).
 # ──────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
@@ -28,8 +32,22 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 1
 LOCK="nvim/lazy-lock.json"
 
+# --check is a non-mutating drift report (implies dry-run) that exits 2 when stale.
 DRY=0
-[[ "${1:-}" == "--dry-run" || "${1:-}" == "-n" ]] && DRY=1
+CHECK=0
+case "${1:-}" in
+--dry-run | -n) DRY=1 ;;
+--check) DRY=1 CHECK=1 ;;
+"") ;;
+-h | --help)
+  sed -n '21,26p' "$0"
+  exit 0
+  ;;
+*)
+  printf 'update-nvim-plugins.sh: unexpected argument: %s (try --help)\n' "$1" >&2
+  exit 2
+  ;;
+esac
 
 # Shared palette + have() (one definition for every gate script).
 # shellcheck source=scripts/lib/common.sh
@@ -79,12 +97,19 @@ fi
 # Report the delta (added/removed/changed plugin commits) in human terms.
 if cmp -s "$BEFORE" "$LOCK"; then
   printf '%s✓ all nvim plugin pins already current.%s\n' "$c_grn" "$c_rst"
+  ((CHECK)) && exit 0
 else
   # Show only the changed plugin entries (the lock is one JSON line per plugin).
   git --no-pager diff --no-index -- "$BEFORE" "$LOCK" 2>/dev/null |
     grep -E '^[+-][[:space:]]*"' || true
   if ((DRY)); then
     if ((HAD_LOCK)); then cp "$BEFORE" "$LOCK"; else rm -f "$LOCK"; fi # restore: touch nothing tracked
+    # --check is the freshness gate: exit 2 on drift (distinct from the exit-1 failures
+    # above) so the scheduled workflow surfaces a stale lock; plain --dry-run stays exit 0.
+    if ((CHECK)); then
+      printf '%snvim plugin pins are BEHIND — run: make update-nvim-plugins%s\n' "$c_yel" "$c_rst" >&2
+      exit 2
+    fi
     printf '%snvim plugin pins WOULD change. Re-run without --dry-run to apply.%s\n' "$c_blu" "$c_rst"
   else
     printf '%s✓ %s updated — review the diff, run make audit, then commit.%s\n' \
