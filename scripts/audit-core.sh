@@ -40,7 +40,30 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 1
 
 QUIET=0
-[[ "${1:-}" == "--quiet" || "${1:-}" == "-q" ]] && QUIET=1
+# Parse the (single) flag this gate takes. An unknown flag is REJECTED with a hint
+# rather than silently ignored — `audit-core.sh --hepl` used to just run the full
+# audit, masking the typo. -h/--help prints usage and exits clean.
+case "${1:-}" in
+"") ;;
+-q | --quiet) QUIET=1 ;;
+-h | --help)
+  cat <<'EOF'
+usage: audit-core.sh [-q|--quiet] [-h|--help]
+
+THE audit button — manifest/exec-bit/syntax/lint/config/markdown/workflow/
+version/behavioral checks. CI and pre-commit run this exact script.
+
+  -q, --quiet   only print SKIP/FAIL lines and the final summary
+  -h, --help    show this help and exit
+EOF
+  exit 0
+  ;;
+*)
+  printf 'audit-core.sh: unknown option: %s\n' "$1" >&2
+  printf 'try: audit-core.sh --help\n' >&2
+  exit 2
+  ;;
+esac
 
 # Shared palette + pass/skip/fail/hdr/have (one definition for every gate script).
 # Sourced AFTER QUIET is set so the lib's `: "${QUIET:=0}"` preserves it.

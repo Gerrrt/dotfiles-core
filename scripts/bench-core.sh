@@ -37,6 +37,30 @@ cd "$HERE" || exit 1
 # shellcheck source=scripts/lib/common.sh
 source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
+# Tuning is via env (CORE_BENCH_RUNS / CORE_BENCH_BUDGET_MS, see header); the only
+# flag is -h/--help. Reject anything else so a typo'd flag isn't silently ignored.
+case "${1:-}" in
+"") ;;
+-h | --help)
+  cat <<'EOF'
+usage: bench-core.sh [-h|--help]
+
+Hermetic hyperfine benchmark of the canonical zsh load chain. Report-only unless
+a budget is set. Tuning via environment:
+
+  CORE_BENCH_RUNS=<n>          minimum hyperfine runs (default 10)
+  CORE_BENCH_BUDGET_MS=<ms>    FAIL if the mean exceeds this (gate mode; needs python3)
+  -h, --help                  show this help and exit
+EOF
+  exit 0
+  ;;
+*)
+  printf 'bench-core.sh: unknown option: %s\n' "$1" >&2
+  printf 'try: bench-core.sh --help\n' >&2
+  exit 2
+  ;;
+esac
+
 if ! have zsh; then
   skip "bench skipped (zsh not installed)"
   exit 0

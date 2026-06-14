@@ -19,15 +19,12 @@ cdup() {
   cd "$p" || return
 }
 
-# extract — one command for any archive
-extract() {
-  [[ -z "$1" ]] && { _core_usage "extract <archive>"; return 1; }
-  [[ -f "$1" ]] || {
-    _core_err "extract: '$1' is not a file"
-    return 1
-  }
-  # ouch (if installed) handles every format below and more from one binary;
-  # the hand-rolled case statement stays as the bare-box / no-ouch fallback.
+# _extract_dispatch — the raw unpack, NO safety guard. Split out of extract() so the
+# "contain a tarbomb in a subdir" path (below) can re-run the unpack in that subdir
+# WITHOUT re-entering the guard (which would see the same multi-entry archive and
+# recurse forever). ouch (if installed) handles every format from one binary; the
+# hand-rolled case is the bare-box fallback.
+_extract_dispatch() {
   [[ -n ${HAVE_OUCH:-} ]] && { ouch decompress "$1"; return; }
   case "$1" in
   *.tar.bz2 | *.tbz2) tar xjf "$1" ;;
@@ -45,6 +42,72 @@ extract() {
     return 1
     ;;
   esac
+}
+
+# extract — one command for any archive, with two defences applied BEFORE anything
+# is written to disk:
+#   • tarbomb guard — an archive with several top-level entries would scatter them
+#     across the CWD; offer to contain it in ./<archive-name>/ instead.
+#   • clobber guard — if a top-level entry already exists, confirm before overwriting.
+# Both peek at the listing first (best-effort per format; unlistable → just unpack).
+# Confirmation is via _core_confirm, which DECLINES with no TTY — so a scripted /
+# piped run never silently overwrites, and a single-rooted archive (the common case)
+# sails straight through untouched.
+extract() {
+  emulate -L zsh
+  [[ -z "$1" ]] && { _core_usage "extract <archive>"; return 1; }
+  [[ -f "$1" ]] || {
+    _core_err "extract: '$1' is not a file"
+    return 1
+  }
+  local archive="$1" abs="${1:A}"
+
+  # Top-level entries this archive would create in the CWD. tar/zip list cheaply;
+  # gz/bz2 are single-file (output = basename minus the compression suffix). Drop
+  # any '.'/'' rows (some tars list a leading './'). Unlistable formats → empty → no guard.
+  local -a top
+  case "$archive" in
+  *.tar.bz2 | *.tbz2 | *.tar.gz | *.tgz | *.tar.xz | *.tar)
+    top=(${(f)"$(tar tf "$archive" 2>/dev/null | cut -d/ -f1 | sort -u)"}) ;;
+  *.zip)
+    top=(${(f)"$(unzip -Z1 "$archive" 2>/dev/null | cut -d/ -f1 | sort -u)"}) ;;
+  *.gz | *.bz2)
+    top=("${archive:t:r}") ;;
+  esac
+  top=(${top:#.}) # strip a bare '.' top entry (leading './' archives)
+
+  if ((${#top})); then
+    # Tarbomb: more than one top-level entry. Contain it in a subdir (default-safe:
+    # with no TTY _core_confirm declines and we fall through to extract-in-place,
+    # having at least warned).
+    if ((${#top} > 1)); then
+      local into="${archive:t:r}"
+      into="${into%.tar}"
+      _core_warn "extract: '${archive:t}' has ${#top} top-level entries — would scatter across $(pwd)"
+      if _core_confirm "extract into ./${into}/ instead?"; then
+        mkdir -p -- "$into" || {
+          _core_err "extract: cannot create '$into'"
+          return 1
+        }
+        (cd -- "$into" && _extract_dispatch "$abs")
+        return
+      fi
+    fi
+    # Clobber: any existing top-level target. Confirm before overwriting; declined
+    # (or no TTY) → abort with nothing touched.
+    local t
+    local -a clobber=()
+    for t in "${top[@]}"; do [[ -e "$t" ]] && clobber+=("$t"); done
+    if ((${#clobber})); then
+      _core_warn "extract: would overwrite existing: ${clobber[*]}"
+      _core_confirm "overwrite?" || {
+        _core_warn "extract: cancelled (nothing overwritten)"
+        return 1
+      }
+    fi
+  fi
+
+  _extract_dispatch "$archive"
 }
 
 # fcd — fuzzy-cd into any subdirectory (needs fzf + fd, degrades to find)
