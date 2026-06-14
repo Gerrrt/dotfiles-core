@@ -93,16 +93,6 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   canonical Core load chain, so startup-perf regressions (the thing tools.zsh's
   caching and plugins.zsh's deferral exist to prevent) are measurable, not silent.
 
-### Fixed
-
-- fzf / fzf-tab previews hardcoded `bat`/`eza`, so every preview pane printed
-  "command not found" on Debian/Ubuntu (bat ships as `batcat`) and on any box without
-  eza. Previews now resolve `$BAT_BIN` with a `cat`/`ls` fallback, and a new audit
-  section (`fzf preview binary resolution`) locks it so the regression can't recur.
-- `fif`, `fbr`, and the Alt-Z zoxide-jump widget assumed `fzf`/`rg`/`git`/`zoxide`
-  were present; they now degrade in Core's voice (`_core_err`/`_core_hint`) like `fcd`,
-  instead of a raw "command not found".
-
 ### Changed
 
 - `scripts/setup.sh` provisions `luacheck` via `luarocks` (no clean mise source) and
@@ -140,8 +130,15 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   upstream breaking change — or a compromised tag — out to all nine machines on the
   next install; installs now fetch exactly the pinned commit.
 
-  ### Fixed
+### Fixed
 
+- fzf / fzf-tab previews hardcoded `bat`/`eza`, so every preview pane printed
+  "command not found" on Debian/Ubuntu (bat ships as `batcat`) and on any box without
+  eza. Previews now resolve `$BAT_BIN` with a `cat`/`ls` fallback, and a new audit
+  section (`fzf preview binary resolution`) locks it so the regression can't recur.
+- `fif`, `fbr`, and the Alt-Z zoxide-jump widget assumed `fzf`/`rg`/`git`/`zoxide`
+  were present; they now degrade in Core's voice (`_core_err`/`_core_hint`) like `fcd`,
+  instead of a raw "command not found".
 - Removed leaked `</content>`/`</invoke>` template artifacts from the end of this
   changelog — the exact bug class the new markdown gate now catches.
 - Restored non-executable mode (`100644`) on the twelve `zsh/*.zsh` modules. They
