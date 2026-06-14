@@ -28,7 +28,59 @@ concurrency:
 # audit's version-consistency section keeps the .pre-commit-config.yaml revs in step.
 
 jobs:
+  # Change detection so a docs- or nvim-only push doesn't pay the full matrix.
+  # SAFE DEFAULT: if the diff base can't be resolved (first push, force-push, a
+  # shallow checkout), every flag is 'true' and nothing downstream is skipped — a
+  # detection miss must never hide a needed check from the 9-repo fan-out. Infra
+  # changes (scripts/, .github/, the manifest, the pre-commit/Makefile config) are
+  # cross-cutting and likewise force the full run.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      shell: ${{ steps.classify.outputs.shell }}
+      nvim: ${{ steps.classify.outputs.nvim }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0 # full history so the diff base resolves
+      - id: classify
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -uo pipefail
+          base=""
+          if [ "$EVENT" = pull_request ]; then
+            git fetch -q origin "$BASE_REF" 2>/dev/null && base="origin/$BASE_REF" || base=""
+          elif [ -n "${BEFORE:-}" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then
+            base="$BEFORE"
+          fi
+          if [ -z "$base" ] || ! git rev-parse -q --verify "$base^{commit}" >/dev/null 2>&1; then
+            echo "diff base unknown — running everything (safe default)"
+            files="__ALL__"
+          else
+            files="$(git diff --name-only "$base" HEAD)"
+            echo "changed files vs $base:"; printf '%s\n' "$files" | sed 's/^/  /'
+          fi
+          shell=false; nvim=false
+          if [ "$files" = "__ALL__" ]; then
+            shell=true; nvim=true
+          else
+            # infra is cross-cutting → force the full run
+            if printf '%s\n' "$files" | grep -qE '^(scripts/|\.github/|core\.manifest|\.pre-commit-config\.yaml|Makefile)'; then
+              shell=true; nvim=true
+            fi
+            if printf '%s\n' "$files" | grep -qE '^(zsh/|bin/|maint/|tmux/|sesh/|starship/|mise/|git/)|\.sh$'; then shell=true; fi
+            if printf '%s\n' "$files" | grep -qE '^nvim/'; then nvim=true; fi
+          fi
+          echo "→ shell=$shell nvim=$nvim"
+          echo "shell=$shell" >> "$GITHUB_OUTPUT"
+          echo "nvim=$nvim" >> "$GITHUB_OUTPUT"
+
   audit:
+    needs: changes
     # Core fans out to macOS (dotfiles-MacBook) AND eight Linux distros, so gate
     # on BOTH userlands — not just Linux. The portable checks (shellcheck, zsh -n,
     # manifest/exec-bit) are OS-agnostic, but the BEHAVIORAL tests and bin/clip*
@@ -81,6 +133,8 @@ jobs:
       # runs both): bump the version and every cache key rotates automatically.
       - name: Cache luacheck (luarocks tree)
         id: luacache
+        # luacheck only lints nvim/ — skip its (slow) install when nvim/ is untouched.
+        if: needs.changes.outputs.nvim == 'true'
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.luarocks
@@ -89,7 +143,7 @@ jobs:
           key: luacheck-${{ runner.os }}-${{ env.LUACHECK_VERSION }}-lua54
 
       - name: Install luacheck (Linux, pinned)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && needs.changes.outputs.nvim == 'true'
         run: |
           set -euxo pipefail
           sudo apt-get install -y --no-install-recommends luarocks
@@ -98,7 +152,7 @@ jobs:
           echo "$HOME/.luarocks/bin" >> "$GITHUB_PATH"
 
       - name: Install luacheck (macOS, pinned)
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && needs.changes.outputs.nvim == 'true'
         run: |
           set -euxo pipefail
           # Pin to Lua 5.4: brew's luarocks now pulls Lua 5.5 as its default interpreter,
@@ -121,7 +175,7 @@ jobs:
       # macOS path (the runner's preinstalled-tap route, no per-arch tarball juggling).
       # Drives test-core.sh's headless config-load smoke test. ──
       - name: Install neovim (Linux, pinned)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && needs.changes.outputs.nvim == 'true'
         run: |
           set -euxo pipefail
           ver="${NVIM_VERSION}"
@@ -130,17 +184,20 @@ jobs:
           sudo ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
 
       - name: Install neovim (macOS)
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && needs.changes.outputs.nvim == 'true'
         run: brew install neovim
 
+      # Tolerant: luacheck/nvim are skipped for non-nvim changes, so report what's
+      # actually present instead of failing on a deliberately-absent tool.
       - name: Tool versions
         run: |
-          shellcheck --version | head -2
-          luacheck --version
-          zsh --version
-          bash --version | head -1
-          markdownlint-cli2 --version
-          nvim --version | head -1
+          for t in shellcheck luacheck zsh bash markdownlint-cli2 nvim; do
+            if command -v "$t" >/dev/null 2>&1; then
+              printf '%s: ' "$t"; "$t" --version | head -1
+            else
+              echo "$t: (not installed for this change)"
+            fi
+          done
 
       - name: Run Core audit (manifest, exec bits, syntax, lint, behavioral)
         run: ./scripts/audit-core.sh
@@ -157,6 +214,10 @@ jobs:
   # applets (awk/grep/sed/date/tar/gzip): the behavioral suite, the clip ladder, and
   # the manifest/exec-bit/syntax checks, on the one userland Ubuntu can never surface.
   audit-alpine:
+    needs: changes
+    # Alpine re-validates the SHELL layer against musl/busybox; a docs- or nvim-only
+    # change can't affect that, so skip the whole container spin unless shell changed.
+    if: needs.changes.outputs.shell == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -216,6 +277,10 @@ jobs:
   # mean. The precise number still prints in the log for trend-watching. No
   # continue-on-error: a breach is now a red build, not a buried log line. Linux-only.
   bench:
+    needs: changes
+    # Startup perf is a property of the zsh load chain; a docs- or nvim-only change
+    # can't move it, so only benchmark when the shell layer actually changed.
+    if: needs.changes.outputs.shell == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
