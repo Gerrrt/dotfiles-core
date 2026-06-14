@@ -253,14 +253,28 @@ core-help() {
     "maint-log [-f]|view (or follow) the maintenance log"
   )
   print -r -- "${title}dotfiles Core — cheat sheet${te} ${dc}(run \`core-help\` anytime)${de}"
-  local line key desc
+  # Key column is derived from the WIDEST key, not a fixed 22 — so alignment stays
+  # correct if a longer verb is ever added (the old hard-coded width silently broke
+  # alignment past 22 chars) and isn't padded wider than the content needs. On a narrow
+  # terminal, clamp it (and truncate an over-long key) so it can't swallow the whole
+  # line and leave no room for the description.
+  local line key desc kw=0
+  for line in "${rows[@]}"; do
+    [[ "$line" == §* ]] && continue
+    key="${line%%|*}"
+    ((${#key} > kw)) && kw=${#key}
+  done
+  local cols=${COLUMNS:-80}
+  ((kw > cols - 22)) && kw=$((cols - 22)) # keep room for a readable description
+  ((kw < 6)) && kw=6
   for line in "${rows[@]}"; do
     if [[ "$line" == §* ]]; then
       print -r -- "${title}${line#§}${te}"
     else
       key="${line%%|*}"
       desc="${line#*|}"
-      print -r -- "  ${kc}${(r:22:)key}${ke}${dc}${desc}${de}"
+      key="${key[1,kw]}" # truncate an over-long key to the (possibly clamped) column
+      print -r -- "  ${kc}${(r:$kw:)key}${ke} ${dc}${desc}${de}"
     fi
   done
   print -r -- "${dc}  1Password: opsecret · openv · optoken · opssh    full reference: README.md${de}"

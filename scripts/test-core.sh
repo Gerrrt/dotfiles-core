@@ -110,14 +110,19 @@ done
 # shellcheck source=scripts/lib/common.sh
 source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
+# Wall-clock for the standalone summary (mirrors audit-core.sh) — the headless nvim
+# leg can take a few seconds, so showing elapsed reads as progress, not a hang.
+SECONDS=0
+
 # When invoked from audit-core.sh (CORE_TEST_NESTED=1) the audit owns the summary,
 # so we suppress ours and only signal pass/fail via the exit code.
 NESTED="${CORE_TEST_NESTED:-0}"
 summary() {
   [[ "$NESTED" == 1 ]] && return 0
   printf '\n%s──────── test summary ────────%s\n' "$c_blu" "$c_rst"
-  printf '  %spass %d%s   %sskip %d%s   %sfail %d%s\n' \
-    "$c_grn" "$PASS" "$c_rst" "$c_yel" "$SKIP" "$c_rst" "$c_red" "$FAIL" "$c_rst"
+  printf '  %spass %d%s   %sskip %d%s   %sfail %d%s   %s(%ds)%s\n' \
+    "$c_grn" "$PASS" "$c_rst" "$c_yel" "$SKIP" "$c_rst" "$c_red" "$FAIL" "$c_rst" \
+    "$c_blu" "$SECONDS" "$c_rst"
 }
 
 # One throwaway sandbox for the whole run; clean it up no matter how we exit. It is
@@ -541,6 +546,12 @@ check "serve rejects a non-numeric port" \
   'serve abc 2>/dev/null; (( $? != 0 ))'
 check "serve rejects an out-of-range port" \
   'serve 99999 2>/dev/null; (( $? != 0 ))'
+# core-help (U5): the width-aware renderer must emit every verb and never crash on its
+# kw arithmetic — including a pathologically narrow terminal where the key column clamps.
+check "core-help renders all verbs (wide terminal)" \
+  'out=$(COLUMNS=120 core-help 2>&1); (( $? == 0 )) && [[ $out == *mkcd* && $out == *"maint-install"* && $out == *serve* ]]'
+check "core-help renders cleanly on a pathologically narrow terminal" \
+  'out=$(COLUMNS=12 core-help 2>&1); (( $? == 0 )) && [[ $out == *mkcd* ]]'
 check "extract rejects a non-existent file" \
   'extract /no/such/archive.tar.gz; (( $? != 0 ))'
 check "extract rejects a known file of unknown format" \

@@ -121,6 +121,10 @@ done
 # shellcheck source=scripts/lib/common.sh
 source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
+# Wall-clock from here, surfaced in the summary — so a long run (the headless nvim /
+# zsh legs) reads as "took Ns", not "hung", and a regression in audit cost is visible.
+SECONDS=0
+
 # Tracked files that live in dotfiles-core but are NOT vendored into OS repos'
 # core/ subtree — repo-meta and dev tooling. Anything tracked, not matched by the
 # manifest, must appear here (or under a META_PREFIXES dir) or section 1 flags it.
@@ -390,8 +394,9 @@ fi
 
 # ── summary ──────────────────────────────────────────────────────────────────
 printf '\n%s──────── audit summary ────────%s\n' "$c_blu" "$c_rst"
-printf '  %spass %d%s   %sskip %d%s   %sfail %d%s\n' \
-  "$c_grn" "$PASS" "$c_rst" "$c_yel" "$SKIP" "$c_rst" "$c_red" "$FAIL" "$c_rst"
+printf '  %spass %d%s   %sskip %d%s   %sfail %d%s   %s(%ds)%s\n' \
+  "$c_grn" "$PASS" "$c_rst" "$c_yel" "$SKIP" "$c_rst" "$c_red" "$FAIL" "$c_rst" \
+  "$c_blu" "$SECONDS" "$c_rst"
 ((FAIL == 0)) || {
   printf '%saudit FAILED%s\n' "$c_red" "$c_rst" >&2
   exit 1
