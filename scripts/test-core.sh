@@ -40,13 +40,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 1
 
 QUIET=0
-# Same flag contract as audit-core.sh: reject an unknown option instead of ignoring
-# it; -h/--help prints usage. (audit-core.sh invokes this with --quiet or nothing.)
-case "${1:-}" in
-"") ;;
--q | --quiet) QUIET=1 ;;
--h | --help)
-  cat <<'EOF'
+# Same flag contract as audit-core.sh: parse EVERY arg and reject an unknown option or
+# a stray extra operand instead of ignoring it; -h/--help prints usage. (audit-core.sh
+# invokes this with --quiet or nothing.)
+while (($#)); do
+  case "$1" in
+  -q | --quiet) QUIET=1 ;;
+  -h | --help)
+    cat <<'EOF'
 usage: test-core.sh [-q|--quiet] [-h|--help]
 
 Behavioral suite: clipboard ladder + nvim headless load + zsh load-order smoke
@@ -55,14 +56,16 @@ Behavioral suite: clipboard ladder + nvim headless load + zsh load-order smoke
   -q, --quiet   only print SKIP/FAIL lines and the final summary
   -h, --help    show this help and exit
 EOF
-  exit 0
-  ;;
-*)
-  printf 'test-core.sh: unknown option: %s\n' "$1" >&2
-  printf 'try: test-core.sh --help\n' >&2
-  exit 2
-  ;;
-esac
+    exit 0
+    ;;
+  *)
+    printf 'test-core.sh: unexpected argument: %s\n' "$1" >&2
+    printf 'try: test-core.sh --help\n' >&2
+    exit 2
+    ;;
+  esac
+  shift
+done
 
 # Shared palette + pass/skip/fail/hdr/have (one definition for every gate script).
 # Sourced AFTER QUIET is set so the lib's `: "${QUIET:=0}"` preserves it.
@@ -415,6 +418,11 @@ check_dep "extract warns on a tarbomb but still unpacks (no TTY)" tar \
   'd=$(mktemp -d); cd "$d"; print x > one; print y > two; tar czf bomb.tgz one two; rm one two; extract bomb.tgz </dev/null; [[ -f one && -f two ]]'
 check_dep "extract refuses to clobber an existing entry (no TTY)" tar \
   'd=$(mktemp -d); cd "$d"; mkdir src; print new > src/a.txt; tar czf a.tgz src; print OLD > src/a.txt; extract a.tgz </dev/null; rc=$?; [[ "$(cat -- src/a.txt)" == OLD && $rc -ne 0 ]]'
+# gz/bz2 write NEXT TO the archive path, not into $PWD: `extract /dir/f.gz` must guard
+# /dir/f, not ./f. Run it from a DIFFERENT cwd so a basename-only check would miss the
+# clobber and overwrite (the bug this asserts against).
+check_dep "extract guards the gz output at the archive's path, not \$PWD" gzip \
+  'd=$(mktemp -d); sub="$d/sub"; mkdir -p "$sub"; print new > "$sub/f.txt"; gzip "$sub/f.txt"; print OLD > "$sub/f.txt"; cd "$d"; extract "$sub/f.txt.gz" </dev/null; rc=$?; [[ "$(cat -- "$sub/f.txt")" == OLD && $rc -ne 0 ]]'
 
 # ── E. detection + UX unit tests (ui.zsh / update.zsh / maint.zsh) ────────────
 # Sections A/B and audit-core.sh's static pass leave the highest-LOGIC, highest

@@ -40,14 +40,15 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 1
 
 QUIET=0
-# Parse the (single) flag this gate takes. An unknown flag is REJECTED with a hint
-# rather than silently ignored — `audit-core.sh --hepl` used to just run the full
-# audit, masking the typo. -h/--help prints usage and exits clean.
-case "${1:-}" in
-"") ;;
--q | --quiet) QUIET=1 ;;
--h | --help)
-  cat <<'EOF'
+# Parse EVERY argument (not just $1), so an unknown flag OR a stray extra operand is
+# REJECTED with a hint rather than silently ignored — `audit-core.sh --quiet extra`
+# or a typo like `--hepl` used to slip through and just run the full audit, masking it.
+# -h/--help prints usage and exits clean.
+while (($#)); do
+  case "$1" in
+  -q | --quiet) QUIET=1 ;;
+  -h | --help)
+    cat <<'EOF'
 usage: audit-core.sh [-q|--quiet] [-h|--help]
 
 THE audit button — manifest/exec-bit/syntax/lint/config/markdown/workflow/
@@ -56,14 +57,16 @@ version/behavioral checks. CI and pre-commit run this exact script.
   -q, --quiet   only print SKIP/FAIL lines and the final summary
   -h, --help    show this help and exit
 EOF
-  exit 0
-  ;;
-*)
-  printf 'audit-core.sh: unknown option: %s\n' "$1" >&2
-  printf 'try: audit-core.sh --help\n' >&2
-  exit 2
-  ;;
-esac
+    exit 0
+    ;;
+  *)
+    printf 'audit-core.sh: unexpected argument: %s\n' "$1" >&2
+    printf 'try: audit-core.sh --help\n' >&2
+    exit 2
+    ;;
+  esac
+  shift
+done
 
 # Shared palette + pass/skip/fail/hdr/have (one definition for every gate script).
 # Sourced AFTER QUIET is set so the lib's `: "${QUIET:=0}"` preserves it.

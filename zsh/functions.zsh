@@ -31,8 +31,8 @@ _extract_dispatch() {
   *.tar.gz | *.tgz) tar xzf "$1" ;;
   *.tar.xz) tar xJf "$1" ;;
   *.tar) tar xf "$1" ;;
-  *.bz2) bunzip2 "$1" ;;
-  *.gz) gunzip "$1" ;;
+  *.bz2) bunzip2 -f "$1" ;;
+  *.gz) gunzip -f "$1" ;;
   *.zip) unzip "$1" ;;
   *.7z) 7z x "$1" ;;
   *.rar) unrar x "$1" ;;
@@ -62,17 +62,21 @@ extract() {
   }
   local archive="$1" abs="${1:A}"
 
-  # Top-level entries this archive would create in the CWD. tar/zip list cheaply;
-  # gz/bz2 are single-file (output = basename minus the compression suffix). Drop
-  # any '.'/'' rows (some tars list a leading './'). Unlistable formats → empty → no guard.
+  # Entries this archive would write. tar/zip extract relative to the CWD, so their
+  # top-level names are CWD-relative; gz/bz2 instead write NEXT TO the archive, so the
+  # target is the archive's full path minus the compression suffix (${abs:r}) — not a
+  # CWD basename. Getting that right means `extract /some/dir/file.gz` correctly checks
+  # /some/dir/file for clobber, not ./file. Drop any '.'/'' rows (leading-'./'  tars).
+  # We list/dispatch via $abs throughout, which also sidesteps a leading-'-' filename
+  # being read as an option by tar/unzip/gunzip. Unlistable formats → empty → no guard.
   local -a top
   case "$archive" in
   *.tar.bz2 | *.tbz2 | *.tar.gz | *.tgz | *.tar.xz | *.tar)
-    top=(${(f)"$(tar tf "$archive" 2>/dev/null | cut -d/ -f1 | sort -u)"}) ;;
+    top=(${(f)"$(tar tf "$abs" 2>/dev/null | cut -d/ -f1 | sort -u)"}) ;;
   *.zip)
-    top=(${(f)"$(unzip -Z1 "$archive" 2>/dev/null | cut -d/ -f1 | sort -u)"}) ;;
+    top=(${(f)"$(unzip -Z1 "$abs" 2>/dev/null | cut -d/ -f1 | sort -u)"}) ;;
   *.gz | *.bz2)
-    top=("${archive:t:r}") ;;
+    top=("${abs:r}") ;;
   esac
   top=(${top:#.}) # strip a bare '.' top entry (leading './' archives)
 
@@ -107,7 +111,7 @@ extract() {
     fi
   fi
 
-  _extract_dispatch "$archive"
+  _extract_dispatch "$abs"
 }
 
 # fcd — fuzzy-cd into any subdirectory (needs fzf + fd, degrades to find)

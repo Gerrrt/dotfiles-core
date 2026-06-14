@@ -37,11 +37,23 @@ cd "$HERE" || exit 1
 # shellcheck source=scripts/lib/common.sh
 source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
-# Tuning is via env (CORE_BENCH_RUNS / CORE_BENCH_BUDGET_MS, see header); the only
-# flag is -h/--help. Reject anything else so a typo'd flag isn't silently ignored.
-case "${1:-}" in
-"") ;;
--h | --help)
+# Tuning is via env (CORE_BENCH_RUNS / CORE_BENCH_BUDGET_MS, see header); the only flag
+# is -h/--help. There's no state-setting flag, so a loop isn't needed — but we still
+# reject an unknown flag OR a trailing extra (`--help extra`) rather than ignore it.
+if (($#)); then
+  case "$1" in
+  -h | --help) ;;
+  *)
+    printf 'bench-core.sh: unexpected argument: %s\n' "$1" >&2
+    printf 'try: bench-core.sh --help\n' >&2
+    exit 2
+    ;;
+  esac
+  if (($# > 1)); then
+    printf 'bench-core.sh: unexpected argument: %s\n' "$2" >&2
+    printf 'try: bench-core.sh --help\n' >&2
+    exit 2
+  fi
   cat <<'EOF'
 usage: bench-core.sh [-h|--help]
 
@@ -53,13 +65,7 @@ a budget is set. Tuning via environment:
   -h, --help                  show this help and exit
 EOF
   exit 0
-  ;;
-*)
-  printf 'bench-core.sh: unknown option: %s\n' "$1" >&2
-  printf 'try: bench-core.sh --help\n' >&2
-  exit 2
-  ;;
-esac
+fi
 
 if ! have zsh; then
   skip "bench skipped (zsh not installed)"
