@@ -96,6 +96,27 @@ _pkgup_count() {
   esac
 }
 
+# Best-effort LIST of upgradable package names — the names behind _pkgup_count's
+# number, used by `up` to PREVIEW what will change before you confirm. Same non-root,
+# no-system-mutation commands as _pkgup_count, emitting names instead of counting
+# (brew skips the network `brew update` the count does — the nudge already ran it).
+# Empty/unknown manager → nothing, so the caller just falls back to a name-only confirm.
+_pkgup_list() {
+  case "$(_pkgup_mgr)" in
+  brew) brew outdated --quiet 2>/dev/null ;;
+  pacman)
+    if command -v checkupdates >/dev/null 2>&1; then
+      checkupdates 2>/dev/null | awk '{print $1}'
+    else pacman -Qu 2>/dev/null | awk '{print $1}'; fi
+    ;;
+  dnf) dnf -q --refresh check-update 2>/dev/null | awk '/^[a-zA-Z0-9]/{print $1}' ;;
+  zypper) zypper -q list-updates 2>/dev/null | awk -F'|' '/^v /{gsub(/[[:space:]]/,"",$3); print $3}' ;;
+  apt) apt-get -s upgrade 2>/dev/null | awk '/^Inst /{print $2}' ;;
+  apk) apk list -u 2>/dev/null | awk '{print $1}' ;;
+  emerge) command -v eix >/dev/null 2>&1 && eix -u --only-names 2>/dev/null ;;
+  esac
+}
+
 # Background refresh → writes "<count>\n<epoch>" to the cache.
 _pkgup_refresh() {
   local n
@@ -198,6 +219,20 @@ up() {
   # system, so `up` on the wrong box is a one-keystroke abort, not a surprise sync.
   # _core_confirm declines with no TTY, so `up` (sans -y) stays interactive-only.
   if ((! yes)); then
+    # Preview WHAT will change, not just the manager: the nudge already shows a count,
+    # so surface the names too — informed consent before a privileged, hard-to-undo
+    # sync. Best-effort + capped (a 300-package upgrade shouldn't scroll the confirm
+    # off-screen) and TTY-only (no point listing when the confirm below will decline).
+    if [[ -t 2 ]]; then
+      local -a pending
+      pending=(${(f)"$(_pkgup_list 2>/dev/null)"})
+      if ((${#pending})); then
+        local n=${#pending} cap=20
+        _core_warn "up: ${n} package$([[ $n -ne 1 ]] && echo s) upgradable via ${mgr}:"
+        print -u2 -rl -- "${(@)pending[1,cap]/#/    }"
+        ((n > cap)) && print -u2 -- "    … and $((n - cap)) more"
+      fi
+    fi
     _core_confirm "Apply updates with ${mgr}?" || {
       _core_warn "up: cancelled"
       return 1

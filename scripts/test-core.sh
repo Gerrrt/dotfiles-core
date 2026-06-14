@@ -675,6 +675,20 @@ _pm_only ""
 ucheck "update: up --help returns 0 and does not attempt an update" \
   "source '$UI'; source '$UPD'; out=\$(up --help); (( \$? == 0 )) && [[ \$out == *'usage: up'* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# up's pre-confirm PREVIEW: _pkgup_list surfaces the upgradable package NAMES (the
+# count is already in the nudge) so `up` shows what will change before the destructive
+# sync. Stub apt-get's `-s upgrade` simulate output; mgr pins to apt via isolated PATH.
+rm -rf "$PMBIN"
+mkdir -p "$PMBIN"
+printf '#!/bin/sh\ncase "$*" in *"-s upgrade"*) printf "Inst foo [1.0] (1.1)\\nInst bar [2.0] (2.1)\\n";; esac\n' >"$PMBIN/apt-get"
+chmod +x "$PMBIN/apt-get"
+# The apt arm pipes to awk; the isolated PATH has only the stub, so symlink the real
+# awk in (like the clip ladder symlinks bash/tr). It's not a package manager, so
+# _pkgup_mgr still resolves to apt — the isolation we want.
+ln -s "$(command -v awk)" "$PMBIN/awk"
+ucheck "update: _pkgup_list surfaces upgradable package names (apt)" \
+  "source '$UPD'; out=\$(_pkgup_list); [[ \$out == *foo* && \$out == *bar* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 
 # maint.zsh: _maint_scheduler must always resolve to a REAL scheduler token, never empty
 # or garbage. With systemctl absent (isolated PATH) and crontab present as the fallback,
