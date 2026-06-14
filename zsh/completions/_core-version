@@ -1,0 +1,4 @@
+#compdef core-version
+# Completion for Core's `core-version` (zsh/functions.zsh). It prints the vendored
+# Core layer's version stamp and takes no arguments.
+_message 'core-version takes no arguments (prints the Core version stamp)'

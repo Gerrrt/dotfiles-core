@@ -41,6 +41,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 1
 
 QUIET=0
+CHANGED=0       # --changed: derive the scope from the local git diff (fast dev loop)
+SCOPE_EXPLICIT=0 # an explicit --scope always wins over --changed
 # Scope gates the SLOW, area-specific sections so a per-area push (driven by
 # scripts/ci-classify.sh) pays only for what it changed — e.g. a docs-only PR runs
 # the cheap structural/config/markdown checks but skips the zsh and nvim toolchains.
@@ -106,8 +108,13 @@ while (($#)); do
     fi
     shift
     _set_scope "$1"
+    SCOPE_EXPLICIT=1
     ;;
-  --scope=*) _set_scope "${1#*=}" ;;
+  --scope=*)
+    _set_scope "${1#*=}"
+    SCOPE_EXPLICIT=1
+    ;;
+  --changed) CHANGED=1 ;;
   -h | --help)
     cat <<'EOF'
 usage: audit-core.sh [-q|--quiet] [--scope LIST] [-h|--help]
@@ -120,6 +127,12 @@ version/behavioral checks. CI and pre-commit run this exact script.
                   shell, nvim, all (default), none. Cheap structural/config/
                   markdown/workflow/version checks always run. CI sets this from
                   scripts/ci-classify.sh; omit it locally to run the full audit.
+  --changed       derive the scope from your local git diff (working tree vs HEAD,
+                  falling back to the branch delta vs the default branch) using the
+                  SAME scripts/ci-classify.sh CI uses — so a docs- or nvim-only edit
+                  skips the gates it can't affect, tightening the dev loop. Fails SAFE
+                  to the full run when the diff can't be resolved. An explicit --scope
+                  overrides this.
   -h, --help      show this help and exit
 EOF
     exit 0
@@ -138,6 +151,42 @@ done
 # shellcheck source=scripts/lib/common.sh
 source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
+# ── --changed: derive the scope from the local git diff ───────────────────────
+# Reuse the EXACT classifier CI runs (scripts/ci-classify.sh) so `make audit-changed`
+# narrows to the same gates a push would — one definition of path→gate, no drift. The
+# changed set is the working tree vs HEAD plus untracked files; when the tree is clean
+# we fall back to the branch delta vs the default branch. Anything unresolvable → the
+# full run (fail-safe), matching CI's "detection miss never hides a gate" rule. An
+# explicit --scope already set SCOPE_EXPLICIT and wins.
+_changed_scope() {
+  if ! have git || ! git rev-parse --git-dir >/dev/null 2>&1; then
+    printf 'all'
+    return
+  fi
+  local files base
+  files="$( { git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | sort -u )"
+  if [[ -z "$files" ]]; then
+    for base in origin/main main origin/master master; do
+      git rev-parse -q --verify "$base" >/dev/null 2>&1 || continue
+      files="$(git diff --name-only "$base"...HEAD 2>/dev/null)"
+      break
+    done
+  fi
+  [[ -n "$files" ]] || { printf 'all'; return; } # nothing resolvable → full (safe)
+  local out sh nv scope=""
+  out="$(printf '%s\n' "$files" | "$HERE/scripts/ci-classify.sh" 2>/dev/null)"
+  sh="$(printf '%s\n' "$out" | sed -n 's/^shell=//p')"
+  nv="$(printf '%s\n' "$out" | sed -n 's/^nvim=//p')"
+  [[ "$sh" == true ]] && scope="shell"
+  [[ "$nv" == true ]] && scope="${scope:+$scope,}nvim"
+  printf '%s' "${scope:-none}"
+}
+if ((CHANGED)) && ((!SCOPE_EXPLICIT)); then
+  _cs="$(_changed_scope)"
+  ((QUIET)) || printf '%s== --changed → scope %s ==%s\n' "$c_blu" "$_cs" "$c_rst"
+  _set_scope "$_cs"
+fi
+
 # Wall-clock from here, surfaced in the summary — so a long run (the headless nvim /
 # zsh legs) reads as "took Ns", not "hung", and a regression in audit cost is visible.
 SECONDS=0
@@ -147,7 +196,7 @@ SECONDS=0
 # manifest, must appear here (or under a META_PREFIXES dir) or section 1 flags it.
 META_ALLOWLIST=(
   README.md PORTING-MATRIX.md CONTRIBUTING.md CHANGELOG.md LICENSE SECURITY.md
-  core.manifest .gitignore .gitattributes .editorconfig .pre-commit-config.yaml .markdownlint.jsonc
+  core.manifest .gitignore .gitattributes .editorconfig .pre-commit-config.yaml .markdownlint.jsonc .shellcheckrc
   Makefile
   nvim/.luacheckrc
   CODEOWNERS pull_request_template.md
@@ -282,6 +331,34 @@ else
   skip "shellcheck (not installed)"
 fi
 
+# ── 5b. fzf preview binary resolution (regression gate) ──────────────────────
+# fzf / fzf-tab previews run their command STRING in a subshell, so a LITERAL `bat`
+# there printed "command not found" in every preview pane on Debian/Ubuntu — those
+# distros ship bat as `batcat` — a silent breakage that fanned out to those OS repos
+# with no failing gate. The fix routes previews through $BAT_BIN (tools.zsh resolves
+# the real name) with a cat/ls fallback. Lock it so the bug can't recur: no uncommented
+# preview line in zsh/fzf.zsh or zsh/plugins.zsh may invoke a literal bat/batcat, and
+# fzf.zsh must still reference $BAT_BIN. Pure sed+grep (busybox-safe), shell-scoped.
+hdr "fzf preview binary resolution"
+if ((SCOPE_SHELL)); then
+  pv_fail=0
+  for f in zsh/fzf.zsh zsh/plugins.zsh; do
+    # Strip comments (from the first #), then flag a bare lowercase bat/batcat command
+    # token — $BAT_BIN (uppercase) is intentionally NOT matched, which is the point.
+    if sed 's/#.*//' "$f" | grep -qE '(^|[^A-Za-z_$])bat(cat)?[[:space:]]'; then
+      pv_fail=1
+      fail "literal bat/batcat in a preview command ($f) — route it through \$BAT_BIN"
+    fi
+  done
+  grep -q 'BAT_BIN' zsh/fzf.zsh || {
+    pv_fail=1
+    fail "zsh/fzf.zsh no longer references \$BAT_BIN (preview resolution lost)"
+  }
+  ((pv_fail)) || pass "fzf/fzf-tab previews resolve \$BAT_BIN (no literal bat/batcat)"
+else
+  skip "fzf preview resolution (out of scope)"
+fi
+
 # ── 6. config files (toml / yaml parse) ──────────────────────────────────────
 # A malformed starship.toml / mise config.toml / ci.yml is still valid *text* —
 # so zsh -n and shellcheck never look at it — yet it breaks every one of the 9
@@ -412,6 +489,21 @@ if [[ -r "$VERSIONS_ENV" && -r "$PRECOMMIT_CFG" ]]; then
   _check_pin "pre-commit/pre-commit-hooks" PRECOMMIT_HOOKS_VERSION pre-commit-hooks
 else
   skip "version consistency ($VERSIONS_ENV or $PRECOMMIT_CFG unreadable)"
+fi
+
+# core.version is the human-readable Core stamp vendored into all 9 OS repos (read by
+# the `core-version` verb). A missing or malformed stamp would fan out a bogus version
+# everywhere, so assert it exists and is SemVer-shaped (MAJOR.MINOR.PATCH, optional
+# -prerelease). Single line only — the verb and sync-core.sh both read it whole.
+if [[ -r core.version ]]; then
+  cv="$(tr -d '[:space:]' <core.version)"
+  if [[ "$cv" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+    pass "core.version well-formed ($cv)"
+  else
+    fail "core.version malformed ('$cv') — expected SemVer MAJOR.MINOR.PATCH[-pre]"
+  fi
+else
+  fail "core.version missing — the vendored version stamp (core-version reads it)"
 fi
 
 # ── 10. behavioral tests (load-order smoke + function unit tests) ─────────────

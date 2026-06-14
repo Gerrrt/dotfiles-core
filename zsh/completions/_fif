@@ -1,0 +1,5 @@
+#compdef fif
+# Completion for Core's `fif` (zsh/fzf.zsh): one argument, the text to search for
+# inside files (rg + fzf). There is no canonical set to complete a free-text search
+# term against, so describe the argument rather than offering bogus matches.
+_arguments '1:search term (text to find inside files): '

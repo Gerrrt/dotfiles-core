@@ -15,8 +15,8 @@
 # so the caller can append them straight to $GITHUB_OUTPUT.
 #
 # Buckets (first match per file wins):
-#   • infra      scripts/ .github/ .claude/ core.manifest .pre-commit-config.yaml
-#                Makefile — cross-cutting, so force the FULL run (shell+nvim)
+#   • infra      scripts/ .github/ .claude/ core.manifest core.version
+#                .pre-commit-config.yaml Makefile — cross-cutting, force the FULL run
 #   • nvim       nvim/**                         → nvim
 #   • shell      zsh/ bin/ maint/ tmux/ sesh/ starship/ mise/ git/ **/*.sh → shell
 #   • inert      *.md + repo-meta dotfiles       → no gate
@@ -40,7 +40,7 @@ while IFS= read -r f; do
     break
   fi
   case "$f" in
-  scripts/* | .github/* | .claude/* | core.manifest | .pre-commit-config.yaml | Makefile) full ;;
+  scripts/* | .github/* | .claude/* | core.manifest | core.version | .pre-commit-config.yaml | Makefile) full ;;
   nvim/*) nvim=true ;;
   zsh/* | bin/* | maint/* | tmux/* | sesh/* | starship/* | mise/* | git/* | *.sh) shell=true ;;
   *.md | LICENSE | CODEOWNERS | .gitignore | .gitattributes | .editorconfig | .markdownlint.jsonc) ;;
