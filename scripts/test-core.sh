@@ -643,6 +643,13 @@ ucheck "update: welcome stays silent (no greet, no sentinel) without a tty" \
   "o=\$(source '$UPD'); [[ \$o != *core-help* && ! -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]]" \
   XDG_STATE_HOME="$SANDBOX/welcome-notty" NO_COLOR=1 UPDATE_CHECK_ENABLED=0 CORE_WELCOME=1
 
+# completions (U3): every first-party verb must have a #compdef that compinit picks up
+# off the vendored fpath dir — a missing/typo'd tag means no tab-completion for that
+# command across all 9 repos, with nothing else to catch it. Put the dir on fpath (as
+# options.zsh does), run compinit, and assert each verb resolved to a completion.
+ucheck "completions: compinit wires every Core first-party completion" \
+  "fpath=('$HERE/zsh/completions' \$fpath); autoload -Uz compinit && compinit -u -d '$SANDBOX/zcd-comp' >/dev/null 2>&1; for c in mkcd mkbak extract up serve cdup fcd please core-help cheat; do [[ -n \${_comps[\$c]:-} ]] || { print \"no completion registered for: \$c\"; exit 1; }; done"
+
 # ── summary ───────────────────────────────────────────────────────────────────
 summary
 ((FAIL == 0)) || {

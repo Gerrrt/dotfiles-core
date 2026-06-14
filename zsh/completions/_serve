@@ -1,0 +1,5 @@
+#compdef serve
+# Completion for Core's `serve` (zsh/functions.zsh): the optional port (1-65535;
+# defaults to 8000). No canonical source of "valid ports", so offer a few common
+# choices as hints while still accepting any number.
+_arguments '1:port [1-65535, default 8000]:(8000 8080 3000 5000 9000)'

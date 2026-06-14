@@ -1,0 +1,4 @@
+#compdef fcd
+# Completion for Core's `fcd` (zsh/functions.zsh). It takes NO arguments — the
+# directory is chosen interactively through fzf — so there is nothing to complete.
+_message 'fcd takes no arguments (it fuzzy-picks a directory via fzf)'
