@@ -259,6 +259,16 @@ for _, m in ipairs({
   "gerrrt.config.globals", "gerrrt.config.options", "gerrrt.config.keymaps",
   "gerrrt.config.autocmds", "gerrrt.config.clipboard", "gerrrt.config.providers",
 }) do try(m) end
+-- :checkhealth gerrrt module — loaded only by checkhealth at runtime, so this is its
+-- only load gate. Require it AND assert it exposes a check() function.
+do
+  local ok, m = pcall(require, "gerrrt.health")
+  if not ok then
+    errs[#errs + 1] = "gerrrt.health → " .. tostring(m)
+  elseif type(m) ~= "table" or type(m.check) ~= "function" then
+    errs[#errs + 1] = "gerrrt.health → did not return a table with a check() function"
+  end
+end
 -- every plugin spec must require cleanly and return a lazy spec table
 local pdir = vim.env.CORE_NVIM_DIR .. "/lua/gerrrt/plugins"
 for _, f in ipairs(vim.fn.readdir(pdir) or {}) do
