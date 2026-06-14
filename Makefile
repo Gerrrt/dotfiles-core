@@ -7,12 +7,15 @@
 # pre-commit call the same scripts/audit-core.sh, so `make audit` == green CI.
 # ──────────────────────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help audit test bench lint sync sync-dry hooks update-hooks update-plugins
+.PHONY: help setup audit test bench lint sync sync-dry hooks update-hooks update-plugins
 
 help: ## Show this help
 	@echo "dotfiles-core — make targets:"
 	@grep -E '^[a-z][a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) \
 		| sed -E 's/:.*## /\t/' | sort | awk -F'\t' '{printf "  \033[36m%-13s\033[0m %s\n", $$1, $$2}'
+
+setup: ## One-command dev bootstrap (pre-commit hooks + version doctor + audit) — start here
+	@./scripts/setup.sh
 
 audit: ## Run the full Core audit (manifest, exec-bits, syntax, lint, behavioral) — the one gate
 	@./scripts/audit-core.sh

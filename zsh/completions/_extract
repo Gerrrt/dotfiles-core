@@ -1,0 +1,5 @@
+#compdef extract
+# Completion for Core's `extract` (zsh/functions.zsh): offer only files whose
+# extension matches a format extract can unpack.
+_arguments \
+  '1:archive:_files -g "*.(tar|tar.gz|tgz|tar.bz2|tbz2|tar.xz|gz|bz2|zip|7z|rar)"'

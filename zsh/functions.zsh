@@ -6,7 +6,10 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 # mkcd — make a directory and cd into it
-mkcd() { mkdir -p -- "$1" && cd -- "$1"; }
+mkcd() {
+  [[ -z "$1" ]] && { _core_usage "mkcd <dir>"; return 1; }
+  mkdir -p -- "$1" && cd -- "$1"
+}
 
 # cdup — climb N directories (cdup 3 == cd ../../..). NOT named `up`: that's the
 # package-updater in update.zsh.
@@ -18,8 +21,9 @@ cdup() {
 
 # extract — one command for any archive
 extract() {
+  [[ -z "$1" ]] && { _core_usage "extract <archive>"; return 1; }
   [[ -f "$1" ]] || {
-    echo "extract: '$1' is not a file" >&2
+    _core_err "extract: '$1' is not a file"
     return 1
   }
   # ouch (if installed) handles every format below and more from one binary;
@@ -36,7 +40,8 @@ extract() {
   *.7z) 7z x "$1" ;;
   *.rar) unrar x "$1" ;;
   *)
-    echo "extract: unknown format '$1'" >&2
+    _core_err "extract: unknown format '$1'"
+    _core_hint "supported: .tar.gz/.tgz .tar.bz2/.tbz2 .tar.xz .tar .gz .bz2 .zip .7z .rar"
     return 1
     ;;
   esac
@@ -44,6 +49,11 @@ extract() {
 
 # fcd — fuzzy-cd into any subdirectory (needs fzf + fd, degrades to find)
 fcd() {
+  _core_have fzf || {
+    _core_err "fcd: requires fzf"
+    _core_hint "install fzf, then retry"
+    return 1
+  }
   local dir
   if [[ -n ${HAVE_FZF:-} && -n ${HAVE_FD:-} ]]; then
     dir=$("$FD_BIN" --type d --hidden --exclude .git | fzf) && cd "$dir"
@@ -52,8 +62,26 @@ fcd() {
   fi
 }
 
-# please — re-run the last command with sudo
-please() { eval "sudo $(fc -ln -1)"; }
+# please — re-run the last command with sudo. PREVIEWS the command and CONFIRMS
+# first: this eval's your previous line as root, so a fat-fingered history entry
+# (or a function that left something unexpected as the last command) should not
+# silently run privileged. _core_confirm declines with no TTY, so this is fail-safe
+# in a non-interactive context too.
+please() {
+  emulate -L zsh
+  local last
+  last="$(fc -ln -1 2>/dev/null)"
+  if [[ -z "${last//[[:space:]]/}" ]]; then
+    _core_err "please: no previous command to re-run"
+    return 1
+  fi
+  _core_warn "about to run as root:  sudo ${last}"
+  _core_confirm "proceed?" || {
+    _core_warn "please: cancelled"
+    return 1
+  }
+  eval "sudo ${last}"
+}
 
 # mkbak — timestamped backup of a file before you edit it
 mkbak() { cp -- "$1" "$1.$(date +%Y%m%d-%H%M%S).bak"; }
@@ -65,6 +93,10 @@ mkbak() { cp -- "$1" "$1.$(date +%Y%m%d-%H%M%S).bak"; }
 #   serve 8080       # port 8080
 serve() {
   local port="${1:-8000}" ip
+  # Defensive: this binds ALL interfaces on purpose (ad-hoc file transfer), so say
+  # so plainly — on an untrusted network the CWD is reachable by anyone who can
+  # route to this host until you Ctrl-C.
+  _core_warn "serve binds 0.0.0.0:${port} — the CWD is exposed on every interface"
   echo "serving $(pwd) on port ${port}  (Ctrl-C to stop)"
   # tunnel IP (callback address) if a tun/wg interface is up, else LAN, via `ip`
   if command -v ip >/dev/null 2>&1; then
@@ -80,3 +112,56 @@ serve() {
   fi
   python3 -m http.server "$port"
 }
+
+# core-help (alias: cheat) — a scannable cheat sheet of what Core actually gives
+# you on this box: the shell functions, the custom keybindings, and the update /
+# maintenance verbs. Static + instant — the discoverability surface for the Core
+# layer (the shell counterpart to which-key in Neovim). Rows are "key|description"
+# pairs grouped under "§heading" markers, so the list stays trivially editable.
+core-help() {
+  emulate -L zsh
+  # Raw ANSI (not prompt %F) + `print -r` below, so a literal backslash in a key
+  # (Ctrl-\) survives — print -P would consume it as an escape. Colour only on a
+  # TTY; piped/redirected output stays plain.
+  local title=$'\e[1;38;2;122;162;247m' te=$'\e[0m'
+  local kc=$'\e[36m' ke=$'\e[0m' dc=$'\e[38;2;86;95;137m' de=$'\e[0m'
+  if [[ ! -t 1 || -n ${NO_COLOR:-} ]]; then title='' te='' kc='' ke='' dc='' de=''; fi
+  local -a rows=(
+    "§navigation & files"
+    "mkcd <dir>|make a directory and cd into it"
+    "cdup [n]|climb n directories (default 1)"
+    "extract <archive>|unpack any archive (tar/zip/7z/rar/…)"
+    "mkbak <file>|timestamped .bak copy before you edit"
+    "fcd|fuzzy-cd into any subdirectory (fzf)"
+    "serve [port]|HTTP server in the CWD, prints reachable URLs"
+    "§search"
+    "fif <text>|find text inside files (rg + fzf + preview)"
+    "fbr|fuzzy git-branch checkout"
+    "§keybindings"
+    "Ctrl-F|file picker → insert path at cursor"
+    "Ctrl-R|history search"
+    "Ctrl-E|Atuin history TUI"
+    "Ctrl-G|session picker (sesh)"
+    "Alt-Z|zoxide project jump"
+    "Ctrl-\\|toggle autosuggestions"
+    "§updates & maintenance"
+    "up [-y]|apply package updates (interactive; confirms first)"
+    "update-check|refresh the 'updates available' nudge"
+    "maint-install [HH:MM]|schedule the daily safe-update job"
+    "maint-run|run daily maintenance now"
+    "maint-log [-f]|view (or follow) the maintenance log"
+  )
+  print -r -- "${title}dotfiles Core — cheat sheet${te} ${dc}(run \`core-help\` anytime)${de}"
+  local line key desc
+  for line in "${rows[@]}"; do
+    if [[ "$line" == §* ]]; then
+      print -r -- "${title}${line#§}${te}"
+    else
+      key="${line%%|*}"
+      desc="${line#*|}"
+      print -r -- "  ${kc}${(r:22:)key}${ke}${dc}${desc}${de}"
+    fi
+  done
+  print -r -- "${dc}  1Password: opsecret · openv · optoken · opssh    full reference: README.md${de}"
+}
+alias cheat='core-help'

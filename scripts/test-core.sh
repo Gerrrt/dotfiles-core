@@ -42,28 +42,10 @@ cd "$HERE" || exit 1
 QUIET=0
 [[ "${1:-}" == "--quiet" || "${1:-}" == "-q" ]] && QUIET=1
 
-c_grn=$'\e[32m'
-c_yel=$'\e[33m'
-c_red=$'\e[31m'
-c_blu=$'\e[34m'
-c_rst=$'\e[0m'
-PASS=0
-SKIP=0
-FAIL=0
-pass() {
-  PASS=$((PASS + 1))
-  ((QUIET)) || printf '%s✓%s %s\n' "$c_grn" "$c_rst" "$*"
-}
-skip() {
-  SKIP=$((SKIP + 1))
-  printf '%s–%s %s\n' "$c_yel" "$c_rst" "$*"
-}
-fail() {
-  FAIL=$((FAIL + 1))
-  printf '%s✗%s %s\n' "$c_red" "$c_rst" "$*" >&2
-}
-hdr() { ((QUIET)) || printf '\n%s== %s ==%s\n' "$c_blu" "$*" "$c_rst"; }
-have() { command -v "$1" >/dev/null 2>&1; }
+# Shared palette + pass/skip/fail/hdr/have (one definition for every gate script).
+# Sourced AFTER QUIET is set so the lib's `: "${QUIET:=0}"` preserves it.
+# shellcheck source=scripts/lib/common.sh
+source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
 # When invoked from audit-core.sh (CORE_TEST_NESTED=1) the audit owns the summary,
 # so we suppress ours and only signal pass/fail via the exit code.
@@ -251,7 +233,7 @@ fi
 hdr "load-order smoke test (canonical .zshrc chain)"
 # The README/manifest canonical order. There is no os/local module here — those
 # are supplied by each OS repo's loader and are out of Core's scope.
-CORE_MODULES=(tools options history aliases git functions fzf bindings plugins op maint update)
+CORE_MODULES=(tools ui options history aliases git functions fzf bindings plugins op maint update)
 
 # Pre-seed empty plugin dirs so plugins.zsh's first-run clone is a no-op (hermetic,
 # no network). _zplugin_load finds the dir, skips the clone, finds no source file,
@@ -301,10 +283,14 @@ fi
 # ── B. function unit tests ────────────────────────────────────────────────────
 hdr "function unit tests (functions.zsh)"
 FN="$HERE/zsh/functions.zsh"
+# functions.zsh now routes its errors through ui.zsh's _core_* helpers, so the
+# unit shell must source ui.zsh FIRST — the same ordering the real loader uses
+# (tools → ui → … → functions). It loads before functions in every assertion below.
+UI="$HERE/zsh/ui.zsh"
 
 # Run an assertion under zsh; $1 = label, $2 = zsh body that must exit 0.
 check() { # check <label> <zsh-body>
-  if HOME="$SANDBOX" zsh -fc "source '$FN' || exit 1; $2" >/dev/null 2>&1; then
+  if HOME="$SANDBOX" zsh -fc "source '$UI' || exit 1; source '$FN' || exit 1; $2" >/dev/null 2>&1; then
     pass "$1"
   else
     fail "$1"
@@ -320,7 +306,7 @@ check_dep() { # check_dep <label> <dep> <zsh-body>
     skip "$1 ($2 not installed)"
     return
   fi
-  if HOME="$SANDBOX" zsh -fc "source '$FN' || exit 1; $3" >/dev/null 2>&1; then
+  if HOME="$SANDBOX" zsh -fc "source '$UI' || exit 1; source '$FN' || exit 1; $3" >/dev/null 2>&1; then
     pass "$1"
   else
     fail "$1"

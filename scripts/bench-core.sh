@@ -33,13 +33,9 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 1
 
-c_grn=$'\e[32m'
-c_yel=$'\e[33m'
-c_red=$'\e[31m'
-c_blu=$'\e[34m'
-c_rst=$'\e[0m'
-have() { command -v "$1" >/dev/null 2>&1; }
-skip() { printf '%s–%s %s\n' "$c_yel" "$c_rst" "$*"; }
+# Shared palette + have()/skip() (this script keeps its own bench-table printfs).
+# shellcheck source=scripts/lib/common.sh
+source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
 if ! have zsh; then
   skip "bench skipped (zsh not installed)"
@@ -62,7 +58,7 @@ for plug in zsh-defer zsh-vi-mode zsh-history-substring-search \
 done
 
 # The README/manifest canonical order (no os/local — those belong to OS repos).
-CORE_MODULES=(tools options history aliases git functions fzf bindings plugins op maint update)
+CORE_MODULES=(tools ui options history aliases git functions fzf bindings plugins op maint update)
 export CORE_DIR="$HERE/zsh"
 # The `$CORE_DIR/$_m` here is expanded by the zsh CHILD reading this .zshrc, not by
 # this bash parent — so SC2016 (un-expanded `$` in single quotes) is intended.

@@ -1,0 +1,4 @@
+#compdef mkcd
+# Completion for Core's `mkcd` (zsh/functions.zsh): complete an existing directory
+# prefix (the new leaf you're about to create won't exist yet — that's expected).
+_arguments '1:directory:_directories'

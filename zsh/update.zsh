@@ -140,6 +140,30 @@ if ((UPDATE_CHECK_ENABLED)) && [[ "$(_pkgup_mgr)" != none ]]; then
   _pkgup_notice
 fi
 
+# ── First-run hint: once per machine, point a new shell at the cheat sheet ──────
+# A brand-new clone gives no clue that `serve`, `extract`, `fif`, or the Ctrl-F/G
+# widgets exist. Print ONE unobtrusive line the first time, throttled by a sentinel
+# (like the nudge above), then never again. Set CORE_WELCOME=0 to silence entirely.
+: "${CORE_WELCOME:=1}"
+if ((CORE_WELCOME)); then
+  () {
+    # Greet only an interactive TERMINAL — a redirected/captured stdout (or the
+    # load-order smoke test) gets nothing.
+    [[ -t 1 ]] || return 0
+    local stamp="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles-core/.welcomed"
+    [[ -e "$stamp" ]] && return 0
+    # Only greet once the sentinel actually PERSISTS — otherwise a read-only state
+    # dir (write fails) would re-greet on every shell start, forever. `>|` forces
+    # past NO_CLOBBER; `|| return` bails (no greet) when we can't remember we did.
+    mkdir -p "${stamp:h}" 2>/dev/null && : >|"$stamp" 2>/dev/null || return 0
+    if [[ -z ${NO_COLOR:-} ]]; then
+      print -P "%F{#7aa2f7}👋 dotfiles Core loaded%f %F{#565f89}— run \`core-help\` for functions, keys & maintenance%f"
+    else
+      print -r -- "👋 dotfiles Core loaded — run \`core-help\` for functions, keys & maintenance"
+    fi
+  }
+fi
+
 # ══════════════════════════════════════════════════════════════════════════════
 # up — apply updates. INTERACTIVE by design. `up -y` auto-confirms ONLY on the
 # package managers where that's safe (apt/dnf/zypper). pacman/emerge are NEVER
@@ -154,7 +178,22 @@ up() {
   [[ "$1" == (-y|--yes) ]] && yes=1
   local y=()
   ((yes)) && y=(-y)
-  case "$(_pkgup_mgr)" in
+  local mgr
+  mgr="$(_pkgup_mgr)"
+  if [[ "$mgr" == none ]]; then
+    _core_err "up: no supported package manager found"
+    return 1
+  fi
+  # Defensive pre-confirm (skipped by -y): name the manager BEFORE touching the
+  # system, so `up` on the wrong box is a one-keystroke abort, not a surprise sync.
+  # _core_confirm declines with no TTY, so `up` (sans -y) stays interactive-only.
+  if ((! yes)); then
+    _core_confirm "Apply updates with ${mgr}?" || {
+      _core_warn "up: cancelled"
+      return 1
+    }
+  fi
+  case "$mgr" in
   brew) brew update && brew upgrade && brew cleanup ;;
   pacman) _pkgup_priv pacman -Syu ;; # full sync only; never partial
   dnf) _pkgup_priv dnf upgrade --refresh "${y[@]}" ;;
@@ -167,7 +206,8 @@ up() {
   apk) _pkgup_priv apk update && _pkgup_priv apk upgrade ;;
   emerge) _pkgup_priv emerge --sync && _pkgup_priv emerge -auvDN @world ;; # -a always asks
   *)
-    echo "up: no supported package manager found" >&2
+    # Unreachable (the `none` case is handled above) — kept as defence in depth.
+    _core_err "up: no supported package manager found"
     return 1
     ;;
   esac

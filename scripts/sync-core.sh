@@ -55,13 +55,13 @@ for arg in "$@"; do
 done
 [[ ${#SELECT[@]} -gt 0 ]] && TARGETS=("${SELECT[@]}") || TARGETS=("${ALL_OS_REPOS[@]}")
 
-c_grn=$'\e[32m'
-c_yel=$'\e[33m'
-c_red=$'\e[31m'
-c_rst=$'\e[0m'
-ok() { printf '%s✓%s %s\n' "$c_grn" "$c_rst" "$*"; }
-skip() { printf '%s–%s %s\n' "$c_yel" "$c_rst" "$*"; }
-err() { printf '%s✗%s %s\n' "$c_red" "$c_rst" "$*" >&2; }
+# Shared palette + pass/skip/fail/have (one definition for every gate script).
+# This script doesn't tally, so the counters the lib keeps go unread; `ok`/`err`
+# are kept as thin aliases for pass/fail so the call sites below read naturally.
+# shellcheck source=scripts/lib/common.sh
+source "${BASH_SOURCE[0]%/*}/lib/common.sh"
+ok() { pass "$@"; }
+err() { fail "$@"; }
 
 [[ -n "$CORE_REMOTE" ]] || {
   err "CORE_REMOTE empty (set origin on dotfiles-core, or export CORE_REMOTE)"

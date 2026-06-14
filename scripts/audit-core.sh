@@ -18,7 +18,9 @@
 #   5. lint                             — shellcheck            (if present)
 #   6. config files                     — toml/yaml parse-check (if python3 present)
 #   7. markdown                          — markdownlint (if markdownlint-cli2 present)
-#   8. behavioral                       — load-order smoke + function units (test-core.sh)
+#   8. workflows                         — actionlint on .github/workflows (if present)
+#   9. version consistency              — pre-commit hook revs == tool-versions.env
+#  10. behavioral                       — load-order smoke + function units (test-core.sh)
 #
 # We deliberately do NOT enforce shfmt: the hand-tuned scripts here use an
 # intentional compact one-liner style that shfmt would expand. shellcheck (real
@@ -40,28 +42,10 @@ cd "$HERE" || exit 1
 QUIET=0
 [[ "${1:-}" == "--quiet" || "${1:-}" == "-q" ]] && QUIET=1
 
-c_grn=$'\e[32m'
-c_yel=$'\e[33m'
-c_red=$'\e[31m'
-c_blu=$'\e[34m'
-c_rst=$'\e[0m'
-PASS=0
-SKIP=0
-FAIL=0
-pass() {
-  PASS=$((PASS + 1))
-  ((QUIET)) || printf '%s✓%s %s\n' "$c_grn" "$c_rst" "$*"
-}
-skip() {
-  SKIP=$((SKIP + 1))
-  printf '%s–%s %s\n' "$c_yel" "$c_rst" "$*"
-}
-fail() {
-  FAIL=$((FAIL + 1))
-  printf '%s✗%s %s\n' "$c_red" "$c_rst" "$*" >&2
-}
-hdr() { ((QUIET)) || printf '\n%s== %s ==%s\n' "$c_blu" "$*" "$c_rst"; }
-have() { command -v "$1" >/dev/null 2>&1; }
+# Shared palette + pass/skip/fail/hdr/have (one definition for every gate script).
+# Sourced AFTER QUIET is set so the lib's `: "${QUIET:=0}"` preserves it.
+# shellcheck source=scripts/lib/common.sh
+source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
 # Tracked files that live in dotfiles-core but are NOT vendored into OS repos'
 # core/ subtree — repo-meta and dev tooling. Anything tracked, not matched by the
@@ -125,6 +109,13 @@ if have git && git rev-parse --git-dir >/dev/null 2>&1; then
     mode="${line%% *}"
     path="${line#* }"
     case "$path" in
+    scripts/lib/*.sh)
+      # Sourced bash libraries — the bash sibling of zsh/*.zsh: no shebang, NOT
+      # executable. Must precede the generic *.sh arm below (case matches first).
+      if [[ "$mode" == 100644 ]]; then
+        pass "src  $path"
+      else fail "sourced lib must NOT be executable, is $mode: $path"; fi
+      ;;
     *.sh | bin/clip | bin/clip-paste)
       if [[ "$mode" == 100755 ]]; then
         pass "+x   $path"
@@ -147,9 +138,11 @@ while IFS= read -r f; do
   if bash -n "$f" 2>/dev/null; then pass "bash -n $f"; else fail "bash syntax error: $f"; fi
 done < <(git ls-files '*.sh' 'bin/clip' 'bin/clip-paste' 2>/dev/null)
 if have zsh; then
+  # The sourced modules AND the autoloaded completion functions (zsh/completions/_*,
+  # no .zsh extension) — both are zsh that fans out to 9 repos; both must parse.
   while IFS= read -r f; do
     if zsh -n "$f" 2>/dev/null; then pass "zsh -n  $f"; else fail "zsh syntax error: $f"; fi
-  done < <(git ls-files 'zsh/*.zsh' 2>/dev/null)
+  done < <(git ls-files 'zsh/*.zsh' 'zsh/completions/*' 2>/dev/null)
 else
   skip "zsh -n (zsh not installed)"
 fi
@@ -232,7 +225,56 @@ else
   skip "markdownlint (markdownlint-cli2 not installed — npm i -g markdownlint-cli2)"
 fi
 
-# ── 8. behavioral tests (load-order smoke + function unit tests) ──────────────
+# ── 8. workflows (actionlint) ─────────────────────────────────────────────────
+# .github/workflows/*.yml is a fan-out artifact with no gate of its own: the YAML
+# parse in section 6 proves it's well-formed text, not that the workflow is VALID —
+# a bad `needs:`, an undefined job output, or a shellcheck error inside a run: block
+# all parse as YAML and still break CI for every push. actionlint catches those (and
+# runs shellcheck on the run: scripts). Graceful skip when absent, like every linter
+# above; CI installs it pinned (ACTIONLINT_VERSION) so the gate actually runs there.
+hdr "workflows (actionlint)"
+if have actionlint; then
+  if actionlint >/dev/null 2>&1; then
+    pass "actionlint (workflows valid)"
+  else
+    fail "actionlint reported issues — run: actionlint"
+  fi
+else
+  skip "actionlint (not installed — go install github.com/rhysd/actionlint/cmd/actionlint@latest)"
+fi
+
+# ── 9. version consistency (tool-versions.env ↔ .pre-commit-config.yaml) ──────
+# scripts/tool-versions.env is the SINGLE SOURCE for the pinned dev-tool versions.
+# CI loads it directly (no literals left in ci.yml), but .pre-commit-config.yaml is
+# static YAML that can't read it — so the hook `rev:` fields are the one place a pin
+# can still drift. Gate them: assert each hook rev equals its version here. A bump in
+# one place without the other fails the audit instead of silently shipping mismatched
+# author-time vs CI tooling. Pure bash + awk (busybox-safe); skips if either is gone.
+hdr "version consistency (tool-versions.env ↔ pre-commit)"
+VERSIONS_ENV="scripts/tool-versions.env"
+PRECOMMIT_CFG=".pre-commit-config.yaml"
+if [[ -r "$VERSIONS_ENV" && -r "$PRECOMMIT_CFG" ]]; then
+  _ver() { sed -n "s/^$1=//p" "$VERSIONS_ENV" | head -n1; }
+  # The rev: line immediately following a given repo: line in the pre-commit config.
+  _pc_rev() { awk -v r="$1" '$0 ~ "repo:.*" r {f=1} f && $1=="rev:" {print $2; exit}' "$PRECOMMIT_CFG"; }
+  _check_pin() { # _check_pin <repo-substr> <env-key> <label>
+    local want got
+    want="v$(_ver "$2")"
+    got="$(_pc_rev "$1")"
+    if [[ -n "$got" && "$got" == "$want" ]]; then
+      pass "pre-commit $3 rev $got == tool-versions.env"
+    else
+      fail "pre-commit $3 rev '${got:-<none>}' != tool-versions.env '$want' — bump one to match"
+    fi
+  }
+  _check_pin "koalaman/shellcheck-precommit" SHELLCHECK_VERSION shellcheck
+  _check_pin "DavidAnson/markdownlint-cli2" MARKDOWNLINT_VERSION markdownlint
+  _check_pin "pre-commit/pre-commit-hooks" PRECOMMIT_HOOKS_VERSION pre-commit-hooks
+else
+  skip "version consistency ($VERSIONS_ENV or $PRECOMMIT_CFG unreadable)"
+fi
+
+# ── 10. behavioral tests (load-order smoke + function unit tests) ─────────────
 # Static analysis above proves the modules PARSE; this proves they LOAD TOGETHER
 # in canonical order and that the pure functions behave. Delegated to test-core.sh
 # (single source of truth) but folded into ONE audit summary via CORE_TEST_NESTED.

@@ -1,0 +1,4 @@
+#compdef up
+# Completion for Core's `up` package-updater (zsh/update.zsh).
+_arguments \
+  '(-y --yes)'{-y,--yes}'[auto-confirm where safe (apt/dnf/zypper)]'

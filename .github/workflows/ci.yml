@@ -21,23 +21,66 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# Pin the linters CI installs so the 9-repo gate is REPRODUCIBLE — a new upstream
-# shellcheck/luacheck release can't silently turn CI red with zero repo changes.
-# Bump these deliberately (and dependabot/`make update-hooks` keeps the rest moving).
-env:
-  SHELLCHECK_VERSION: "0.10.0"
-  LUACHECK_VERSION: "1.2.0"
-  # nvim/ is the largest body of Core; test-core.sh now does a headless config-load
-  # smoke test, so CI must ship a real nvim for it to run (not skip). Pinned for the
-  # same reproducibility reason as the linters above — a new nvim release can't turn
-  # the gate red with zero repo changes. Bump deliberately.
-  NVIM_VERSION: "0.12.3"
-  # pre-commit has no dependabot ecosystem here (like the linters above), so this is
-  # the deliberate manual bump point for the hygiene gate's runner version.
-  PRECOMMIT_VERSION: "4.0.1"
+# The linters CI installs are pinned for a REPRODUCIBLE 9-repo gate — a new upstream
+# release can't silently turn CI red with zero repo changes. Those pins now live in
+# ONE place, scripts/tool-versions.env, which each job loads into $GITHUB_ENV via the
+# "Load pinned tool versions" step below (no version literals left in this file). The
+# audit's version-consistency section keeps the .pre-commit-config.yaml revs in step.
 
 jobs:
+  # Change detection so a docs- or nvim-only push doesn't pay the full matrix.
+  # SAFE DEFAULT: if the diff base can't be resolved (first push, force-push, a
+  # shallow checkout), every flag is 'true' and nothing downstream is skipped — a
+  # detection miss must never hide a needed check from the 9-repo fan-out. Infra
+  # changes (scripts/, .github/, the manifest, the pre-commit/Makefile config) are
+  # cross-cutting and likewise force the full run.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      shell: ${{ steps.classify.outputs.shell }}
+      nvim: ${{ steps.classify.outputs.nvim }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0 # full history so the diff base resolves
+      - id: classify
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -uo pipefail
+          base=""
+          if [ "$EVENT" = pull_request ]; then
+            git fetch -q origin "$BASE_REF" 2>/dev/null && base="origin/$BASE_REF" || base=""
+          elif [ -n "${BEFORE:-}" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then
+            base="$BEFORE"
+          fi
+          if [ -z "$base" ] || ! git rev-parse -q --verify "$base^{commit}" >/dev/null 2>&1; then
+            echo "diff base unknown — running everything (safe default)"
+            files="__ALL__"
+          else
+            files="$(git diff --name-only "$base" HEAD)"
+            echo "changed files vs $base:"; printf '%s\n' "$files" | sed 's/^/  /'
+          fi
+          shell=false; nvim=false
+          if [ "$files" = "__ALL__" ]; then
+            shell=true; nvim=true
+          else
+            # infra is cross-cutting → force the full run
+            if printf '%s\n' "$files" | grep -qE '^(scripts/|\.github/|core\.manifest|\.pre-commit-config\.yaml|Makefile)'; then
+              shell=true; nvim=true
+            fi
+            if printf '%s\n' "$files" | grep -qE '^(zsh/|bin/|maint/|tmux/|sesh/|starship/|mise/|git/)|\.sh$'; then shell=true; fi
+            if printf '%s\n' "$files" | grep -qE '^nvim/'; then nvim=true; fi
+          fi
+          echo "→ shell=$shell nvim=$nvim"
+          echo "shell=$shell" >> "$GITHUB_OUTPUT"
+          echo "nvim=$nvim" >> "$GITHUB_OUTPUT"
+
   audit:
+    needs: changes
     # Core fans out to macOS (dotfiles-MacBook) AND eight Linux distros, so gate
     # on BOTH userlands — not just Linux. The portable checks (shellcheck, zsh -n,
     # manifest/exec-bit) are OS-agnostic, but the BEHAVIORAL tests and bin/clip*
@@ -54,8 +97,14 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      # Single source of truth for the pinned linter versions: load them into the
+      # job env so every step below (and the cache keys) see the same numbers as
+      # `make setup` does locally. Only KEY=VALUE lines, so comments are skipped.
+      - name: Load pinned tool versions
+        run: grep -E '^[A-Z0-9_]+=' scripts/tool-versions.env >> "$GITHUB_ENV"
+
       # ── Linux: pinned shellcheck binary (deterministic, faster than apt's index) ──
-      - name: Install shellcheck ${{ env.SHELLCHECK_VERSION }} (Linux, pinned)
+      - name: Install shellcheck (Linux, pinned)
         if: runner.os == 'Linux'
         run: |
           set -euxo pipefail
@@ -84,6 +133,8 @@ jobs:
       # runs both): bump the version and every cache key rotates automatically.
       - name: Cache luacheck (luarocks tree)
         id: luacache
+        # luacheck only lints nvim/ — skip its (slow) install when nvim/ is untouched.
+        if: needs.changes.outputs.nvim == 'true'
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.luarocks
@@ -91,8 +142,8 @@ jobs:
           # (which luacheck 1.2.0 can't load) and pins the cache to the 5.4 install below.
           key: luacheck-${{ runner.os }}-${{ env.LUACHECK_VERSION }}-lua54
 
-      - name: Install luacheck ${{ env.LUACHECK_VERSION }} (Linux, pinned)
-        if: runner.os == 'Linux'
+      - name: Install luacheck (Linux, pinned)
+        if: runner.os == 'Linux' && needs.changes.outputs.nvim == 'true'
         run: |
           set -euxo pipefail
           sudo apt-get install -y --no-install-recommends luarocks
@@ -100,8 +151,8 @@ jobs:
           luarocks --local install luacheck "${LUACHECK_VERSION}"
           echo "$HOME/.luarocks/bin" >> "$GITHUB_PATH"
 
-      - name: Install luacheck ${{ env.LUACHECK_VERSION }} (macOS, pinned)
-        if: runner.os == 'macOS'
+      - name: Install luacheck (macOS, pinned)
+        if: runner.os == 'macOS' && needs.changes.outputs.nvim == 'true'
         run: |
           set -euxo pipefail
           # Pin to Lua 5.4: brew's luarocks now pulls Lua 5.5 as its default interpreter,
@@ -117,14 +168,27 @@ jobs:
       # to match the .pre-commit-config.yaml hook rev so author-time and CI agree.
       # Node is preinstalled on both runners; -g puts the bin on PATH for the audit.
       - name: Install markdownlint-cli2 (pinned)
-        run: npm install -g markdownlint-cli2@0.22.1
+        run: npm install -g "markdownlint-cli2@${MARKDOWNLINT_VERSION}"
+
+      # actionlint gates the workflows themselves (the one fan-out artifact with no
+      # gate of its own). Pinned release binary, Linux-only (workflows are OS-agnostic,
+      # so no need to also install on the macOS leg — the audit section skips there).
+      - name: Install actionlint (Linux, pinned)
+        if: runner.os == 'Linux'
+        run: |
+          set -euxo pipefail
+          ver="${ACTIONLINT_VERSION}"
+          url="https://github.com/rhysd/actionlint/releases/download/v${ver}/actionlint_${ver}_linux_amd64.tar.gz"
+          curl -fsSL "$url" | tar -xz actionlint
+          sudo install -m755 actionlint /usr/local/bin/actionlint
+          rm -f actionlint
 
       # ── neovim: Linux gets the maintainer's pinned release tarball (deterministic,
       # like shellcheck above); macOS uses brew, mirroring the shellcheck/luarocks
       # macOS path (the runner's preinstalled-tap route, no per-arch tarball juggling).
       # Drives test-core.sh's headless config-load smoke test. ──
-      - name: Install neovim ${{ env.NVIM_VERSION }} (Linux, pinned)
-        if: runner.os == 'Linux'
+      - name: Install neovim (Linux, pinned)
+        if: runner.os == 'Linux' && needs.changes.outputs.nvim == 'true'
         run: |
           set -euxo pipefail
           ver="${NVIM_VERSION}"
@@ -133,17 +197,20 @@ jobs:
           sudo ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
 
       - name: Install neovim (macOS)
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && needs.changes.outputs.nvim == 'true'
         run: brew install neovim
 
+      # Tolerant: luacheck/nvim are skipped for non-nvim changes, so report what's
+      # actually present instead of failing on a deliberately-absent tool.
       - name: Tool versions
         run: |
-          shellcheck --version | head -2
-          luacheck --version
-          zsh --version
-          bash --version | head -1
-          markdownlint-cli2 --version
-          nvim --version | head -1
+          for t in shellcheck luacheck zsh bash markdownlint-cli2 actionlint nvim; do
+            if command -v "$t" >/dev/null 2>&1; then
+              printf '%s: ' "$t"; "$t" --version | head -1
+            else
+              echo "$t: (not installed for this change)"
+            fi
+          done
 
       - name: Run Core audit (manifest, exec bits, syntax, lint, behavioral)
         run: ./scripts/audit-core.sh
@@ -160,6 +227,10 @@ jobs:
   # applets (awk/grep/sed/date/tar/gzip): the behavioral suite, the clip ladder, and
   # the manifest/exec-bit/syntax checks, on the one userland Ubuntu can never surface.
   audit-alpine:
+    needs: changes
+    # Alpine re-validates the SHELL layer against musl/busybox; a docs- or nvim-only
+    # change can't affect that, so skip the whole container spin unless shell changed.
+    if: needs.changes.outputs.shell == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -189,6 +260,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      # Single source of truth for the pinned pre-commit version (see the audit job).
+      - name: Load pinned tool versions
+        run: grep -E '^[A-Z0-9_]+=' scripts/tool-versions.env >> "$GITHUB_ENV"
       # Cache the hook environments pre-commit clones+builds, keyed on the config so a
       # hook-rev bump (or a new hook) rotates the key automatically.
       - name: Cache pre-commit hooks
@@ -198,23 +272,30 @@ jobs:
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
       # pipx is preinstalled on the runner and installs to ~/.local/bin (already on
       # PATH), sidestepping PEP-668 "externally-managed-environment" pip errors.
-      - name: Install pre-commit ${{ env.PRECOMMIT_VERSION }} (pinned)
+      - name: Install pre-commit (pinned)
         run: pipx install "pre-commit==${PRECOMMIT_VERSION}"
       - name: Run hygiene hooks (audit-owned hooks skipped)
         env:
           SKIP: audit-core,shellcheck,markdownlint-cli2
         run: pre-commit run --all-files --show-diff-on-failure
 
-  # Startup-perf visibility. Core invests in startup speed (cached tool-init in
-  # tools.zsh, deferred plugins in plugins.zsh); this surfaces the number on every
-  # push so a regression is visible in the log. INFORMATIONAL, not a gate: shared
-  # runners are too noisy for a hard budget (bench-core.sh's CORE_BENCH_BUDGET_MS
-  # is the gate, for deliberate local/quiet-box use). continue-on-error keeps a
-  # slow runner from ever turning CI red. Linux-only — one number is enough here.
+  # Startup-perf REGRESSION GATE. Core invests in startup speed (cached tool-init in
+  # tools.zsh, deferred plugins in plugins.zsh); a gross regression — re-introducing a
+  # per-shell subprocess, un-deferring heavy work, an uncached eval — would fan out to
+  # all 9 repos silently. This job now ENFORCES a budget instead of only reporting:
+  # bench-core.sh fails the build when the canonical-chain MEAN exceeds
+  # CORE_BENCH_BUDGET_MS. The budget is deliberately GENEROUS (the hermetic chain runs
+  # ~25 ms; 120 ms is ~5x headroom) and the mean is taken over 50 warmed runs, so
+  # ordinary shared-runner noise can't trip it — only a real regression sustains a 5x
+  # mean. The precise number still prints in the log for trend-watching. No
+  # continue-on-error: a breach is now a red build, not a buried log line. Linux-only.
   bench:
+    needs: changes
+    # Startup perf is a property of the zsh load chain; a docs- or nvim-only change
+    # can't move it, so only benchmark when the shell layer actually changed.
+    if: needs.changes.outputs.shell == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    continue-on-error: true
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Install zsh + hyperfine
@@ -222,5 +303,8 @@ jobs:
           set -euxo pipefail
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends zsh hyperfine
-      - name: Benchmark Core startup (report-only)
+      - name: Benchmark Core startup (budget gate)
+        env:
+          CORE_BENCH_RUNS: "50"
+          CORE_BENCH_BUDGET_MS: "120"
         run: ./scripts/bench-core.sh
