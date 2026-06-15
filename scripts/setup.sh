@@ -29,7 +29,35 @@ _ver() { sed -n "s/^$1=//p" "$VERSIONS" 2>/dev/null | head -n1; }
 # for the actionable next step, mirroring zsh/ui.zsh's _core_hint in the runtime layer.
 hint() { printf '%s→%s %s\n' "$c_yel" "$c_rst" "$*"; }
 
+# --doctor runs ONLY the read-only version doctor (section 3): no installs, no audit —
+# the fast `make doctor` triage path for "is my toolchain aligned with CI?". Default
+# (no flag) is the full bootstrap (install + doctor + audit).
+DOCTOR_ONLY=0
+case "${1:-}" in
+--doctor) DOCTOR_ONLY=1 ;;
+-h | --help)
+  cat <<'EOF'
+usage: setup.sh [--doctor] [-h|--help]
+
+Zero-config dev bootstrap: install the pre-commit hooks + the pinned toolchain, report
+each linter against its pin, then run the audit so the box is proven green.
+
+  --doctor    ONLY the read-only version doctor — no install, no audit (the quick
+              `make doctor` triage: which tools are present and do they match the pins?)
+  -h, --help  show this help and exit
+EOF
+  exit 0
+  ;;
+"") ;;
+*)
+  printf 'setup.sh: unexpected argument: %s\n' "$1" >&2
+  printf 'try: setup.sh --help\n' >&2
+  exit 2
+  ;;
+esac
+
 # ── 1. pre-commit hooks ───────────────────────────────────────────────────────
+if ((! DOCTOR_ONLY)); then
 hdr "pre-commit hooks"
 PRECOMMIT_VERSION="$(_ver PRECOMMIT_VERSION)"
 if have pre-commit; then
@@ -102,6 +130,8 @@ else
   skip "luacheck absent and luarocks not found — install luarocks, then: luarocks --local install luacheck ${LUACHECK_VERSION}"
 fi
 
+fi # end install steps (1–2b) — skipped by --doctor
+
 # ── 3. version doctor (present? vs the pin) ───────────────────────────────────
 hdr "tool versions (pinned in $VERSIONS)"
 _doctor() { # _doctor <bin> <pinned> <version-cmd...>
@@ -129,6 +159,12 @@ _doctor markdownlint-cli2 "$(_ver MARKDOWNLINT_VERSION)" markdownlint-cli2 --ver
 _doctor actionlint "$(_ver ACTIONLINT_VERSION)" actionlint --version
 if have zsh; then pass "zsh → $(zsh --version | grep -oE '[0-9]+\.[0-9]+' | head -n1)"; else skip "zsh absent (the behavioral tests need it)"; fi
 if have python3; then pass "python3 present (toml/yaml parse checks)"; else skip "python3 absent (toml/yaml checks skip)"; fi
+
+# --doctor stops here: it's the read-only triage, so no audit run and no green/fix verdict.
+if ((DOCTOR_ONLY)); then
+  printf '\n%s✓ doctor complete (read-only — no install, no audit). Run: make setup%s\n' "$c_grn" "$c_rst"
+  exit 0
+fi
 
 # ── 4. prove the box green ────────────────────────────────────────────────────
 hdr "running the audit"

@@ -43,6 +43,11 @@ fi
 : "${PASS:=0}"
 : "${SKIP:=0}"
 : "${FAIL:=0}"
+# Labels of the checks that SKIPPED, so a caller can report exactly WHICH gates didn't
+# run (e.g. a CI-installed linter absent locally) instead of just a count — the
+# difference between "green" and "green but partial". Declared once (this lib is
+# idempotent), appended by skip() below.
+_CORE_SKIPS=()
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
@@ -55,6 +60,7 @@ pass() {
 }
 skip() {
   SKIP=$((SKIP + 1))
+  _CORE_SKIPS+=("$*")
   printf '%s–%s %s\n' "$c_yel" "$c_rst" "$*"
 }
 fail() {
@@ -62,3 +68,68 @@ fail() {
   printf '%s✗%s %s\n' "$c_red" "$c_rst" "$*" >&2
 }
 hdr() { ((QUIET)) || printf '\n%s== %s ==%s\n' "$c_blu" "$*" "$c_rst"; }
+
+# ── area scope (shared by audit-core.sh + test-core.sh) ───────────────────────
+# Both gate scripts gate their SLOW per-area sections on these flags so a per-area run
+# pays only for what it touched. They carried BYTE-IDENTICAL copies of this parser — the
+# exact "two copies that drift" pattern this lib exists to kill — so it lives here once.
+# FAIL-CLOSED default: unset → both areas on (full run). An empty or unknown scope token
+# fails SAFE to the full run rather than silently narrowing a gate on the 9-repo fan-out.
+: "${SCOPE_SHELL:=1}"
+: "${SCOPE_NVIM:=1}"
+_set_scope() { # _set_scope <comma-list: shell,nvim | all | none>
+  SCOPE_SHELL=0
+  SCOPE_NVIM=0
+  local tok had=0 prog="${0##*/}"
+  local IFS=,
+  for tok in $1; do
+    had=1
+    case "$tok" in
+    shell) SCOPE_SHELL=1 ;;
+    nvim) SCOPE_NVIM=1 ;;
+    all | full)
+      SCOPE_SHELL=1
+      SCOPE_NVIM=1
+      ;;
+    none) ;;
+    *) # unknown token → run EVERYTHING (fail-safe), matching ci.yml's safe default
+      printf '%s: unknown scope %s — running full (fail-safe)\n' "$prog" "$tok" >&2
+      SCOPE_SHELL=1
+      SCOPE_NVIM=1
+      ;;
+    esac
+  done
+  # An EMPTY scope (no tokens) is ambiguous → fail SAFE to the full run rather than
+  # silently skipping every slow gate. `none` is the EXPLICIT "always-on checks only" token.
+  ((had)) || {
+    printf '%s: empty scope — running full (fail-safe)\n' "$prog" >&2
+    SCOPE_SHELL=1
+    SCOPE_NVIM=1
+  }
+}
+
+# Pre-seed the EMPTY plugin dirs the hermetic zsh tests + bench need so plugins.zsh's
+# first-run `git clone` is a no-op (no network). ONE plugin list, two consumers
+# (test-core.sh load-order/integration sandboxes + bench-core.sh) — previously copied
+# in three places, so a new pinned plugin had to be added to each by hand.
+_seed_plugin_dirs() { # _seed_plugin_dirs <parent-dir>
+  local parent="$1" p
+  mkdir -p "$parent"
+  for p in zsh-defer zsh-vi-mode zsh-history-substring-search \
+    zsh-autosuggestions fast-syntax-highlighting fzf-tab zsh-you-should-use; do
+    mkdir -p "$parent/$p"
+  done
+}
+
+# Read ci-classify.sh's two-line `shell=<bool>`/`nvim=<bool>` contract into
+# CLASSIFY_SHELL/CLASSIFY_NVIM. Returns NON-ZERO when either key is missing or not a
+# clean true/false (a classifier error or garbage) — so the caller can fail SAFE to the
+# full run rather than trust a half-parsed verdict. ONE reader for the contract the audit
+# (`--changed`) consumes, instead of re-implementing the sed parse + validation per site.
+_core_read_classify() { # _core_read_classify <classifier-output>
+  CLASSIFY_SHELL="$(printf '%s\n' "$1" | sed -n 's/^shell=//p')"
+  CLASSIFY_NVIM="$(printf '%s\n' "$1" | sed -n 's/^nvim=//p')"
+  case "$CLASSIFY_SHELL" in true | false) ;; *) return 1 ;; esac
+  case "$CLASSIFY_NVIM" in true | false) ;; *) return 1 ;; esac
+  return 0
+}

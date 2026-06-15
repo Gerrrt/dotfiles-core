@@ -7,7 +7,7 @@
 # pre-commit call the same scripts/audit-core.sh, so `make audit` == green CI.
 # ──────────────────────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help setup audit audit-changed test bench lint sync sync-dry hooks update-hooks update-plugins update-nvim-plugins check-pins
+.PHONY: help setup doctor audit audit-changed test bench lint sync sync-dry hooks update-hooks update-plugins update-nvim-plugins check-pins
 
 help: ## Show this help
 	@echo "dotfiles-core — make targets:"
@@ -16,6 +16,9 @@ help: ## Show this help
 
 setup: ## One-command dev bootstrap (pre-commit hooks + version doctor + audit) — start here
 	@./scripts/setup.sh
+
+doctor: ## Read-only triage: are the dev tools present and matching the pins? (no install, no audit)
+	@./scripts/setup.sh --doctor
 
 audit: ## Run the full Core audit (manifest, exec-bits, syntax, lint, behavioral) — the one gate
 	@./scripts/audit-core.sh

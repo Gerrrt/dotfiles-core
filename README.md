@@ -47,9 +47,10 @@ To update every OS repo after a Core change, run the loop helper from this repo:
 ```
 
 > Run `make` (no target) for a discoverable list of every entry point —
-> `make audit` / `test` / `bench` / `sync` / `hooks` all shell out to the
-> `scripts/*.sh` dev tooling, which stays the single source of truth. (`bin/`
-> holds only what ships — `clip`/`clip-paste`; the gate scripts live in `scripts/`.)
+> `make setup` / `doctor` / `audit` / `test` / `bench` / `sync` / `hooks` all shell out
+> to the `scripts/*.sh` dev tooling, which stays the single source of truth. (`make doctor`
+> is the read-only triage half of `setup`; `bin/` holds only what ships — `clip`/`clip-paste`;
+> the gate scripts live in `scripts/`.)
 
 The OS repo's `bootstrap.sh` then symlinks `core/zsh/*.zsh`, `core/tmux/`,
 `core/nvim/`, `core/git/`, `core/starship/`, `core/mise/`, and `core/bin/` into

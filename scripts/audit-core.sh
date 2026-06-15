@@ -41,6 +41,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 1
 
 QUIET=0
+STRICT=0         # --strict: treat any SKIP as a failure (a gate that didn't actually run)
 CHANGED=0        # --changed: derive the scope from the local git diff (fast dev loop)
 SCOPE_EXPLICIT=0 # an explicit --scope always wins over --changed
 # Scope gates the SLOW, area-specific sections so a per-area push (driven by
@@ -52,37 +53,11 @@ SCOPE_EXPLICIT=0 # an explicit --scope always wins over --changed
 # checks (manifest, exec-bits, toml/yaml/json, markdown, workflows, version) ALWAYS run.
 SCOPE_SHELL=1
 SCOPE_NVIM=1
-_set_scope() { # _set_scope <comma-list: shell,nvim | all | none>
-  SCOPE_SHELL=0
-  SCOPE_NVIM=0
-  local tok had=0
-  local IFS=,
-  for tok in $1; do
-    had=1
-    case "$tok" in
-    shell) SCOPE_SHELL=1 ;;
-    nvim) SCOPE_NVIM=1 ;;
-    all | full)
-      SCOPE_SHELL=1
-      SCOPE_NVIM=1
-      ;;
-    none) ;;
-    *) # unknown token → run EVERYTHING (fail-safe), matching ci.yml's safe default
-      printf 'audit-core.sh: unknown scope %s — running full (fail-safe)\n' "$tok" >&2
-      SCOPE_SHELL=1
-      SCOPE_NVIM=1
-      ;;
-    esac
-  done
-  # An EMPTY scope (no tokens — e.g. `--scope=` or a value that split to nothing) is
-  # ambiguous, so fail SAFE to the full run rather than silently skipping every slow
-  # gate. `none` is the EXPLICIT token for "run only the always-on checks".
-  ((had)) || {
-    printf 'audit-core.sh: empty scope — running full (fail-safe)\n' >&2
-    SCOPE_SHELL=1
-    SCOPE_NVIM=1
-  }
-}
+# Shared palette + pass/skip/fail/hdr/have + _set_scope (one definition for every gate
+# script). Sourced HERE — before the arg loop below calls _set_scope — and after QUIET
+# is set so the lib's `: "${QUIET:=0}"` preserves it.
+# shellcheck source=scripts/lib/common.sh
+source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 # Render the active scope as test-core.sh expects it (shell,nvim | shell | nvim | none).
 _scope_str() {
   local s=""
@@ -98,6 +73,7 @@ _scope_str() {
 while (($#)); do
   case "$1" in
   -q | --quiet) QUIET=1 ;;
+  --strict) STRICT=1 ;;
   --scope)
     # Require an explicit value: without this, `--scope --quiet` would swallow the
     # next flag as the scope list and silently drop it.
@@ -123,6 +99,10 @@ THE audit button — manifest/exec-bit/syntax/lint/config/markdown/workflow/
 version/behavioral checks. CI and pre-commit run this exact script.
 
   -q, --quiet     only print SKIP/FAIL lines and the final summary
+  --strict        treat any SKIP as a FAILURE — a gate whose tool is absent did not
+                  actually run, so a "green" with skips is only PARTIAL. Use this for
+                  release verification / a fully-provisioned CI leg where every gate
+                  must execute. The summary always names the skipped checks.
   --scope LIST    limit the slow area-specific sections to a comma list:
                   shell, nvim, all (default), none. Cheap structural/config/
                   markdown/workflow/version checks always run. CI sets this from
@@ -145,11 +125,6 @@ EOF
   esac
   shift
 done
-
-# Shared palette + pass/skip/fail/hdr/have (one definition for every gate script).
-# Sourced AFTER QUIET is set so the lib's `: "${QUIET:=0}"` preserves it.
-# shellcheck source=scripts/lib/common.sh
-source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
 # ── --changed: derive the scope from the local git diff ───────────────────────
 # Reuse the EXACT classifier CI runs (scripts/ci-classify.sh) so `make audit-changed`
@@ -179,19 +154,17 @@ _changed_scope() {
     printf 'all'
     return
   } # nothing resolvable → full (safe)
-  local out sh nv scope=""
+  local out scope=""
   out="$(printf '%s\n' "$files" | "$HERE/scripts/ci-classify.sh" 2>/dev/null)"
-  sh="$(printf '%s\n' "$out" | sed -n 's/^shell=//p')"
-  nv="$(printf '%s\n' "$out" | sed -n 's/^nvim=//p')"
-  # The classifier must emit BOTH keys as true/false. If it errored (non-executable,
-  # internal failure) or produced no/garbage output, sh/nv won't be valid — fail SAFE
-  # to the full run rather than silently returning "none" and skipping every slow gate.
-  if { [[ "$sh" != true && "$sh" != false ]]; } || { [[ "$nv" != true && "$nv" != false ]]; }; then
+  # Parse via the shared reader (scripts/lib/common.sh): it sets CLASSIFY_SHELL/CLASSIFY_NVIM
+  # and returns non-zero if the classifier errored or emitted garbage — in which case fail
+  # SAFE to the full run rather than silently returning "none" and skipping every slow gate.
+  if ! _core_read_classify "$out"; then
     printf 'all'
     return
   fi
-  [[ "$sh" == true ]] && scope="shell"
-  [[ "$nv" == true ]] && scope="${scope:+$scope,}nvim"
+  [[ "$CLASSIFY_SHELL" == true ]] && scope="shell"
+  [[ "$CLASSIFY_NVIM" == true ]] && scope="${scope:+$scope,}nvim"
   printf '%s' "${scope:-none}"
 }
 if ((CHANGED)) && ((!SCOPE_EXPLICIT)); then
@@ -594,8 +567,20 @@ printf '\n%s──────── audit summary ────────%s\n'
 printf '  %spass %d%s   %sskip %d%s   %sfail %d%s   %s(%ds)%s\n' \
   "$c_grn" "$PASS" "$c_rst" "$c_yel" "$SKIP" "$c_rst" "$c_red" "$FAIL" "$c_rst" \
   "$c_blu" "$SECONDS" "$c_rst"
+# Name the SKIPPED gates so a "green" run is honestly labelled PARTIAL: a check whose tool
+# was absent did not actually run, and several of those (markdownlint, actionlint, gitleaks,
+# luacheck, nvim) ARE enforced in CI — so a clean local box can still differ from the gate.
+# This makes the gap explicit instead of hiding it behind a bare count. --strict turns it red.
+if ((SKIP > 0)); then
+  printf '  %s%d check(s) SKIPPED (tool absent) — this run is PARTIAL, not full:%s\n' "$c_yel" "$SKIP" "$c_rst" >&2
+  for _s in "${_CORE_SKIPS[@]}"; do printf '    %s–%s %s\n' "$c_yel" "$c_rst" "$_s" >&2; done
+fi
 ((FAIL == 0)) || {
   printf '%saudit FAILED%s\n' "$c_red" "$c_rst" >&2
   exit 1
 }
+if ((STRICT && SKIP > 0)); then
+  printf '%saudit FAILED (--strict: %d gate(s) skipped, must all run)%s\n' "$c_red" "$SKIP" "$c_rst" >&2
+  exit 1
+fi
 printf '%saudit OK%s\n' "$c_grn" "$c_rst"

@@ -242,6 +242,9 @@ up() {
     -n | --dry-run) dry=1 ;;
     *)
       _core_err "up: unexpected argument: $arg"
+      local _sug
+      _sug="$(_core_suggest "$arg" -y --yes -n --dry-run)"
+      [[ -n "$_sug" ]] && _core_hint "did you mean ${_sug}?"
       _core_usage "up [-y|--yes] [-n|--dry-run]"
       return 1
       ;;

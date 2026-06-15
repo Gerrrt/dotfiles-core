@@ -11,6 +11,24 @@
 # at source time (the proven pattern from options.zsh / maint.zsh).
 typeset -g _CORE_VERSION_FILE="${${(%):-%x}:A:h:h}/core.version"
 
+# _core_install_prefix <mgr>  → the copy-pasteable "install" command prefix for a
+# package manager (the verb differs per distro: apt install / pacman -S / apk add / …).
+# Pure mapping, no probing — callers pass the manager from update.zsh's _pkgup_mgr. Used
+# by core-doctor (U2) and the command-not-found handler (U1) to turn a missing tool into
+# an actionable line instead of a bare ✗. Unknown/none → non-zero, caller stays silent.
+_core_install_prefix() {
+  case "$1" in
+  brew)   print -r -- "brew install" ;;
+  pacman) print -r -- "sudo pacman -S" ;;
+  dnf)    print -r -- "sudo dnf install" ;;
+  zypper) print -r -- "sudo zypper install" ;;
+  apt)    print -r -- "sudo apt install" ;;
+  apk)    print -r -- "sudo apk add" ;;
+  emerge) print -r -- "sudo emerge" ;;
+  *)      return 1 ;;
+  esac
+}
+
 # core-version — print the vendored Core layer's version. Lets you tell WHICH Core a
 # given OS repo carries from inside it: the subtree squash records the commit, this
 # records the human SemVer (core.version, bumped at release to match the git tag).
@@ -52,15 +70,31 @@ core-doctor() {
     "data / net"   "jq yq gron sd xh doggo glow op"
   )
   local gi tool line
+  local -a missing=()
   for ((gi = 1; gi <= ${#groups}; gi += 2)); do
     print -r -- "${c}${groups[gi]}${r}"
     line=""
     for tool in ${=groups[gi + 1]}; do
       if _core_have "$tool"; then line+="  ${g}✓${r} ${tool}"
-      else line+="  ${d}✗ ${tool}${r}"; fi
+      else line+="  ${d}✗ ${tool}${r}"; missing+=("$tool"); fi
     done
     print -r -- " $line"
   done
+
+  # Actionable: turn the ✗'d tools into a copy-pasteable install line for THIS box's
+  # package manager (U2), instead of leaving the reader to look each one up. Best-effort
+  # — gated on update.zsh's _pkgup_mgr being loaded (it isn't in the unit harness, which
+  # sources ui+functions alone) and on a known manager. Package names can differ from the
+  # command name, so say so rather than promise an exact incantation.
+  if ((${#missing})) && (($+functions[_pkgup_mgr])); then
+    local _mgr _pfx
+    _mgr="$(_pkgup_mgr)"
+    if _pfx="$(_core_install_prefix "$_mgr")"; then
+      print -r -- "${c}install missing${r}"
+      print -r -- "  ${d}${_pfx} ${missing[*]}${r}"
+      print -r -- "  ${d}(some package names differ per distro — e.g. rg=ripgrep, delta=git-delta)${r}"
+    fi
+  fi
 
   # Resolved binary names + the detected package manager — the behaviour-affecting bits
   # a bare ✓/✗ hides (Debian's fd→fdfind/bat→batcat; which `up` manager fires here).
@@ -113,11 +147,28 @@ _extract_dispatch() {
   *.7z) 7z x "$1" ;;
   *.rar) unrar x "$1" ;;
   *)
-    _core_err "extract: unknown format '$1'"
-    _core_hint "supported: .tar.gz/.tgz .tar.bz2/.tbz2 .tar.xz .tar .gz .bz2 .zip .7z .rar"
+    _core_errbox "extract: unknown archive format" \
+      "file:      ${1:t}" \
+      "supported: .tar.gz/.tgz · .tar.bz2/.tbz2 · .tar.xz · .tar · .gz · .bz2 · .zip · .7z · .rar" \
+      "tip:       install 'ouch' to (un)pack every format from one binary"
     return 1
     ;;
   esac
+}
+
+# _extract_run — dispatch with a progress spinner on the QUIET formats (tar/gz/bz2),
+# so a large unpack reads as progress instead of a frozen terminal (U6). Chatty
+# unpackers (zip/7z/rar) and ouch print their own output, so run those directly rather
+# than fight their bytes with the spinner. _core_spin's non-TTY path just runs the
+# command, so scripted/piped extracts and the unit tests behave exactly as before.
+_extract_run() {
+  emulate -L zsh
+  if [[ -z ${HAVE_OUCH:-} && "$1" == (*.tar.gz|*.tgz|*.tar.bz2|*.tbz2|*.tar.xz|*.tar|*.gz|*.bz2) ]] \
+    && (($+functions[_core_spin])); then
+    _core_spin "extracting ${1:t}" _extract_dispatch "$1"
+  else
+    _extract_dispatch "$1"
+  fi
 }
 
 # extract — one command for any archive, with two defences applied BEFORE anything
@@ -170,7 +221,7 @@ extract() {
           _core_err "extract: cannot create '$into'"
           return 1
         }
-        (cd -- "$into" && _extract_dispatch "$abs")
+        (cd -- "$into" && _extract_run "$abs")
         return
       fi
     fi
@@ -188,7 +239,7 @@ extract() {
     fi
   fi
 
-  _extract_dispatch "$abs"
+  _extract_run "$abs"
 }
 
 # fcd — fuzzy-cd into any subdirectory (needs fzf + fd, degrades to find)
@@ -263,6 +314,9 @@ serve() {
     -l | --local) local_only=1 ;;
     -*)
       _core_err "serve: unknown option: $arg"
+      local _sug
+      _sug="$(_core_suggest "$arg" -l --local)"
+      [[ -n "$_sug" ]] && _core_hint "did you mean ${_sug}?"
       _core_usage "serve [-l|--local] [port]"
       return 1
       ;;
@@ -304,18 +358,27 @@ serve() {
   echo "serving $(pwd) on port ${port}  (Ctrl-C to stop)"
   # `i` is declared local too: under `emulate -L zsh` a `for i …` loop var is NOT
   # auto-scoped, so without this `serve` would leak (and clobber) the caller's $i.
-  local ip i
+  local ip i qr_url=""
   # tunnel IP (callback address) if a tun/wg interface is up, else LAN, via `ip`
   if command -v ip >/dev/null 2>&1; then
     for i in tun0 tun1 wg0 proton0 tailscale0; do
       ip=$(ip -4 -o addr show "$i" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1)
       [[ -n "$ip" ]] && {
         echo "  → http://${ip}:${port}/   (${i})"
+        qr_url="http://${ip}:${port}/"
         break
       }
     done
     ip=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1);exit}}')
-    [[ -n "$ip" ]] && echo "  → http://${ip}:${port}/   (lan)"
+    [[ -n "$ip" ]] && { echo "  → http://${ip}:${port}/   (lan)"; : "${qr_url:=http://${ip}:${port}/}"; }
+  fi
+  # Scan-to-open: this server's whole point is ad-hoc transfer to another device, so when
+  # qrencode is present render the reachable URL as a QR — point a phone at it, no typing
+  # a LAN IP. Graceful skip when qrencode is absent (just the URLs above), like every
+  # other optional-tool path in Core.
+  if [[ -n "$qr_url" ]] && _core_have qrencode; then
+    echo "  scan to open ${qr_url} :"
+    qrencode -t ANSIUTF8 "$qr_url"
   fi
   python3 -m http.server "$port"
 }
@@ -327,6 +390,10 @@ serve() {
 # pairs grouped under "§heading" markers, so the list stays trivially editable.
 core-help() {
   emulate -L zsh
+  _core_wants_help "$1" && { _core_help "core-help [filter]" "scannable cheat sheet of Core's functions, keys & maintenance; pass a word to filter"; return 0; }
+  # Optional case-insensitive filter: `core-help serve` jumps straight to the matching
+  # rows instead of scanning the whole sheet (U4). Empty → the full grouped cheat sheet.
+  local filter="${(L)1:-}"
   # Raw ANSI (not prompt %F) + `print -r` below, so a literal backslash in a key
   # (Ctrl-\) survives — print -P would consume it as an escape. Colour only on a
   # TTY; piped/redirected output stays plain.
@@ -370,7 +437,11 @@ core-help() {
   )
   local ver=""
   [[ -r "$_CORE_VERSION_FILE" ]] && ver=" v$(<"$_CORE_VERSION_FILE")"
-  print -r -- "${title}dotfiles Core${ver} — cheat sheet${te} ${dc}(run \`core-help\` anytime)${de}"
+  if [[ -n "$filter" ]]; then
+    print -r -- "${title}dotfiles Core${ver} — cheat sheet${te} ${dc}(filter: ${filter})${de}"
+  else
+    print -r -- "${title}dotfiles Core${ver} — cheat sheet${te} ${dc}(run \`core-help\` anytime · \`core-help <word>\` to filter)${de}"
+  fi
   # Key column is derived from the WIDEST key, not a fixed 22 — so alignment stays
   # correct if a longer verb is ever added (the old hard-coded width silently broke
   # alignment past 22 chars) and isn't padded wider than the content needs. On a narrow
@@ -386,14 +457,21 @@ core-help() {
   local cols=${COLUMNS:-80}
   ((kw > cols - 22)) && kw=$((cols - 22)) # keep room for a readable description
   ((kw < 6)) && kw=6
+  local matched=0
   for line in "${rows[@]}"; do
     if [[ "$line" == §* ]]; then
+      # Section headers print only in the UNFILTERED view — a filter wants the matching
+      # rows, not the scaffolding around them.
+      [[ -n "$filter" ]] && continue
       print -r -- "${title}${line#§}${te}"
     else
       parts=("${(@s:|:)line}")
       key="${parts[1]}"
       desc="${parts[2]}"
       req="${parts[3]:-}" # optional: a command this row needs to actually work
+      # Filtered: skip rows whose key+description don't contain the term (case-insensitive).
+      [[ -n "$filter" && "${(L)key} ${(L)desc}" != *"$filter"* ]] && continue
+      matched=1
       key="${key[1,kw]}"  # truncate an over-long key to the (possibly clamped) column
       if [[ -n "$req" ]] && ! _core_have "$req"; then
         # Unavailable on this box — dim the whole row and name what to install.
@@ -403,6 +481,43 @@ core-help() {
       fi
     fi
   done
+  if [[ -n "$filter" ]]; then
+    ((matched)) || print -r -- "  ${dc}no entries match '${filter}' — run \`core-help\` for the full sheet${de}"
+    return 0
+  fi
   print -r -- "${dc}  1Password: opsecret · openv · optoken · opssh    health: core-doctor · version: core-version${de}"
 }
 alias cheat='core-help'
+
+# ── command-not-found handler (U1) ────────────────────────────────────────────
+# A mistyped command otherwise gets zsh's terse default (or, on Debian, the distro's
+# package suggester). Replace it with a Core-voice miss that (a) suggests the nearest
+# Core verb/alias when it's a near typo (`extarct` → extract) and (b) offers an install
+# line via the package manager update.zsh already detects — turning a dead end into a
+# next step. Defined ONLY in an interactive shell: the unit harness sources this file
+# non-interactively (`zsh -fc`) and must NOT install a global handler. Opt out with
+# CORE_CNF_ENABLED=0 (e.g. an OS layer that prefers the distro's own suggester).
+: "${CORE_CNF_ENABLED:=1}"
+if [[ $- == *i* ]] && ((CORE_CNF_ENABLED)); then
+  command_not_found_handler() {
+    emulate -L zsh
+    local cmd="$1"
+    _core_err "command not found: ${cmd}"
+    # Did-you-mean against Core's own verbs — where typos land most often.
+    local -a _verbs=(
+      mkcd cdup extract mkbak fcd serve fif fbr up update-check
+      maint-install maint-run maint-log core-help core-doctor core-version
+      opsecret openv optoken opssh
+    )
+    local _sug
+    _sug="$(_core_suggest "$cmd" $_verbs)"
+    if [[ -n "$_sug" ]]; then
+      _core_hint "did you mean ${_sug}?"
+    elif (($+functions[_pkgup_mgr])); then
+      # No near Core verb — offer an install path for THIS box's package manager.
+      local _pfx
+      _pfx="$(_core_install_prefix "$(_pkgup_mgr)")" && _core_hint "try: ${_pfx} ${cmd}"
+    fi
+    return 127
+  }
+fi

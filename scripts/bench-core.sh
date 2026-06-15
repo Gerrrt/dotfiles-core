@@ -80,12 +80,8 @@ SANDBOX="$(mktemp -d "${TMPDIR:-/tmp}/core-bench.XXXXXX")"
 trap 'rm -rf "$SANDBOX"' EXIT
 
 # Pre-seed empty plugin dirs so plugins.zsh's first-run `git clone` is a no-op
-# (hermetic, no network) — identical to scripts/test-core.sh.
-mkdir -p "$SANDBOX/zdot/plugins"
-for plug in zsh-defer zsh-vi-mode zsh-history-substring-search \
-  zsh-autosuggestions fast-syntax-highlighting fzf-tab zsh-you-should-use; do
-  mkdir -p "$SANDBOX/zdot/plugins/$plug"
-done
+# (hermetic, no network) — the dir list lives once in common.sh, shared with test-core.sh.
+_seed_plugin_dirs "$SANDBOX/zdot/plugins"
 
 # The README/manifest canonical order (no os/local — those belong to OS repos).
 CORE_MODULES=(tools ui options history aliases git functions fzf bindings plugins op maint update)
