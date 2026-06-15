@@ -51,7 +51,20 @@ core-version() {
 # silently changes behaviour. Read-only: it inspects, never installs.
 core-doctor() {
   emulate -L zsh
-  _core_wants_help "$1" && { _core_help "core-doctor" "report Core's detected tools + active integrations on this box"; return 0; }
+  _core_wants_help "$1" && { _core_help "core-doctor [-v|--versions]" "report Core's detected tools + active integrations on this box (-v also shows versions)"; return 0; }
+  # Default stays fast + scannable (one `command -v` per tool). -v/--versions opts INTO a
+  # version readout next to each ✓ — useful for spotting an ancient fzf/bat — at the cost of
+  # one `--version` fork per present tool, so it is deliberately NOT the default.
+  local show_versions=0
+  case "${1:-}" in
+  -v | --versions) show_versions=1 ;;
+  "") ;;
+  *)
+    _core_err "core-doctor: unexpected argument: $1"
+    _core_usage "core-doctor [-v|--versions]"
+    return 1
+    ;;
+  esac
   local g='' c='' d='' r=''
   if [[ -t 1 && -z ${NO_COLOR:-} ]]; then
     # green/cyan stay local (doctor's own ✓/group semantics); the dim muted reuses
@@ -75,7 +88,16 @@ core-doctor() {
     print -r -- "${c}${groups[gi]}${r}"
     line=""
     for tool in ${=groups[gi + 1]}; do
-      if _core_have "$tool"; then line+="  ${g}✓${r} ${tool}"
+      if _core_have "$tool"; then
+        if ((show_versions)); then
+          # Best-effort, like setup.sh's _doctor: pull the first semver-ish token from
+          # the tool's own --version. Unparseable → just the ✓ (never an error).
+          local _v
+          _v="$("$tool" --version 2>&1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)"
+          line+="  ${g}✓${r} ${tool}${_v:+ ${d}${_v}${r}}"
+        else
+          line+="  ${g}✓${r} ${tool}"
+        fi
       else line+="  ${d}✗ ${tool}${r}"; missing+=("$tool"); fi
     done
     print -r -- " $line"
