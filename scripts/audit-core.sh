@@ -206,6 +206,19 @@ if [[ "${CORE_AUDIT_SERIAL:-0}" != 1 ]]; then
   BEHAV_BG=1
 fi
 
+# Reap the backgrounded behavioral child + remove its capture file on ANY exit. The
+# normal path (section 10) already waits for it and rm's the temp; but a Ctrl-C — or
+# an early FAIL/exit — mid-audit otherwise orphans the slow nvim/zsh leg and leaks the
+# mktemp. EXIT does the cleanup (idempotent: kill on a reaped pid and a second rm -f are
+# both no-ops); INT/TERM just exit with the conventional 128+signal code and let EXIT fire.
+_audit_cleanup() {
+  [[ -n "${BEHAV_PID:-}" ]] && kill "$BEHAV_PID" 2>/dev/null
+  [[ -n "${BEHAV_OUT:-}" ]] && rm -f "$BEHAV_OUT"
+}
+trap _audit_cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 # Tracked files that live in dotfiles-core but are NOT vendored into OS repos'
 # core/ subtree — repo-meta and dev tooling. Anything tracked, not matched by the
 # manifest, must appear here (or under a META_PREFIXES dir) or section 1 flags it.
