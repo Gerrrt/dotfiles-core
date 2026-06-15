@@ -92,6 +92,22 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 - `scripts/bench-core.sh` + `make bench`: a hermetic hyperfine benchmark of the
   canonical Core load chain, so startup-perf regressions (the thing tools.zsh's
   caching and plugins.zsh's deferral exist to prevent) are measurable, not silent.
+- A `command_not_found_handler` (zsh): a mistyped command now gets a Core-voice miss
+  that suggests the nearest Core verb on a near typo (`extarct` → `extract`, via a
+  small built-in Levenshtein) or, failing that, an install line for this box's detected
+  package manager — instead of zsh's terse default. Interactive-only; `CORE_CNF_ENABLED=0`
+  opts out.
+- `make doctor` (`scripts/setup.sh --doctor`): the read-only half of `make setup` —
+  reports each dev tool against its pin with no install and no audit, for quick "is my
+  toolchain aligned with CI?" triage.
+- `core-help <word>` filters the cheat sheet to matching rows (and reports a no-match
+  cleanly), so jumping to one verb beats scanning the whole sheet.
+- `serve` renders the reachable URL as a terminal QR code when `qrencode` is present
+  (scan-to-open from a phone) — graceful skip when it isn't.
+- `scripts/audit-core.sh --strict`: treat any SKIP as a failure (a gate whose tool was
+  absent did not actually run), for release/CI verification where every gate must execute.
+- `ui.zsh` primitives: `_core_errbox` (multi-line what/why/fix error blocks),
+  `_core_suggest`/`_core_lev` (did-you-mean), reused across the runtime helpers.
 
 ### Changed
 
@@ -121,6 +137,20 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   the manifest, so they were never vendored.
 - `scripts/audit-core.sh` no longer uses the bash-4-only `mapfile`, so the gate itself
   runs on macOS's stock bash 3.2.
+- The audit summary now NAMES the checks that skipped (tool absent) and labels such a
+  run PARTIAL rather than hiding the gap behind a bare count — several skipped gates
+  (markdownlint, actionlint, gitleaks, luacheck, nvim) are CI-enforced, so a clean local
+  box can still differ from the gate.
+- `core-doctor` now turns its `✗` tools into a copy-pasteable install line for this box's
+  package manager, instead of leaving the reader to look each one up.
+- Spinner (`_core_spin`) shows elapsed time and ends with a still `✓`/`✗` result frame, so
+  a long step reads as progress and finishes with a legible outcome; `extract` routes the
+  quiet unpack formats through it. Unknown-format `extract` errors print a what/why/fix block.
+- `serve`/`up` suggest the nearest valid flag on an unknown option (did-you-mean).
+- De-duplicated the gate scripts: the `_set_scope` area parser, the hermetic plugin-seed
+  list, and the `ci-classify.sh` output reader now live once in `scripts/lib/common.sh`
+  (consumed by `audit-core.sh`, `test-core.sh`, `bench-core.sh`) — they had drift-prone
+  copies. `op.zsh` verbs gained the `emulate -L zsh` every other Core verb uses.
 
 ### Security
 
@@ -132,6 +162,9 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Fixed
 
+- `diff` was unconditionally aliased to `diff --color=auto`, which BSD/macOS `diff` (the
+  dotfiles-MacBook target) does not support — every `diff` invocation would error there.
+  The alias is now applied only after a feature-probe confirms this box's `diff` accepts it.
 - fzf / fzf-tab previews hardcoded `bat`/`eza`, so every preview pane printed
   "command not found" on Debian/Ubuntu (bat ships as `batcat`) and on any box without
   eza. Previews now resolve `$BAT_BIN` with a `cat`/`ls` fallback, and a new audit

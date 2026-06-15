@@ -98,6 +98,65 @@ _core_usage() { # "usage: …" → stderr
   else print -u2 -r -- "usage: $*"; fi
 }
 
+# _core_errbox <headline> [body line...]  → a multi-line error BLOCK on stderr for the
+# few highest-friction failures (an unknown archive format, no package manager): a red
+# headline, then dim indented body lines (why / fix / docs). Single-line errors stay on
+# _core_err — this is reserved for the cases where the extra layout earns its space.
+_core_errbox() {
+  local head="$1"; shift
+  if _core_color; then print -u2 -r -- "${_CORE_C_RED}✗${_CORE_C_RST} ${head}"
+  else print -u2 -r -- "✗ ${head}"; fi
+  local l
+  for l in "$@"; do
+    if _core_color; then print -u2 -r -- "${_CORE_C_DIM}    ${l}${_CORE_C_RST}"
+    else print -u2 -r -- "    ${l}"; fi
+  done
+}
+
+# ── did-you-mean ───────────────────────────────────────────────────────────────
+# _core_lev <a> <b>  → edit (Levenshtein) distance between two strings, on stdout.
+# Inputs are command/flag names (a handful of chars), so the O(n·m) table is trivial.
+# Pure zsh (1-based arrays under `emulate -L zsh`; scalar[i] yields the i-th char), so
+# it runs on a bare box with no awk/python. Powers _core_suggest's "did you mean?".
+_core_lev() {
+  emulate -L zsh
+  local a="$1" b="$2"
+  local -i la=${#a} lb=${#b} i j cost del ins sub m
+  ((la == 0)) && { print -r -- "$lb"; return; }
+  ((lb == 0)) && { print -r -- "$la"; return; }
+  # 1-based rows; index (k+1) holds column k (k = 0..lb). NOTE: array-element assignment
+  # subscripts must NOT contain spaces (`prev[j+1]=`, not `prev[j + 1]=`) — with spaces
+  # zsh parses the LHS as a glob word, not an assignment ("bad pattern: prev[j").
+  local -a prev cur
+  for ((j = 0; j <= lb; j++)); do prev[j+1]=$j; done
+  for ((i = 1; i <= la; i++)); do
+    cur[1]=$i
+    for ((j = 1; j <= lb; j++)); do
+      [[ "${a[i]}" == "${b[j]}" ]] && cost=0 || cost=1
+      del=$((prev[j+1] + 1)); ins=$((cur[j] + 1)); sub=$((prev[j] + cost))
+      m=$del; ((ins < m)) && m=$ins; ((sub < m)) && m=$sub
+      cur[j+1]=$m
+    done
+    prev=("${cur[@]}")
+  done
+  print -r -- "${prev[lb+1]}"
+}
+
+# _core_suggest <input> <candidate...>  → echo the single CLOSEST candidate when it's a
+# near miss (distance ≤ 2 AND < the input's length, so a 1-char typo doesn't "match"
+# everything), else nothing. Callers do: s=$(_core_suggest bad a b c); [[ -n $s ]] && …
+_core_suggest() {
+  emulate -L zsh
+  local input="$1"; shift
+  local best="" c
+  local -i d bestd=99
+  for c in "$@"; do
+    d=$(_core_lev "$input" "$c")
+    ((d < bestd)) && { bestd=$d; best=$c; }
+  done
+  ((bestd <= 2 && bestd < ${#input})) && [[ -n "$best" ]] && print -r -- "$best"
+}
+
 # ── help ──────────────────────────────────────────────────────────────────────
 # _core_wants_help <arg>  → true when arg is -h/--help. Lets every Core verb answer
 # `cmd -h`/`cmd --help` uniformly. A help REQUEST is success, not misuse — so the
@@ -171,6 +230,13 @@ _core_spin() {
   # job-control "[1] <pid>"/"done" chatter the background job would otherwise emit.
   setopt localoptions localtraps nomonitor
   local -a fr=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+  # Colour honours NO_COLOR even though stderr is a TTY here (the cursor/erase escapes
+  # below are control, not colour, so they always apply). Blank vars = plain output.
+  local _g='' _r='' _d='' _x=''
+  _core_color && { _g=$_CORE_C_GRN _r=$_CORE_C_RED _d=$_CORE_C_DIM _x=$_CORE_C_RST; }
+  # Elapsed-time readout so a long step reads as PROGRESS, not a hang. SECONDS is
+  # function-local under `emulate -L zsh` (set by the caller), so zero it here.
+  local SECONDS=0
   printf '\e[?25l' >&2 # hide the cursor so it doesn't blink ON TOP of the glyph
   "$@" &
   local pid=$!
@@ -182,12 +248,21 @@ _core_spin() {
   trap 'kill -INT "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; printf "\r\e[K\e[?25h" >&2; return 130' INT
   local i=0
   while kill -0 "$pid" 2>/dev/null; do
-    printf '\r%s %s' "${fr[$((i % 10 + 1))]}" "$title" >&2
+    printf '\r%s %s %s(%ds)%s' "${fr[$((i % 10 + 1))]}" "$title" "$_d" "$SECONDS" "$_x" >&2
     _core_nap
     ((i++))
   done
   wait "$pid"
   local rc=$?
-  printf '\r\e[K\e[?25h' >&2 # clear the spinner line + restore the cursor
+  # Replace the spinner with a STILL result frame — a green ✓ or red ✗ + the elapsed
+  # time — so the line ends with a legible outcome instead of vanishing. Restore the
+  # cursor either way. Colour follows the same stderr-TTY/NO_COLOR rule as the rest, via
+  # the local _g/_r/_d/_x (blank when _core_color is false) — NOT the global constants.
+  if ((rc == 0)); then
+    printf '\r\e[K%s✓%s %s %s(%ds)%s\n' "$_g" "$_x" "$title" "$_d" "$SECONDS" "$_x" >&2
+  else
+    printf '\r\e[K%s✗%s %s %s(%ds, exit %d)%s\n' "$_r" "$_x" "$title" "$_d" "$SECONDS" "$rc" "$_x" >&2
+  fi
+  printf '\e[?25h' >&2 # restore the cursor
   return $rc
 }

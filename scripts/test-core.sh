@@ -47,36 +47,11 @@ QUIET=0
 # verdict here; a bare `./scripts/test-core.sh` runs everything.
 SCOPE_SHELL=1
 SCOPE_NVIM=1
-_set_scope() { # _set_scope <comma-list: shell,nvim | all | none>
-  SCOPE_SHELL=0
-  SCOPE_NVIM=0
-  local tok had=0
-  local IFS=,
-  for tok in $1; do
-    had=1
-    case "$tok" in
-    shell) SCOPE_SHELL=1 ;;
-    nvim) SCOPE_NVIM=1 ;;
-    all | full)
-      SCOPE_SHELL=1
-      SCOPE_NVIM=1
-      ;;
-    none) ;;
-    *)
-      printf 'test-core.sh: unknown scope %s — running full (fail-safe)\n' "$tok" >&2
-      SCOPE_SHELL=1
-      SCOPE_NVIM=1
-      ;;
-    esac
-  done
-  # Empty scope is ambiguous → fail SAFE to the full run (mirrors audit-core.sh);
-  # `none` is the explicit "always-on checks only" token.
-  ((had)) || {
-    printf 'test-core.sh: empty scope — running full (fail-safe)\n' >&2
-    SCOPE_SHELL=1
-    SCOPE_NVIM=1
-  }
-}
+# Shared palette + pass/skip/fail/hdr/have + _set_scope + _seed_plugin_dirs (one
+# definition for every gate script). Sourced HERE — before the arg loop calls _set_scope
+# — and after QUIET is set so the lib's `: "${QUIET:=0}"` preserves it.
+# shellcheck source=scripts/lib/common.sh
+source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
 # Same flag contract as audit-core.sh: parse EVERY arg and reject an unknown option or
 # a stray extra operand instead of ignoring it; -h/--help prints usage. (audit-core.sh
@@ -119,11 +94,6 @@ EOF
   esac
   shift
 done
-
-# Shared palette + pass/skip/fail/hdr/have (one definition for every gate script).
-# Sourced AFTER QUIET is set so the lib's `: "${QUIET:=0}"` preserves it.
-# shellcheck source=scripts/lib/common.sh
-source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
 # Wall-clock for the standalone summary (mirrors audit-core.sh) — the headless nvim
 # leg can take a few seconds, so showing elapsed reads as progress, not a hang.
@@ -458,12 +428,9 @@ CORE_MODULES=(tools ui options history aliases git functions fzf bindings plugin
 
 # Pre-seed empty plugin dirs so plugins.zsh's first-run clone is a no-op (hermetic,
 # no network). _zplugin_load finds the dir, skips the clone, finds no source file,
-# and moves on — exercising the load-order logic without pulling from GitHub.
-mkdir -p "$SANDBOX/zdot/plugins"
-for plug in zsh-defer zsh-vi-mode zsh-history-substring-search \
-  zsh-autosuggestions fast-syntax-highlighting fzf-tab zsh-you-should-use; do
-  mkdir -p "$SANDBOX/zdot/plugins/$plug"
-done
+# and moves on — exercising the load-order logic without pulling from GitHub. The dir
+# list lives once in common.sh (_seed_plugin_dirs), shared with the integration + bench.
+_seed_plugin_dirs "$SANDBOX/zdot/plugins"
 
 # Generate the sandbox .zshrc: source every Core module in canonical order, then
 # print a sentinel. We deliberately do NOT key success on each module's exit code —
@@ -513,11 +480,7 @@ fi
 # loading Core alone, would stay green.
 hdr "consumer integration (Core + os/local layers, canonical loader)"
 INTEG="$SANDBOX/integ"
-mkdir -p "$INTEG/plugins"
-for plug in zsh-defer zsh-vi-mode zsh-history-substring-search \
-  zsh-autosuggestions fast-syntax-highlighting fzf-tab zsh-you-should-use; do
-  mkdir -p "$INTEG/plugins/$plug"
-done
+_seed_plugin_dirs "$INTEG/plugins"
 # os.zsh: realistic OS-layer file. Exercises the Core helpers an OS repo depends on;
 # any reference to an undefined helper prints to stderr (the failure signal below).
 cat >"$INTEG/os.zsh" <<'OSZSH'
@@ -659,6 +622,23 @@ check "core-help renders all verbs (wide terminal)" \
   'out=$(COLUMNS=120 core-help 2>&1); (( $? == 0 )) && [[ $out == *mkcd* && $out == *"maint-install"* && $out == *serve* ]]'
 check "core-help renders cleanly on a pathologically narrow terminal" \
   'out=$(COLUMNS=12 core-help 2>&1); (( $? == 0 )) && [[ $out == *mkcd* ]]'
+# core-help <filter> (U4): a term shows ONLY matching rows (and drops the section
+# scaffolding); an unmatched term reports it instead of printing an empty sheet.
+check "core-help <term> filters to matching rows only" \
+  'out=$(COLUMNS=120 core-help serve 2>&1); (( $? == 0 )) && [[ $out == *serve* && $out != *"maint-install"* ]]'
+check "core-help reports when a filter matches nothing" \
+  'out=$(COLUMNS=120 core-help zzzznope 2>&1); (( $? == 0 )) && [[ $out == *"no entries match"* ]]'
+check "core-help --help returns 0 (not mis-read as a filter)" \
+  'out=$(core-help --help); (( $? == 0 )) && [[ $out == *"usage: core-help"* ]]'
+# _core_suggest did-you-mean (U3/U1): nearest candidate on a near typo; SILENT when
+# nothing is close or the input is too short to be a confident match.
+check "_core_suggest returns the nearest flag for a near typo" \
+  'out=$(_core_suggest --locl -l --local); [[ $out == "--local" ]]'
+check "_core_suggest stays silent when nothing is close" \
+  'out=$(_core_suggest zzzzzz -l --local); [[ -z $out ]]'
+# _core_errbox (U8): a ✗ headline line plus dim INDENTED body lines (plain when piped).
+check "_core_errbox renders a headline and indented body lines" \
+  'out=$(_core_errbox head why fix 2>&1); L=("${(@f)out}"); (( ${#L} == 3 )) && [[ ${L[1]} == *head* && ${L[2]} == "    why" && ${L[3]} == "    fix" ]]'
 # _core_hint width-aware wrapping (U9): a known narrow width wraps with the
 # continuation aligned under the text; an UNKNOWN width (non-tty, COLUMNS=0 here) must
 # NOT wrap, so captured/logged hints stay one line (no regression for the other tests).
@@ -749,6 +729,12 @@ ucheck "ui: _core_spin propagates the wrapped command's exit code" \
 # — the bare-box regression the old literal `sleep 0.1` risked. Driven without a TTY.
 ucheck "ui: _core_nap completes and returns 0 (zselect tick, no fractional sleep fork)" \
   "source '$UI'; _core_nap; (( \$? == 0 ))"
+
+# functions.zsh: the command-not-found handler (U1) is defined ONLY in an interactive
+# shell (ucheck runs -fic), and on a near typo it must suggest the closest Core verb in
+# Core's voice rather than zsh's terse default. extarct → extract is a 1-transposition miss.
+ucheck "fn: command_not_found_handler suggests the nearest Core verb on a typo" \
+  "source '$UI'; source '$FN'; out=\$(extarct foo 2>&1); [[ \$out == *'did you mean extract'* ]]"
 
 # update.zsh: _pkgup_mgr must pick the manager that's actually on PATH. Isolate PATH to
 # a lone apt-get stub (so the brew/pacman/dnf/zypper arms above it all miss) and disable
@@ -936,6 +922,27 @@ done < <(grep -rhoE '^(function[[:space:]]+)?[A-Za-z][A-Za-z0-9_-]*\(\)|^functio
 COMP_VERBS+=(cheat)
 ucheck "completions: every first-party verb has a compinit-resolved completion (derived)" \
   "fpath=('$HERE/zsh/completions' \$fpath); autoload -Uz compinit && compinit -u -d '$SANDBOX/zcd-comp' >/dev/null 2>&1; for c in ${COMP_VERBS[*]}; do [[ -n \${_comps[\$c]:-} ]] || { print \"no completion registered for: \$c\"; exit 1; }; done"
+
+# completion ↔ source flag drift (B7): the coverage test above proves a completion EXISTS;
+# this proves its FLAGS still match the verb. Every long flag a flag-bearing completion
+# advertises must still be mentioned in the verb's zsh source — so removing `--dry-run`
+# from `up` (or renaming `--local`) without updating its #compdef now FAILS here instead
+# of silently shipping a completion that offers a flag the verb rejects to all 9 repos.
+# Pure sed+grep (busybox-safe); comment lines in the completion are stripped first.
+hdr "completion ↔ source flag drift (serve, up)"
+_flag_drift() { # _flag_drift <verb> <completion-file> <source-file>
+  local verb="$1" comp="$2" src="$3" f flags miss=0
+  flags="$(sed 's/^[[:space:]]*#.*//' "$comp" | grep -oE -- '--[a-z][a-z-]+' | sort -u)"
+  for f in $flags; do
+    grep -q -- "$f" "$src" || {
+      fail "completion '$verb' advertises $f, absent from $src (drift)"
+      miss=1
+    }
+  done
+  ((miss)) || pass "completion '$verb' flags all still present in its source"
+}
+_flag_drift serve "$HERE/zsh/completions/_serve" "$HERE/zsh/functions.zsh"
+_flag_drift up "$HERE/zsh/completions/_up" "$HERE/zsh/update.zsh"
 
 # ── summary ───────────────────────────────────────────────────────────────────
 summary

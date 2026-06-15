@@ -71,7 +71,13 @@ if [[ -n ${HAVE_DUF:-} ]]; then alias df='duf'; else alias df='df -h'; fi
 
 # ── editor + misc QoL ─────────────────────────────────────────────────────────
 alias vim='nvim'
-alias diff='diff --color=auto'   # df → duf/df -h handled in the disk section above
+# diff: colourise ONLY when this box's diff actually supports `--color` (GNU does;
+# BSD/macOS diff — the dotfiles-MacBook target — does NOT, where an unconditional
+# alias would make every `diff` invocation error). Feature-probe once at load with a
+# no-op comparison; the bare classic `diff` stays the fallback. (df → duf/df -h above.)
+if diff --color=auto /dev/null /dev/null >/dev/null 2>&1; then
+  alias diff='diff --color=auto'
+fi
 
 # ── git ───────────────────────────────────────────────────────────────────────
 # The git alias set is the single source of truth in git.zsh (OMZ-style, loaded
