@@ -294,7 +294,15 @@ mkbak() {
     _core_err "mkbak: '$1' is not a regular file"
     return 1
   }
-  cp -- "$1" "$1.$(date +%Y%m%d-%H%M%S).bak"
+  # Collision-safe + non-interactive. Two backups in the same second must NOT clobber
+  # the first, and mkbak must never PROMPT — but `cp -i` bleeds in from aliases.zsh
+  # (parsed before this module), so a same-second collision would stop for a y/n. Pick
+  # the next free .bak suffix, and copy via `command cp` to bypass the interactive alias.
+  local ts dst n=1
+  ts="$(date +%Y%m%d-%H%M%S)"
+  dst="$1.$ts.bak"
+  while [[ -e "$dst" ]]; do dst="$1.$ts.$((n++)).bak"; done
+  command cp -p -- "$1" "$dst" && _core_ok "backup: ${dst:t}"
 }
 
 # serve — quick HTTP server in the CWD, printing the URLs it's actually reachable
@@ -339,10 +347,31 @@ serve() {
     return 1
   fi
   _core_have python3 || {
-    _core_err "serve: requires python3"
-    _core_hint "install python3, then retry"
+    _core_errbox "serve: requires python3" \
+      "why: serve runs Python's built-in http.server" \
+      "fix: install python3, then retry"
     return 1
   }
+  # Defensive (U7): a port already in use surfaces from http.server as a raw Python
+  # traceback. Probe a bind FIRST — with SO_REUSEADDR set exactly as http.server does, so
+  # the probe agrees with the real bind — and fail in Core's voice instead. Runs only after
+  # the port/flags validated above, so a scripted bad-input run never reaches it.
+  local bind_host="0.0.0.0"
+  ((local_only)) && bind_host="127.0.0.1"
+  if ! python3 - "$bind_host" "$port" 2>/dev/null <<'PY'
+import socket, sys
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+try:
+    s.bind((sys.argv[1], int(sys.argv[2]))); s.close()
+except OSError:
+    sys.exit(1)
+PY
+  then
+    _core_err "serve: port ${port} is already in use on ${bind_host}"
+    _core_hint "pick another port, e.g. serve $((port + 1))"
+    return 1
+  fi
   # --local: bind loopback only — nothing leaves this host. No exposure warning, no
   # LAN/tunnel URL discovery (none would be reachable anyway).
   if ((local_only)); then
@@ -421,6 +450,17 @@ core-help() {
     "§search"
     "fif <text>|find text inside files (rg + fzf + preview)|fzf"
     "fbr|fuzzy git-branch checkout|fzf"
+    "§git (most-used — full OMZ-style set in git.zsh)"
+    "g <args>|git"
+    "gst / gss|status / short status"
+    "ga / gaa|stage file(s) / stage all"
+    "gc / gcm <msg>|commit (verbose) / commit -m"
+    "gco / gcb <branch>|checkout / checkout -b"
+    "gp / gl|push / pull"
+    "gpf|push --force-with-lease (safe force)"
+    "gd / gds|diff / diff --staged"
+    "glog|graph log (oneline, decorated)"
+    "grbm|rebase onto the trunk branch"
     "§keybindings"
     "Ctrl-F|file picker → insert path at cursor|fzf"
     "Ctrl-R|history search|fzf"
@@ -457,9 +497,13 @@ core-help() {
   local cols=${COLUMNS:-80}
   ((kw > cols - 22)) && kw=$((cols - 22)) # keep room for a readable description
   ((kw < 6)) && kw=6
-  local matched=0
+  local matched=0 cur_section=""
   for line in "${rows[@]}"; do
     if [[ "$line" == §* ]]; then
+      # Track the section a row belongs to (lowercased) so a filter can match by SECTION
+      # name too — e.g. `core-help keybindings` surfaces that whole group even though the
+      # word never appears in any row's key/desc. (Completion offers these section terms.)
+      cur_section="${(L)${line#§}}"
       # Section headers print only in the UNFILTERED view — a filter wants the matching
       # rows, not the scaffolding around them.
       [[ -n "$filter" ]] && continue
@@ -469,8 +513,10 @@ core-help() {
       key="${parts[1]}"
       desc="${parts[2]}"
       req="${parts[3]:-}" # optional: a command this row needs to actually work
-      # Filtered: skip rows whose key+description don't contain the term (case-insensitive).
-      [[ -n "$filter" && "${(L)key} ${(L)desc}" != *"$filter"* ]] && continue
+      # Filtered: skip rows whose key+description AND owning section don't contain the term
+      # (case-insensitive) — so both a verb term (`serve`) and a section term (`navigation`)
+      # narrow correctly, and a completion-suggested section name never yields "no matches".
+      [[ -n "$filter" && "${(L)key} ${(L)desc}" != *"$filter"* && "$cur_section" != *"$filter"* ]] && continue
       matched=1
       key="${key[1,kw]}"  # truncate an over-long key to the (possibly clamped) column
       if [[ -n "$req" ]] && ! _core_have "$req"; then
@@ -509,6 +555,10 @@ if [[ $- == *i* ]] && ((CORE_CNF_ENABLED)); then
       maint-install maint-run maint-log core-help core-doctor core-version
       opsecret openv optoken opssh
     )
+    # Also weigh this shell's defined ALIASES — the most-typed commands (the g* git set,
+    # ll/la, lg, …) live there, so a near miss like `gts`→`gst` or `gco`→`gci` gets caught
+    # too, not just the Core verbs. ${(k)aliases} is the alias-name set in the live shell.
+    _verbs+=(${(k)aliases})
     local _sug
     _sug="$(_core_suggest "$cmd" $_verbs)"
     if [[ -n "$_sug" ]]; then

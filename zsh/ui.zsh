@@ -182,12 +182,16 @@ _core_help() {
 # _core_confirm <prompt>  → 0 = yes, non-zero = no. Defensive by default: with no
 # controlling TTY (a pipe, a cron job, a captured run) it DECLINES rather than
 # blocking or assuming yes — so wrapping a destructive action in it is fail-safe.
-# gum confirm when present (arrow-key UI); else a one-keystroke `read -q`.
+# gum confirm when present (arrow-key UI); else a one-keystroke `read -q`. BOTH default
+# to NO: gum's built-in default is the affirmative button, so `--default=false` is
+# passed to match the `[y/N]` fallback — otherwise the same destructive prompt (please /
+# up / extract-overwrite) would be one-Enter-to-confirm under gum and one-Enter-to-decline
+# without it. Consistent safe default across both paths.
 _core_confirm() {
   local prompt="${1:-Proceed?}"
   [[ -t 0 && -t 2 ]] || return 1 # no TTY → safe "no"
   if _core_have gum; then
-    gum confirm "$prompt"
+    gum confirm --default=false "$prompt"
   else
     local reply
     read -q "reply?${prompt} [y/N] "

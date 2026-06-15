@@ -183,8 +183,16 @@ fbr() {
     return 1
   }
   local branch
-  branch=$(git branch --all 2>/dev/null | grep -v HEAD |
-    fzf --preview 'git log --oneline --color=always {1} | head -20' |
-    sed 's/.* //' | sed 's#remotes/[^/]*/##')
-  [[ -n "$branch" ]] && git checkout "$branch"
+  # List CLEAN branch names (no leading '* '/whitespace, no '<remote>/HEAD' alias) so the
+  # preview's {} is a real ref. The old form previewed `{1}`, which on the current-branch
+  # row ('* main') is the literal '*' — so `git log *` errored/blanked. On checkout, strip a
+  # leading 'origin/' so picking a remote-only branch creates the matching local tracking branch.
+  # NOTE: the strip is origin-ONLY on purpose — a universal `${branch#*/}` would mangle a
+  # slash-containing LOCAL name (feature/foo → foo). A non-origin remote pick (e.g.
+  # upstream/foo) is left as-is and `git checkout` resolves it as best it can — a rare
+  # multi-remote case not worth risking the common local-branch path for.
+  branch=$(git branch --all --format='%(refname:short)' 2>/dev/null |
+    grep -vE '/HEAD$' | sort -u |
+    fzf --preview 'git log --oneline --color=always {} | head -20') &&
+    [[ -n "$branch" ]] && git checkout "${branch#origin/}"
 }

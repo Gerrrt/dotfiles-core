@@ -583,6 +583,12 @@ check "mkbak rejects a missing file" \
   'mkbak /no/such/file 2>/dev/null; (( $? != 0 ))'
 check "mkbak with no argument is rejected" \
   'mkbak 2>/dev/null; (( $? != 0 ))'
+# U6: a second backup must NOT clobber an existing .bak and must NOT prompt. Pre-create
+# the timestamped target, then run mkbak with stdin closed: collision-safe means a SECOND
+# .bak appears (≥2 total); had `cp -i` bled in, the closed stdin would abort the copy (1).
+# Robust to the same-second/next-second race either way (distinct name OR distinct suffix).
+check "mkbak never clobbers an existing .bak (collision-safe, non-interactive)" \
+  'd=$(mktemp -d); cd "$d"; print hi > f; ts=$(date +%Y%m%d-%H%M%S); : > "f.$ts.bak"; mkbak f </dev/null >/dev/null 2>&1; n=$(print -l -- f.*.bak(N) | wc -l); (( n >= 2 ))'
 check "serve rejects a non-numeric port" \
   'serve abc 2>/dev/null; (( $? != 0 ))'
 check "serve rejects an out-of-range port" \
@@ -628,6 +634,16 @@ check "core-help <term> filters to matching rows only" \
   'out=$(COLUMNS=120 core-help serve 2>&1); (( $? == 0 )) && [[ $out == *serve* && $out != *"maint-install"* ]]'
 check "core-help reports when a filter matches nothing" \
   'out=$(COLUMNS=120 core-help zzzznope 2>&1); (( $? == 0 )) && [[ $out == *"no entries match"* ]]'
+# U8: the git alias set (git.zsh) is now discoverable from the cheat sheet — the full
+# view carries the git section, and a filter still narrows to a specific git row.
+check "core-help surfaces the git alias section in the full sheet" \
+  'out=$(COLUMNS=120 NO_COLOR=1 core-help 2>&1); (( $? == 0 )) && [[ $out == *"git (most-used"* && $out == *gpf* ]]'
+check "core-help can filter to a git alias row" \
+  'out=$(COLUMNS=120 NO_COLOR=1 core-help gpf 2>&1); (( $? == 0 )) && [[ $out == *gpf* && $out != *"maint-install"* ]]'
+# Section-aware filter: a SECTION name (the completion offers these) surfaces its whole
+# group even though the word appears in no row key/desc — e.g. `core-help keybindings`.
+check "core-help filters by section name (keybindings → its rows, not others)" \
+  'out=$(COLUMNS=120 NO_COLOR=1 core-help keybindings 2>&1); (( $? == 0 )) && [[ $out == *Ctrl-F* && $out != *"maint-install"* ]]'
 check "core-help --help returns 0 (not mis-read as a filter)" \
   'out=$(core-help --help); (( $? == 0 )) && [[ $out == *"usage: core-help"* ]]'
 # _core_suggest did-you-mean (U3/U1): nearest candidate on a near typo; SILENT when
@@ -943,6 +959,88 @@ _flag_drift() { # _flag_drift <verb> <completion-file> <source-file>
 }
 _flag_drift serve "$HERE/zsh/completions/_serve" "$HERE/zsh/functions.zsh"
 _flag_drift up "$HERE/zsh/completions/_up" "$HERE/zsh/update.zsh"
+
+# ── git helper unit tests (git.zsh) (B2) ──────────────────────────────────────
+# git.zsh's trunk/branch resolution (git_main_branch's 6-way ref search, git_current_branch's
+# detached-HEAD fallback) is real logic that branch-aware aliases (gcom/grbm/gpu) ride on and
+# that fans out to 9 repos — yet it was the ONE shell module with no behavioral coverage (only
+# `zsh -n`). Drive each helper against throwaway repos, hermetic: HOME → sandbox and git config
+# pinned to /dev/null so the host's init.defaultBranch can't skew the result. Skips without git.
+hdr "git helper unit tests (git.zsh)"
+if ! have git; then
+  skip "git helpers (git not installed)"
+else
+  GITZSH="$HERE/zsh/git.zsh"
+  gcheck() { # gcheck <label> <zsh-body that must exit 0>
+    local out
+    if out="$(HOME="$SANDBOX" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+      GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@e GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@e \
+      zsh -fc "source '$GITZSH' || exit 1; $2" 2>&1)"; then
+      pass "$1"
+    else
+      fail "$1"
+      [[ -n "$out" ]] && printf '%s\n' "$out" | sed 's/^/    /' >&2
+    fi
+  }
+  gcheck "git_current_branch reads the checked-out branch" \
+    'd=$(mktemp -d); cd "$d"; git -c init.defaultBranch=main init -q .; [[ $(git_current_branch) == main ]]'
+  gcheck "git_current_branch falls back to a short SHA on detached HEAD" \
+    'd=$(mktemp -d); cd "$d"; git -c init.defaultBranch=main init -q .; git commit -q --allow-empty -m x; git checkout -q --detach HEAD; [[ -n $(git_current_branch) ]]'
+  gcheck "git_current_branch is empty outside a repo" \
+    'd=$(mktemp -d); cd "$d"; [[ -z $(git_current_branch) ]]'
+  gcheck "git_main_branch resolves main when present" \
+    'd=$(mktemp -d); cd "$d"; git -c init.defaultBranch=main init -q .; git commit -q --allow-empty -m x; [[ $(git_main_branch) == main ]]'
+  gcheck "git_main_branch resolves master when that is the trunk" \
+    'd=$(mktemp -d); cd "$d"; git -c init.defaultBranch=master init -q .; git commit -q --allow-empty -m x; [[ $(git_main_branch) == master ]]'
+  gcheck "git_main_branch defaults to master when no known trunk exists" \
+    'd=$(mktemp -d); cd "$d"; git -c init.defaultBranch=main init -q .; git commit -q --allow-empty -m x; git branch -m weirdtrunk; [[ $(git_main_branch) == master ]]'
+fi
+
+# ── update.zsh per-manager parse (B5) ─────────────────────────────────────────
+# The detection LADDER is covered above (apt), but _pkgup_count/_pkgup_list use a DISTINCT
+# grep/awk heuristic PER manager — and only apt had a test. A regex that miscounts a header
+# or blank row would ship silently to that one distro's repo. Pin each: isolate PATH to a
+# lone manager stub (+ the coreutils its pipeline forks) so _pkgup_mgr resolves to it, feed
+# canned `outdated` output, and assert the parsed count/names. Mirrors the apt stub above.
+hdr "update.zsh per-manager parse (apk / dnf / zypper / pacman)"
+_mgr_stub() { # _mgr_stub <mgr> <sh-body>
+  rm -rf "$PMBIN"
+  mkdir -p "$PMBIN"
+  printf '#!/bin/sh\n%s\n' "$2" >"$PMBIN/$1"
+  chmod +x "$PMBIN/$1"
+  local t
+  for t in grep awk sort cut sed; do
+    [[ -e "$PMBIN/$t" ]] || ln -s "$(command -v "$t")" "$PMBIN/$t" 2>/dev/null
+  done
+}
+_mgr_stub apk 'case "$*" in *"list -u"*) printf "a-1.0 ...\nb-2.0 ...\nc-3.0 ...\n" ;; esac'
+ucheck "update: _pkgup_count parses apk (3 upgradable)" \
+  "source '$UPD'; [[ \$(_pkgup_count) == 3 ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "update: _pkgup_list parses apk package names" \
+  "source '$UPD'; out=\$(_pkgup_list); [[ \$out == *a-1.0* && \$out == *c-3.0* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+_mgr_stub dnf 'case "$*" in *check-update*) printf "bash.x86_64    5.1-2    baseos\nvim.x86_64    9.0-1    appstream\n" ;; esac'
+ucheck "update: _pkgup_count parses dnf check-update (2 upgradable)" \
+  "source '$UPD'; [[ \$(_pkgup_count) == 2 ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "update: _pkgup_list parses dnf package names" \
+  "source '$UPD'; out=\$(_pkgup_list); [[ \$out == *bash.x86_64* && \$out == *vim.x86_64* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+_mgr_stub zypper 'case "$*" in *list-updates*) printf "v | repo | bash | 1 | 2 | x86_64\nv | repo | vim | 1 | 2 | x86_64\n" ;; esac'
+ucheck "update: _pkgup_count parses zypper list-updates (2 upgradable)" \
+  "source '$UPD'; [[ \$(_pkgup_count) == 2 ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "update: _pkgup_list parses zypper package names" \
+  "source '$UPD'; out=\$(_pkgup_list); [[ \$out == *bash* && \$out == *vim* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+_mgr_stub pacman 'case "$*" in *-Qu*) printf "bash 5.1.0\nvim 9.0.0\n" ;; esac'
+ucheck "update: _pkgup_count parses pacman -Qu (2 upgradable)" \
+  "source '$UPD'; [[ \$(_pkgup_count) == 2 ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "update: _pkgup_list parses pacman package names" \
+  "source '$UPD'; out=\$(_pkgup_list); [[ \$out == *bash* && \$out == *vim* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 
 # ── summary ───────────────────────────────────────────────────────────────────
 summary

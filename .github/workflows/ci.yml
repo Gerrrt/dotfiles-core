@@ -225,6 +225,15 @@ jobs:
         if: runner.os == 'macOS' && needs.changes.outputs.nvim == 'true'
         run: brew install neovim
 
+      # PyYAML for the audit's YAML-parse gate (section 6). The Linux audit runs
+      # --strict (below), which fails if an IN-SCOPE gate skips for a missing tool — so
+      # the always-on YAML check must have its importable `yaml`. tomllib/json are stdlib
+      # (Python ≥3.11, which the runner ships); only PyYAML needs installing. Linux-only:
+      # the macOS leg isn't --strict, and Alpine installs py3-yaml in its own job.
+      - name: Install PyYAML (Linux, for the audit's YAML parse gate)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y --no-install-recommends python3-yaml
+
       # Tolerant: luacheck/nvim are skipped for non-nvim changes, so report what's
       # actually present instead of failing on a deliberately-absent tool.
       - name: Tool versions
@@ -251,8 +260,14 @@ jobs:
           [ "$SHELL_CHANGED" = true ] && scope="shell"
           [ "$NVIM_CHANGED" = true ] && scope="${scope:+$scope,}nvim"
           [ -z "$scope" ] && scope="none"
-          echo "audit scope: $scope"
-          ./scripts/audit-core.sh --scope "$scope"
+          # --strict on the Linux leg: every IN-SCOPE gate's tool is installed here, so a
+          # SKIP would mean a tool silently failed to install — a false green this repo's
+          # whole thesis is against. Out-of-scope skips (a narrowed run) don't trip it.
+          # macOS stays non-strict (actionlint/gitleaks are Linux-only gates there).
+          strict=""
+          [ "$RUNNER_OS" = Linux ] && strict="--strict"
+          echo "audit scope: $scope ${strict:+(strict)}"
+          ./scripts/audit-core.sh --scope "$scope" $strict
 
   # Alpine (musl libc + busybox coreutils) is a named target repo, and functions.zsh
   # + the maint/test scripts explicitly claim busybox compatibility — yet the matrix
