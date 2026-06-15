@@ -640,6 +640,10 @@ check "core-help surfaces the git alias section in the full sheet" \
   'out=$(COLUMNS=120 NO_COLOR=1 core-help 2>&1); (( $? == 0 )) && [[ $out == *"git (most-used"* && $out == *gpf* ]]'
 check "core-help can filter to a git alias row" \
   'out=$(COLUMNS=120 NO_COLOR=1 core-help gpf 2>&1); (( $? == 0 )) && [[ $out == *gpf* && $out != *"maint-install"* ]]'
+# Section-aware filter: a SECTION name (the completion offers these) surfaces its whole
+# group even though the word appears in no row key/desc — e.g. `core-help keybindings`.
+check "core-help filters by section name (keybindings → its rows, not others)" \
+  'out=$(COLUMNS=120 NO_COLOR=1 core-help keybindings 2>&1); (( $? == 0 )) && [[ $out == *Ctrl-F* && $out != *"maint-install"* ]]'
 check "core-help --help returns 0 (not mis-read as a filter)" \
   'out=$(core-help --help); (( $? == 0 )) && [[ $out == *"usage: core-help"* ]]'
 # _core_suggest did-you-mean (U3/U1): nearest candidate on a near typo; SILENT when

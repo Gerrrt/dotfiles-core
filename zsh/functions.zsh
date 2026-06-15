@@ -497,9 +497,13 @@ core-help() {
   local cols=${COLUMNS:-80}
   ((kw > cols - 22)) && kw=$((cols - 22)) # keep room for a readable description
   ((kw < 6)) && kw=6
-  local matched=0
+  local matched=0 cur_section=""
   for line in "${rows[@]}"; do
     if [[ "$line" == §* ]]; then
+      # Track the section a row belongs to (lowercased) so a filter can match by SECTION
+      # name too — e.g. `core-help keybindings` surfaces that whole group even though the
+      # word never appears in any row's key/desc. (Completion offers these section terms.)
+      cur_section="${(L)${line#§}}"
       # Section headers print only in the UNFILTERED view — a filter wants the matching
       # rows, not the scaffolding around them.
       [[ -n "$filter" ]] && continue
@@ -509,8 +513,10 @@ core-help() {
       key="${parts[1]}"
       desc="${parts[2]}"
       req="${parts[3]:-}" # optional: a command this row needs to actually work
-      # Filtered: skip rows whose key+description don't contain the term (case-insensitive).
-      [[ -n "$filter" && "${(L)key} ${(L)desc}" != *"$filter"* ]] && continue
+      # Filtered: skip rows whose key+description AND owning section don't contain the term
+      # (case-insensitive) — so both a verb term (`serve`) and a section term (`navigation`)
+      # narrow correctly, and a completion-suggested section name never yields "no matches".
+      [[ -n "$filter" && "${(L)key} ${(L)desc}" != *"$filter"* && "$cur_section" != *"$filter"* ]] && continue
       matched=1
       key="${key[1,kw]}"  # truncate an over-long key to the (possibly clamped) column
       if [[ -n "$req" ]] && ! _core_have "$req"; then
