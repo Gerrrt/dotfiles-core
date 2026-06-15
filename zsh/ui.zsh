@@ -248,7 +248,7 @@ _core_spin() {
   trap 'kill -INT "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; printf "\r\e[K\e[?25h" >&2; return 130' INT
   local i=0
   while kill -0 "$pid" 2>/dev/null; do
-    printf '\r%s %s %s(%ds)%s' "${fr[$((i % 10 + 1))]}" "$title" "$_CORE_C_DIM" "$SECONDS" "$_CORE_C_RST" >&2
+    printf '\r%s %s %s(%ds)%s' "${fr[$((i % 10 + 1))]}" "$title" "$_d" "$SECONDS" "$_x" >&2
     _core_nap
     ((i++))
   done
@@ -256,11 +256,12 @@ _core_spin() {
   local rc=$?
   # Replace the spinner with a STILL result frame — a green ✓ or red ✗ + the elapsed
   # time — so the line ends with a legible outcome instead of vanishing. Restore the
-  # cursor either way. Colour follows the same stderr-TTY/NO_COLOR rule as the rest.
+  # cursor either way. Colour follows the same stderr-TTY/NO_COLOR rule as the rest, via
+  # the local _g/_r/_d/_x (blank when _core_color is false) — NOT the global constants.
   if ((rc == 0)); then
-    printf '\r\e[K%s✓%s %s %s(%ds)%s\n' "$_CORE_C_GRN" "$_CORE_C_RST" "$title" "$_CORE_C_DIM" "$SECONDS" "$_CORE_C_RST" >&2
+    printf '\r\e[K%s✓%s %s %s(%ds)%s\n' "$_g" "$_x" "$title" "$_d" "$SECONDS" "$_x" >&2
   else
-    printf '\r\e[K%s✗%s %s %s(%ds, exit %d)%s\n' "$_CORE_C_RED" "$_CORE_C_RST" "$title" "$_CORE_C_DIM" "$SECONDS" "$rc" "$_CORE_C_RST" >&2
+    printf '\r\e[K%s✗%s %s %s(%ds, exit %d)%s\n' "$_r" "$_x" "$title" "$_d" "$SECONDS" "$rc" "$_x" >&2
   fi
   printf '\e[?25h' >&2 # restore the cursor
   return $rc
