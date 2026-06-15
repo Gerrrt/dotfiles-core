@@ -173,13 +173,15 @@ if (($+functions[fzf-tab-complete])); then
   # Resolve the preview binaries the same way fzf.zsh does — fzf-tab runs these in a
   # subshell, so a literal `eza`/`bat` would break on a bare box (no eza) or Debian
   # (bat is `batcat`). The cd preview degrades to `ls`; the file preview reuses the
-  # already-resolved $_FZF_PREVIEW_CMD (bat→cat, set in fzf.zsh, loaded before this).
+  # placeholder-free $_FZF_TAB_PREVIEW_CMD (bat→cat, set in fzf.zsh, loaded before this)
+  # and lets fzf-tab append $realpath. NB: $_FZF_PREVIEW_CMD ends in fzf's `{}`, which
+  # fzf-tab does NOT substitute — using it here would pass a stray literal `{}` to bat.
   if [[ -n ${HAVE_EZA:-} ]]; then
     zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza --icons --tree --level=1 $realpath'
   else
     zstyle ':fzf-tab:complete:cd:*' fzf-preview 'ls -la $realpath'
   fi
-  zstyle ':fzf-tab:complete:*:*' fzf-preview '$_FZF_PREVIEW_CMD $realpath 2>/dev/null'
+  zstyle ':fzf-tab:complete:*:*' fzf-preview '$_FZF_TAB_PREVIEW_CMD $realpath 2>/dev/null'
   zstyle ':fzf-tab:*' switch-group '<' '>'
 fi
 

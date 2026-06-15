@@ -149,4 +149,17 @@ for repo in "${TARGETS[@]}"; do
   echo
 done
 
-echo "done. push each updated repo when you're satisfied."
+# Scannable tally of the fan-out — sync sources common.sh (which counts every
+# ok/skip/err via PASS/SKIP/FAIL) but used to end on a bare "done", forcing you to
+# scroll a 9-repo run to learn what actually landed. Print the same summary footer the
+# audit/test gates use so the single highest-stakes operation reports at a glance.
+printf '\n%s──────── sync summary ────────%s\n' "$c_blu" "$c_rst"
+printf '  %supdated %d%s   %sskipped %d%s   %sfailed %d%s\n' \
+  "$c_grn" "$PASS" "$c_rst" "$c_yel" "$SKIP" "$c_rst" "$c_red" "$FAIL" "$c_rst"
+if ((DRY)); then
+  echo "dry-run — nothing was written."
+elif ((FAIL > 0)); then
+  echo "done with failures — see the ✗ lines above, then re-run the affected repos." >&2
+else
+  echo "done. push each updated repo when you're satisfied."
+fi

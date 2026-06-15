@@ -96,15 +96,34 @@ jobs:
       - name: Load pinned tool versions
         run: grep -E '^[A-Z0-9_]+=' scripts/tool-versions.env >> "$GITHUB_ENV"
 
+      # ── Tool cache: shellcheck/actionlint/gitleaks are pinned release tarballs that
+      # were re-downloaded on EVERY run (only luacheck + pre-commit were cached). Install
+      # them into a cached, PATH-exported dir keyed on tool-versions.env, so the common
+      # shell-only push restores them instead of paying three network fetches. A pin bump
+      # rotates the key automatically. Linux-only (macOS uses brew for shellcheck; the
+      # other two are Linux-only gates). ──
+      - name: Set up cached tool dir on PATH (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p "$HOME/.local/core-tools/bin"
+          echo "$HOME/.local/core-tools/bin" >> "$GITHUB_PATH"
+      - name: Cache pinned CLI tools (shellcheck/actionlint/gitleaks)
+        id: toolcache
+        if: runner.os == 'Linux'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.local/core-tools
+          key: core-tools-${{ runner.os }}-${{ hashFiles('scripts/tool-versions.env') }}
+
       # ── Linux: pinned shellcheck binary (deterministic, faster than apt's index) ──
       - name: Install shellcheck (Linux, pinned)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && steps.toolcache.outputs.cache-hit != 'true'
         run: |
           set -euxo pipefail
           ver="${SHELLCHECK_VERSION}"
           url="https://github.com/koalaman/shellcheck/releases/download/v${ver}/shellcheck-v${ver}.linux.x86_64.tar.xz"
           curl -fsSL "$url" | tar -xJ
-          sudo install -m755 "shellcheck-v${ver}/shellcheck" /usr/local/bin/shellcheck
+          install -m755 "shellcheck-v${ver}/shellcheck" "$HOME/.local/core-tools/bin/shellcheck"
           rm -rf "shellcheck-v${ver}"
 
       - name: Install zsh (Linux)
@@ -167,26 +186,26 @@ jobs:
       # gate of its own). Pinned release binary, Linux-only (workflows are OS-agnostic,
       # so no need to also install on the macOS leg — the audit section skips there).
       - name: Install actionlint (Linux, pinned)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && steps.toolcache.outputs.cache-hit != 'true'
         run: |
           set -euxo pipefail
           ver="${ACTIONLINT_VERSION}"
           url="https://github.com/rhysd/actionlint/releases/download/v${ver}/actionlint_${ver}_linux_amd64.tar.gz"
           curl -fsSL "$url" | tar -xz actionlint
-          sudo install -m755 actionlint /usr/local/bin/actionlint
+          install -m755 actionlint "$HOME/.local/core-tools/bin/actionlint"
           rm -f actionlint
 
       # gitleaks gates secrets (the one fan-out artifact the syntax/lint/config/doc
       # checks never inspect). Pinned release binary, Linux-only — secrets are
       # OS-agnostic, so the macOS leg's audit skips this section, mirroring actionlint.
       - name: Install gitleaks (Linux, pinned)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && steps.toolcache.outputs.cache-hit != 'true'
         run: |
           set -euxo pipefail
           ver="${GITLEAKS_VERSION}"
           url="https://github.com/gitleaks/gitleaks/releases/download/v${ver}/gitleaks_${ver}_linux_x64.tar.gz"
           curl -fsSL "$url" | tar -xz gitleaks
-          sudo install -m755 gitleaks /usr/local/bin/gitleaks
+          install -m755 gitleaks "$HOME/.local/core-tools/bin/gitleaks"
           rm -f gitleaks
 
       # ── neovim: Linux gets the maintainer's pinned release tarball (deterministic,

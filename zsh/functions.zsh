@@ -36,7 +36,9 @@ core-doctor() {
   _core_wants_help "$1" && { _core_help "core-doctor" "report Core's detected tools + active integrations on this box"; return 0; }
   local g='' c='' d='' r=''
   if [[ -t 1 && -z ${NO_COLOR:-} ]]; then
-    g=$'\e[32m' c=$'\e[36m' d=$'\e[2;37m' r=$'\e[0m'
+    # green/cyan stay local (doctor's own ✓/group semantics); the dim muted reuses
+    # ui.zsh's canonical $_CORE_C_MUTED so "muted grey" has one definition Core-wide.
+    g=$'\e[32m' c=$'\e[36m' d="${_CORE_C_MUTED:-$'\e[2;37m'}" r=$'\e[0m'
   fi
   local ver="unknown"
   [[ -r "$_CORE_VERSION_FILE" ]] && ver="$(<"$_CORE_VERSION_FILE")"
@@ -300,7 +302,9 @@ serve() {
   # until you Ctrl-C. Use `serve -l` to keep it to loopback.
   _core_warn "serve binds 0.0.0.0:${port} — the CWD is exposed on every interface (use -l for loopback only)"
   echo "serving $(pwd) on port ${port}  (Ctrl-C to stop)"
-  local ip
+  # `i` is declared local too: under `emulate -L zsh` a `for i …` loop var is NOT
+  # auto-scoped, so without this `serve` would leak (and clobber) the caller's $i.
+  local ip i
   # tunnel IP (callback address) if a tun/wg interface is up, else LAN, via `ip`
   if command -v ip >/dev/null 2>&1; then
     for i in tun0 tun1 wg0 proton0 tailscale0; do
@@ -326,15 +330,11 @@ core-help() {
   # Raw ANSI (not prompt %F) + `print -r` below, so a literal backslash in a key
   # (Ctrl-\) survives — print -P would consume it as an escape. Colour only on a
   # TTY; piped/redirected output stays plain.
-  # Truecolor accents ONLY when the terminal advertises 24-bit ($COLORTERM); else a
-  # 256-colour approximation, so a 16/256-colour TTY doesn't get raw 24-bit escapes it
-  # can't render (mirrors the nudge in update.zsh and Core's NO_COLOR discipline).
-  local title dc
-  if [[ "${COLORTERM:-}" == (24bit|truecolor) ]]; then
-    title=$'\e[1;38;2;122;162;247m' dc=$'\e[38;2;86;95;137m'
-  else
-    title=$'\e[1;38;5;111m' dc=$'\e[38;5;103m'
-  fi
+  # Accent + muted come from ui.zsh's canonical palette ($_CORE_C_ACCENT/$_CORE_C_MUTED
+  # — the one place $COLORTERM is interpreted, truecolor-aware), so the cheat sheet, the
+  # update nudge, and core-doctor share one branded blue instead of three hand-rolled
+  # copies. The TTY/NO_COLOR blanking below still applies locally.
+  local title="${_CORE_C_ACCENT:-}" dc="${_CORE_C_MUTED:-}"
   local te=$'\e[0m' kc=$'\e[36m' ke=$'\e[0m' de=$'\e[0m'
   if [[ ! -t 1 || -n ${NO_COLOR:-} ]]; then title='' te='' kc='' ke='' dc='' de=''; fi
   # Rows are "key|description" or "key|description|requires" — the optional third

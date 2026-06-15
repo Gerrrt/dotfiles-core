@@ -204,6 +204,32 @@ fi
 # zsh legs) reads as "took Ns", not "hung", and a regression in audit cost is visible.
 SECONDS=0
 
+# ── Overlap the behavioral suite with the static gates ────────────────────────
+# scripts/test-core.sh (headless nvim ×2 + the zsh -i load legs) dominates wall-clock,
+# and it shares NOTHING with the static sections below (manifest/exec-bit/syntax/lint/
+# config) — they're read-only and independent. So kick it off NOW in the background and
+# collect it at section 10, overlapping its slow legs with the fast static checks instead
+# of running strictly after them. It still contributes EXACTLY one pass/fail to the
+# summary (on its exit code), as before — only the wall-clock changes. Output is buffered
+# to a file and re-printed in place at section 10 so it never interleaves with the static
+# sections; CLICOLOR_FORCE keeps its colour when our own stdout is a tty. CORE_AUDIT_SERIAL=1
+# forces the old inline behaviour (debugging / a shell with no job control).
+BEHAV_BG=0
+BEHAV_PID=""
+BEHAV_OUT=""
+TEST_ARGS=(--scope "$(_scope_str)")
+((QUIET)) && TEST_ARGS+=(--quiet)
+if [[ "${CORE_AUDIT_SERIAL:-0}" != 1 ]]; then
+  BEHAV_OUT="$(mktemp "${TMPDIR:-/tmp}/core-audit-behav.XXXXXX")"
+  # Force colour through the file capture only when OUR stdout is a real terminal.
+  _behav_color=""
+  [[ -t 1 && -z "${NO_COLOR:-}" ]] && _behav_color="CLICOLOR_FORCE=1"
+  env $_behav_color CORE_TEST_NESTED=1 \
+    ./scripts/test-core.sh ${TEST_ARGS[@]+"${TEST_ARGS[@]}"} >"$BEHAV_OUT" 2>&1 &
+  BEHAV_PID=$!
+  BEHAV_BG=1
+fi
+
 # Tracked files that live in dotfiles-core but are NOT vendored into OS repos'
 # core/ subtree — repo-meta and dev tooling. Anything tracked, not matched by the
 # manifest, must appear here (or under a META_PREFIXES dir) or section 1 flags it.
@@ -367,7 +393,20 @@ if ((SCOPE_SHELL)); then
     pv_fail=1
     fail "zsh/fzf.zsh no longer references \$BAT_BIN (preview resolution lost)"
   }
-  ((pv_fail)) || pass "fzf/fzf-tab previews resolve \$BAT_BIN (no literal bat/batcat)"
+  # fzf-tab appends $realpath itself and does NOT substitute fzf's `{}` placeholder. So a
+  # fzf-tab preview must use the placeholder-free $_FZF_TAB_PREVIEW_CMD — NOT $_FZF_PREVIEW_CMD
+  # (which ends in `{}`, the bug: that trailing `{}` reaches the previewer as a phantom arg),
+  # and not an inline literal `{}` either. Flag any fzf-preview line that pairs $realpath with
+  # the wrong var or a stray `{}`. ($_FZF_TAB_PREVIEW_CMD is not a substring of the check, so
+  # the correct line passes.)
+  while IFS= read -r _pvln; do
+    [[ "$_pvln" == *fzf-preview* && "$_pvln" == *"\$realpath"* ]] || continue
+    if [[ "$_pvln" == *'{}'* || "$_pvln" == *"\$_FZF_PREVIEW_CMD"* ]]; then
+      pv_fail=1
+      fail "fzf-tab preview must use \$_FZF_TAB_PREVIEW_CMD (no {} / no \$_FZF_PREVIEW_CMD): $_pvln"
+    fi
+  done < <(sed 's/#.*//' zsh/plugins.zsh)
+  ((pv_fail)) || pass "fzf/fzf-tab previews resolve \$BAT_BIN (no literal bat/batcat, no stray {})"
 else
   skip "fzf preview resolution (out of scope)"
 fi
@@ -525,16 +564,29 @@ fi
 # (single source of truth) but folded into ONE audit summary via CORE_TEST_NESTED.
 # Self-gates on zsh: with none installed it SKIPs, exactly like sections 3–5.
 hdr "behavioral (scripts/test-core.sh)"
-TEST_ARGS=(--scope "$(_scope_str)")
-((QUIET)) && TEST_ARGS+=(--quiet)
-# `${arr[@]+"${arr[@]}"}`, not `"${arr[@]}"`: under `set -u`, expanding an EMPTY array
-# raises "unbound variable" on bash < 4.4 — i.e. macOS's stock bash 3.2, which this
-# gate must run on. The `+` form expands to nothing when unset/empty and to the quoted
-# elements otherwise, so the non-QUIET (empty TEST_ARGS) path stops aborting on macOS.
-if CORE_TEST_NESTED=1 ./scripts/test-core.sh ${TEST_ARGS[@]+"${TEST_ARGS[@]}"}; then
-  pass "behavioral tests (load-order smoke + function units)"
+# Collect the suite launched in the background near the top (overlapping its slow legs
+# with the static gates above). `wait` yields the child's exit code; we re-print its
+# buffered output in place, then fold the result into ONE pass/fail line — identical to
+# the old inline run, just time-shifted. CORE_AUDIT_SERIAL=1 takes the inline path below.
+if ((BEHAV_BG)); then
+  if wait "$BEHAV_PID"; then _behav_rc=0; else _behav_rc=$?; fi
+  [[ -s "$BEHAV_OUT" ]] && cat "$BEHAV_OUT"
+  rm -f "$BEHAV_OUT"
+  if ((_behav_rc == 0)); then
+    pass "behavioral tests (load-order smoke + function units)"
+  else
+    fail "behavioral tests failed — run: ./scripts/test-core.sh"
+  fi
 else
-  fail "behavioral tests failed — run: ./scripts/test-core.sh"
+  # Serial fallback. `${arr[@]+"${arr[@]}"}`, not `"${arr[@]}"`: under `set -u`, expanding
+  # an EMPTY array raises "unbound variable" on bash < 4.4 — i.e. macOS's stock bash 3.2,
+  # which this gate must run on. The `+` form expands to nothing when unset/empty and to
+  # the quoted elements otherwise, so the non-QUIET (empty TEST_ARGS) path doesn't abort.
+  if CORE_TEST_NESTED=1 ./scripts/test-core.sh ${TEST_ARGS[@]+"${TEST_ARGS[@]}"}; then
+    pass "behavioral tests (load-order smoke + function units)"
+  else
+    fail "behavioral tests failed — run: ./scripts/test-core.sh"
+  fi
 fi
 
 # ── summary ──────────────────────────────────────────────────────────────────

@@ -22,6 +22,21 @@
 typeset -g _CORE_C_RED=$'\e[31m' _CORE_C_YEL=$'\e[33m' _CORE_C_GRN=$'\e[32m'
 typeset -g _CORE_C_DIM=$'\e[2;37m' _CORE_C_RST=$'\e[0m'
 
+# Canonical accent palette — the ONE place $COLORTERM is interpreted for Core's
+# branded blue accent + muted grey. Two forms, because Core renders colour two ways:
+# raw ANSI escapes (core-help / core-doctor) and prompt `%F{…}` specs (the update
+# nudge / welcome). Truecolor tokens when the terminal advertises 24-bit, else a
+# 256-colour approximation — the same "degrade, don't assume" rule as NO_COLOR. This
+# replaces the per-module COLORTERM blocks that update.zsh and functions.zsh each
+# hand-rolled (they now consume these), so the accent has one definition, not three.
+if [[ "${COLORTERM:-}" == (24bit|truecolor) ]]; then
+  typeset -g _CORE_C_ACCENT=$'\e[1;38;2;122;162;247m' _CORE_C_MUTED=$'\e[38;2;86;95;137m'
+  typeset -g _CORE_ACCENT_SPEC='#7aa2f7' _CORE_MUTED_SPEC='#565f89'
+else
+  typeset -g _CORE_C_ACCENT=$'\e[1;38;5;111m' _CORE_C_MUTED=$'\e[38;5;103m'
+  typeset -g _CORE_ACCENT_SPEC=75 _CORE_MUTED_SPEC=244
+fi
+
 _core_have() { command -v "$1" >/dev/null 2>&1; }
 # Colourise fd $1 (default 2 = stderr)? The fd must be a terminal AND NO_COLOR
 # unset (https://no-color.org). Each helper asks about the stream it ACTUALLY
@@ -124,6 +139,21 @@ _core_confirm() {
 }
 
 # ── progress ──────────────────────────────────────────────────────────────────
+# _core_nap  → sleep ~100 ms for one spinner frame. Uses zsh's zselect (a builtin,
+# no fork, and busybox-safe) when the module loads, falling back to fractional
+# `sleep` otherwise — busybox `sleep` (Alpine, a named target) does NOT reliably
+# accept a fractional argument, so the old literal `sleep 0.1` could error per frame
+# on a bare box. Factored out so the delay primitive is unit-testable WITHOUT a TTY
+# (the animated spin path needs one; this does not). Always returns 0.
+_core_nap() {
+  if zmodload -e zsh/zselect 2>/dev/null || zmodload zsh/zselect 2>/dev/null; then
+    zselect -t 10 2>/dev/null # -t is in centiseconds → 10 = 100 ms
+  else
+    sleep 0.1 2>/dev/null
+  fi
+  return 0
+}
+
 # _core_spin <title> <cmd...>  → run cmd while showing a spinner; return cmd's
 # exit code. Non-TTY → just runs it (no animation bytes in logs/pipes). gum spin
 # when present; else a hand-rolled braille spinner. `nomonitor` silences the
@@ -153,7 +183,7 @@ _core_spin() {
   local i=0
   while kill -0 "$pid" 2>/dev/null; do
     printf '\r%s %s' "${fr[$((i % 10 + 1))]}" "$title" >&2
-    sleep 0.1
+    _core_nap
     ((i++))
   done
   wait "$pid"
