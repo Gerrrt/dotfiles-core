@@ -121,13 +121,18 @@ _core_errbox() {
 _core_lev() {
   emulate -L zsh
   local a="$1" b="$2"
-  local -i la=${#a} lb=${#b} i j cost del ins sub m
+  local -i la=${#a} lb=${#b} i j cost del ins sub trn m
   ((la == 0)) && { print -r -- "$lb"; return; }
   ((lb == 0)) && { print -r -- "$la"; return; }
   # 1-based rows; index (k+1) holds column k (k = 0..lb). NOTE: array-element assignment
   # subscripts must NOT contain spaces (`prev[j+1]=`, not `prev[j + 1]=`) — with spaces
   # zsh parses the LHS as a glob word, not an assignment ("bad pattern: prev[j").
-  local -a prev cur
+  #
+  # Damerau/OSA, not plain Levenshtein: we ALSO score an adjacent transposition as ONE
+  # edit (needs the row two back, prev2), so a finger-fumble like `gts`→`gst` or
+  # `cmod`→`comd` is distance 1 — the single most common real typo class — instead of 2,
+  # which _core_suggest's ≤2 cutoff would otherwise treat the same as two unrelated edits.
+  local -a prev2 prev cur
   for ((j = 0; j <= lb; j++)); do prev[j+1]=$j; done
   for ((i = 1; i <= la; i++)); do
     cur[1]=$i
@@ -135,8 +140,13 @@ _core_lev() {
       [[ "${a[i]}" == "${b[j]}" ]] && cost=0 || cost=1
       del=$((prev[j+1] + 1)); ins=$((cur[j] + 1)); sub=$((prev[j] + cost))
       m=$del; ((ins < m)) && m=$ins; ((sub < m)) && m=$sub
+      # adjacent transposition: a[i] matches b[j-1] AND a[i-1] matches b[j].
+      if ((i > 1 && j > 1)) && [[ "${a[i]}" == "${b[j-1]}" && "${a[i-1]}" == "${b[j]}" ]]; then
+        trn=$((prev2[j-1] + 1)); ((trn < m)) && m=$trn
+      fi
       cur[j+1]=$m
     done
+    prev2=("${prev[@]}")
     prev=("${cur[@]}")
   done
   print -r -- "${prev[lb+1]}"
