@@ -624,6 +624,13 @@ check "serve rejects a non-numeric port" \
   'serve abc 2>/dev/null; (( $? != 0 ))'
 check "serve rejects an out-of-range port" \
   'serve 99999 2>/dev/null; (( $? != 0 ))'
+# serve -l/--local (#10): the loopback flag must be ACCEPTED as a flag (not mis-read as
+# the port) while the port is still validated, and an unknown flag must be rejected — all
+# before python ever binds, so these stay non-blocking.
+check "serve rejects an unknown flag (-l/--local is the only flag)" \
+  'serve --nope 2>/dev/null; (( $? != 0 ))'
+check "serve -l is parsed as a flag and still validates the port" \
+  'serve -l abc 2>/dev/null; (( $? != 0 ))'
 # Uniform -h/--help contract (U6): every user-facing verb answers --help on STDOUT
 # and returns 0 (a help REQUEST is success, not misuse). This also guards the bugs
 # where --help used to be mis-read as an operand — serve as a bad port, extract as a
@@ -774,6 +781,17 @@ ucheck "update: _pkgup_list surfaces upgradable package names (apt)" \
 ucheck "update: up --dry-run lists pending packages and exits 0 (applies nothing)" \
   "source '$UI'; source '$UPD'; out=\$(up --dry-run); (( \$? == 0 )) && [[ \$out == *foo* && \$out == *bar* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# up strict flag parsing: every arg is parsed (not just $1), so an unknown flag is
+# REJECTED in Core's voice (rc 1 — the verb-layer usage-error convention, same as
+# serve/mkcd/…) instead of silently falling through to a real, privileged update —
+# and -y/-n together (apply vs inspect-only) is refused as contradictory. Both
+# rejections happen BEFORE _pkgup_mgr, so the manager doesn't matter.
+ucheck "update: up rejects an unknown flag (rc 1, does not attempt an update)" \
+  "source '$UI'; source '$UPD'; out=\$(up --bogus 2>&1); (( \$? == 1 )) && [[ \$out == *'unexpected argument'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "update: up refuses -y and -n together (mutually exclusive, rc 1)" \
+  "source '$UI'; source '$UPD'; out=\$(up -y -n 2>&1); (( \$? == 1 )) && [[ \$out == *'mutually exclusive'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 # core-help context-awareness (U7): a row whose tool is ABSENT on this box must be
 # tagged "needs <tool>", while an always-on verb (mkcd) still renders normally. Drive
 # it on a bare PATH so fzf is guaranteed missing, making the assertion deterministic.
@@ -791,6 +809,22 @@ ucheck "fif rejects cleanly without fzf (Core error voice, not 'command not foun
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 ucheck "fbr rejects cleanly without fzf (Core error voice, not 'command not found')" \
   "source '$UI'; source '$FZF_FILE' 2>/dev/null; out=\$(fbr 2>&1); (( \$? != 0 )) && [[ \$out == *'fbr: requires fzf'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# zle-widget graceful degradation (regression gate for the Ctrl-F/Ctrl-R bare-box bug):
+# both are bound UNCONDITIONALLY in bindings.zsh, so on a box without fzf/fd their widget
+# bodies must warn in Core's voice and repaint — NOT leak a raw "command not found" (the
+# class of bug fif/fbr/Alt-Z already guard; Ctrl-F/Ctrl-R lacked it). `zle` is stubbed to a
+# no-op so `zle reset-prompt` is callable outside an active ZLE; PATH is isolated so fzf/fd
+# are guaranteed absent. Alt-Z is asserted too, locking in the parity across all three.
+_pm_only ""
+ucheck "Ctrl-F widget degrades in Core's voice without fzf/fd (no 'command not found')" \
+  "source '$UI'; source '$FZF_FILE' 2>/dev/null; zle() { : }; FD_BIN=''; out=\$(_fzf_file_no_hidden 2>&1); (( \$? != 0 )) && [[ \$out == *'Ctrl-F: needs'* && \$out != *'command not found'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "Ctrl-R widget degrades in Core's voice without fzf (no 'command not found')" \
+  "source '$UI'; source '$FZF_FILE' 2>/dev/null; zle() { : }; out=\$(_fzf_history_clean 2>&1); (( \$? != 0 )) && [[ \$out == *'Ctrl-R: needs'* && \$out != *'command not found'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "Alt-Z widget degrades in Core's voice without zoxide/fzf (no 'command not found')" \
+  "source '$UI'; source '$FZF_FILE' 2>/dev/null; zle() { : }; out=\$(_fzf_zoxide_jump 2>&1); (( \$? != 0 )) && [[ \$out == *'Alt-Z: needs'* && \$out != *'command not found'* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 # Colour degradation (U8): the nudge/welcome accents must drop from 24-bit hex to a
 # 256-colour code when the terminal doesn't advertise truecolor — so a 16/256-colour
@@ -810,6 +844,53 @@ _pm_only crontab
 ucheck "maint: _maint_scheduler resolves to a valid scheduler" \
   "source '$UI'; source '$MNT'; [[ \$(_maint_scheduler) == (systemd|launchd|cron) ]]" \
   PATH="$PMBIN"
+# maint-log defensive input (#6): a non-numeric N must be rejected in Core's voice, not
+# handed to `tail` to fail with a raw "invalid number". -f/--follow and a positive int
+# are the only valid args (mirrors serve/cdup/mkbak's input guards).
+ucheck "maint: maint-log rejects a non-numeric N in Core's voice" \
+  "source '$UI'; source '$MNT'; out=\$(maint-log abc 2>&1); (( \$? != 0 )) && [[ \$out == *'maint-log: N must be'* ]]" \
+  PATH="$PMBIN"
+
+# ── maint scheduler artifacts (systemd unit / launchd plist / cron line) ──────
+# maint-install GENERATES a systemd unit+timer, a launchd plist (XML), and a cron line —
+# fan-out artifacts that, until now, had NO gate: a malformed OnCalendar, a broken plist,
+# or a bad cron field only fails on the user's box, then fans out to 9 repos. Every OTHER
+# fan-out artifact class is gated (toml/yaml/json §6, workflows actionlint §8); this closes
+# the maint hole the same way. Hermetic: override _maint_scheduler to pick the branch,
+# stub systemctl/launchctl/crontab to no-ops (so nothing touches the real system), sandbox
+# HOME/XDG, render at 09:30, then VALIDATE the generated artifact. The runner path resolves
+# to this repo's maint/dotfiles-maint.sh via maint.zsh's %x, so the [[ -f ]] guard passes.
+hdr "maint scheduler artifacts (systemd / launchd / cron, hermetic render)"
+SCHEDBIN="$SANDBOX/schedbin"
+mkdir -p "$SCHEDBIN"
+for s in systemctl launchctl; do
+  printf '#!/bin/sh\n:\n' >"$SCHEDBIN/$s"
+  chmod +x "$SCHEDBIN/$s"
+done
+# crontab stub: `-l` prints nothing (no existing table); `-` captures the new table to a
+# file so we can assert the generated line instead of mutating the real crontab.
+printf '#!/bin/sh\ncase "$1" in -l) exit 0 ;; -) cat > "$CRON_CAPTURE" ;; *) exit 0 ;; esac\n' >"$SCHEDBIN/crontab"
+chmod +x "$SCHEDBIN/crontab"
+
+# systemd: the timer's OnCalendar must be the rendered HH:MM, and the service must point
+# ExecStart at the runner. Override the scheduler so the branch runs on any host.
+ucheck "maint: systemd timer+service render with a valid OnCalendar" \
+  "source '$UI'; source '$MNT'; _maint_scheduler() { echo systemd }; maint-install 09:30 >/dev/null 2>&1; ud=\"\$XDG_CONFIG_HOME/systemd/user\"; [[ -f \"\$ud/dotfiles-maint.timer\" && -f \"\$ud/dotfiles-maint.service\" ]] || exit 1; grep -q 'OnCalendar=\*-\*-\* 09:30:00' \"\$ud/dotfiles-maint.timer\" || exit 1; grep -q 'ExecStart=.*dotfiles-maint.sh' \"\$ud/dotfiles-maint.service\"" \
+  PATH="$SCHEDBIN:$PATH" XDG_CONFIG_HOME="$SANDBOX/sched-systemd"
+# cron: the captured table line must be a well-formed 5-field schedule at MM HH, tagged.
+ucheck "maint: cron line renders as a valid 5-field schedule" \
+  "source '$UI'; source '$MNT'; _maint_scheduler() { echo cron }; maint-install 09:30 >/dev/null 2>&1; [[ -f \"\$CRON_CAPTURE\" ]] || exit 1; grep -qE '^30 09 \* \* \* .*dotfiles-maint\.sh # dotfiles-maint\$' \"\$CRON_CAPTURE\"" \
+  PATH="$SCHEDBIN:$PATH" CRON_CAPTURE="$SANDBOX/cron.captured"
+# launchd: the plist must be WELL-FORMED XML (plistlib parses it) with the rendered
+# Hour/Minute — the one artifact that's silent text the other gates never inspect. Needs
+# python3 (stdlib plistlib); skip gracefully otherwise, like the linters above.
+if have python3; then
+  ucheck "maint: launchd plist is well-formed XML with the rendered Hour/Minute" \
+    "source '$UI'; source '$MNT'; _maint_scheduler() { echo launchd }; maint-install 09:30 >/dev/null 2>&1; p=\"\$HOME/Library/LaunchAgents/com.dotfiles.maint.plist\"; [[ -f \"\$p\" ]] || exit 1; python3 -c 'import sys,plistlib; d=plistlib.load(open(sys.argv[1],\"rb\")); s=d[\"StartCalendarInterval\"]; sys.exit(0 if s[\"Hour\"]==9 and s[\"Minute\"]==30 else 1)' \"\$p\"" \
+    PATH="$SCHEDBIN:$PATH" HOME="$SANDBOX/sched-launchd"
+else
+  skip "maint launchd plist (python3 absent — cannot parse plist XML)"
+fi
 
 # update.zsh: the first-run welcome (U2 — the cheat-sheet discoverability hint) must
 # greet EXACTLY ONCE per machine. Drive _core_welcome directly (the TTY gate lives at
@@ -825,12 +906,28 @@ ucheck "update: welcome stays silent (no greet, no sentinel) without a tty" \
   "o=\$(source '$UPD'); [[ \$o != *core-help* && ! -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]]" \
   XDG_STATE_HOME="$SANDBOX/welcome-notty" NO_COLOR=1 UPDATE_CHECK_ENABLED=0 CORE_WELCOME=1
 
-# completions (U3): every first-party verb must have a #compdef that compinit picks up
-# off the vendored fpath dir — a missing/typo'd tag means no tab-completion for that
-# command across all 9 repos, with nothing else to catch it. Put the dir on fpath (as
-# options.zsh does), run compinit, and assert each verb resolved to a completion.
-ucheck "completions: compinit wires every Core first-party completion" \
-  "fpath=('$HERE/zsh/completions' \$fpath); autoload -Uz compinit && compinit -u -d '$SANDBOX/zcd-comp' >/dev/null 2>&1; for c in mkcd mkbak extract up serve cdup fcd fif fbr please core-help cheat core-version core-doctor; do [[ -n \${_comps[\$c]:-} ]] || { print \"no completion registered for: \$c\"; exit 1; }; done"
+# completions (U3 / DERIVED regression gate): every first-party PUBLIC verb must have a
+# #compdef that compinit resolves off the vendored fpath dir — a missing/typo'd tag
+# means no tab-completion for that command across all 9 repos, with nothing else to
+# catch it. The verb set is DERIVED from the source (top-level functions whose names
+# don't start with `_`, Core's private-helper convention) minus an explicit allowlist
+# of public-but-non-completable functions: the zsh-vi-mode init HOOK, the git-alias
+# helpers, and the internal plugin updater — none are user verbs. So a NEW verb shipped
+# WITHOUT a completion now FAILS here — the regression the OLD hardcoded list couldn't
+# catch (it silently omitted update-check + opssh, which had no completion at all). This
+# mirrors audit-core.sh's META_ALLOWLIST pattern: derive from the tree, exempt by name.
+# `cheat` (alias → core-help) is appended so the aliased #compdef tag is exercised too.
+COMP_ALLOWLIST=" git_main_branch git_current_branch zvm_after_init zplugin-update "
+COMP_VERBS=()
+while IFS= read -r _v; do
+  case " $COMP_ALLOWLIST " in *" $_v "*) continue ;; esac
+  COMP_VERBS+=("$_v")
+done < <(grep -rhoE '^(function[[:space:]]+)?[A-Za-z][A-Za-z0-9_-]*\(\)|^function[[:space:]]+[A-Za-z][A-Za-z0-9_-]*[[:space:]]*\{' "$HERE"/zsh/*.zsh |
+  sed -E 's/^function[[:space:]]+//; s/\(\).*//; s/[[:space:]]*\{.*//' |
+  grep -vE '^_' | sort -u)
+COMP_VERBS+=(cheat)
+ucheck "completions: every first-party verb has a compinit-resolved completion (derived)" \
+  "fpath=('$HERE/zsh/completions' \$fpath); autoload -Uz compinit && compinit -u -d '$SANDBOX/zcd-comp' >/dev/null 2>&1; for c in ${COMP_VERBS[*]}; do [[ -n \${_comps[\$c]:-} ]] || { print \"no completion registered for: \$c\"; exit 1; }; done"
 
 # ── summary ───────────────────────────────────────────────────────────────────
 summary

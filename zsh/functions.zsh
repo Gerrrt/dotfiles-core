@@ -251,13 +251,35 @@ mkbak() {
 #   serve 8080       # port 8080
 serve() {
   emulate -L zsh
-  _core_wants_help "$1" && { _core_help "serve [port]" "HTTP server in the CWD (default 8000); binds all interfaces"; return 0; }
-  local port="${1:-8000}" ip
+  _core_wants_help "$1" && { _core_help "serve [-l|--local] [port]" "HTTP server in the CWD (default 8000); all interfaces, or loopback with -l"; return 0; }
+  # Parse flags + the optional port in ANY order: a typo'd flag is rejected in Core's
+  # voice rather than silently treated as a bad port. -l/--local binds 127.0.0.1 (the
+  # "just me" case) instead of the default all-interfaces exposure.
+  local port="" local_only=0 arg
+  for arg in "$@"; do
+    case "$arg" in
+    -l | --local) local_only=1 ;;
+    -*)
+      _core_err "serve: unknown option: $arg"
+      _core_usage "serve [-l|--local] [port]"
+      return 1
+      ;;
+    *)
+      if [[ -n "$port" ]]; then
+        _core_err "serve: too many arguments (got an extra '$arg')"
+        _core_usage "serve [-l|--local] [port]"
+        return 1
+      fi
+      port="$arg"
+      ;;
+    esac
+  done
+  : "${port:=8000}"
   # Defensive input handling: a typo'd port should be rejected cleanly, not handed to
   # python to fail with a stack trace (or, worse, a non-numeric value coerced oddly).
   if [[ "$port" != <-> ]] || ((port < 1 || port > 65535)); then
     _core_err "serve: port must be 1-65535 (got '$port')"
-    _core_usage "serve [port]"
+    _core_usage "serve [-l|--local] [port]"
     return 1
   fi
   _core_have python3 || {
@@ -265,11 +287,20 @@ serve() {
     _core_hint "install python3, then retry"
     return 1
   }
-  # Defensive: this binds ALL interfaces on purpose (ad-hoc file transfer), so say
-  # so plainly — on an untrusted network the CWD is reachable by anyone who can
-  # route to this host until you Ctrl-C.
-  _core_warn "serve binds 0.0.0.0:${port} — the CWD is exposed on every interface"
+  # --local: bind loopback only — nothing leaves this host. No exposure warning, no
+  # LAN/tunnel URL discovery (none would be reachable anyway).
+  if ((local_only)); then
+    echo "serving $(pwd) on 127.0.0.1:${port}  (local only — Ctrl-C to stop)"
+    echo "  → http://127.0.0.1:${port}/   (localhost)"
+    python3 -m http.server --bind 127.0.0.1 "$port"
+    return
+  fi
+  # Default: bind ALL interfaces on purpose (ad-hoc file transfer), so say so plainly —
+  # on an untrusted network the CWD is reachable by anyone who can route to this host
+  # until you Ctrl-C. Use `serve -l` to keep it to loopback.
+  _core_warn "serve binds 0.0.0.0:${port} — the CWD is exposed on every interface (use -l for loopback only)"
   echo "serving $(pwd) on port ${port}  (Ctrl-C to stop)"
+  local ip
   # tunnel IP (callback address) if a tun/wg interface is up, else LAN, via `ip`
   if command -v ip >/dev/null 2>&1; then
     for i in tun0 tun1 wg0 proton0 tailscale0; do
@@ -319,7 +350,7 @@ core-help() {
     "extract <archive>|unpack any archive (tar/zip/7z/rar/…)"
     "mkbak <file>|timestamped .bak copy before you edit"
     "fcd|fuzzy-cd into any subdirectory|fzf"
-    "serve [port]|HTTP server in the CWD, prints reachable URLs|python3"
+    "serve [-l] [port]|HTTP server in the CWD (-l = loopback only); prints reachable URLs|python3"
     "§search"
     "fif <text>|find text inside files (rg + fzf + preview)|fzf"
     "fbr|fuzzy git-branch checkout|fzf"

@@ -49,6 +49,15 @@ export FZF_ALT_C_OPTS="--preview '$_FZF_DIR_PREVIEW'"
 # =========================================================
 _fzf_file_no_hidden() {
   local result
+  # Bound unconditionally in bindings.zsh (Ctrl-F), so guard here: on a box without
+  # fzf/fd, warn in Core's voice and repaint the prompt instead of running an empty
+  # "$FD_BIN" (unset on a bare box) piped into a missing fzf ("command not found").
+  # Mirrors the Alt-Z (_fzf_zoxide_jump) guard below.
+  if ! _core_have fzf || [[ -z ${FD_BIN:-} ]]; then
+    _core_warn "Ctrl-F: needs fzf + fd"
+    zle reset-prompt
+    return 1
+  fi
   result=$("$FD_BIN" --type f --strip-cwd-prefix --exclude .git | fzf --preview "$_FZF_PREVIEW_CMD") &&
     LBUFFER+="$result"
   zle reset-prompt
@@ -84,6 +93,14 @@ zle -N _fzf_zoxide_jump
 # =========================================================
 _fzf_history_clean() {
   local result
+  # Bound unconditionally in bindings.zsh (Ctrl-R), so guard here: on a box without
+  # fzf, warn in Core's voice and repaint rather than spewing "command not found"
+  # from the missing fzf. Mirrors the Alt-Z (_fzf_zoxide_jump) guard above.
+  if ! _core_have fzf; then
+    _core_warn "Ctrl-R: needs fzf"
+    zle reset-prompt
+    return 1
+  fi
   result=$(fc -rl 1 | awk '{$1=""; print substr($0,2)}' |
     fzf --prompt="History ❯ " --query="$LBUFFER")
   if [[ -n "$result" ]]; then
