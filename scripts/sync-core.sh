@@ -47,13 +47,36 @@ ALL_OS_REPOS=(
   dotfiles-Alpine dotfiles-Gentoo
 )
 
+# usage() is a real heredoc, NOT `sed -n '2,30p' "$0"`: the old form was coupled to
+# this file's header line numbers, so editing the banner above silently drifted
+# `--help` (the exact trap bootstrap.sh's usage() was rewritten to avoid). This stays
+# correct no matter how the header moves.
+usage() {
+  cat <<'EOF'
+sync-core.sh — THE maintain button: subtree-pull Core into every OS repo's core/.
+
+  ./scripts/sync-core.sh                       pull core into every repo found
+  ./scripts/sync-core.sh --dry-run, -n         show what would happen, touch nothing
+  ./scripts/sync-core.sh dotfiles-Fedora …     only the named repos
+  ./scripts/sync-core.sh -h, --help            show this help and exit
+
+Env overrides:
+  REPOS_ROOT        parent dir holding the repos   (default: parent of this repo)
+  CORE_REMOTE       remote name/URL for dotfiles-core in each OS repo (default: core's origin)
+  CORE_BRANCH       Core branch to vendor          (default: main)
+  SYNC_SKIP_AUDIT   set to 1 to skip the pre-fan-out audit gate (documented escape hatch)
+
+Refuses to fan out a red tree: runs scripts/audit-core.sh first (--dry-run exempt).
+EOF
+}
+
 DRY=0
 SELECT=()
 for arg in "$@"; do
   case "$arg" in
   --dry-run | -n) DRY=1 ;;
   -h | --help)
-    sed -n '2,30p' "$0"
+    usage
     exit 0
     ;;
   dotfiles-*) SELECT+=("$arg") ;;
