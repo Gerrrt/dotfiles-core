@@ -1,4 +1,11 @@
 #compdef core-help cheat
-# Completion for Core's `core-help` (alias: cheat; zsh/functions.zsh). It prints a
-# static cheat sheet and takes no arguments.
-_message 'core-help takes no arguments (prints the Core cheat sheet)'
+# Completion for Core's `core-help` (alias: cheat; zsh/functions.zsh). It takes an
+# OPTIONAL filter word that narrows the cheat sheet to matching rows — so complete that
+# with the verbs/sections core-help knows about (mirrors the rows in functions.zsh).
+local -a _ch_terms=(
+  mkcd cdup extract mkbak fcd serve fif fbr
+  up update-check maint-install maint-run maint-log
+  core-doctor core-version
+  navigation search git keybindings updates maintenance
+)
+_arguments '1:filter:($_ch_terms)'

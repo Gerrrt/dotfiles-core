@@ -15,6 +15,21 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- Audit **`--strict`** now fails only on gates skipped because their TOOL is absent (an
+  out-of-scope skip stays intentional), so CI runs it on the Linux leg — closing the last
+  "green because a linter silently failed to install" gap. CI also installs `python3-yaml`
+  so the YAML-parse gate is honest under `--strict`.
+- **Core⇄OS boundary** audit gate: portable `zsh/*.zsh` modules may carry no OS-absolute
+  paths (`/opt/homebrew`, `~/Library`, …), mechanically enforcing the README's "if it
+  changes with the OS it isn't Core" rule. `zsh/maint.zsh` (the OS-switched scheduler
+  surface) is the documented exception.
+- **`core.version` ↔ `CHANGELOG`** coherence gate: a prerelease stamp must keep an
+  `[Unreleased]` section open; a release stamp must have a matching `## [vX.Y.Z]` heading.
+- Behavioral coverage for `git.zsh` (`git_main_branch`/`git_current_branch` trunk +
+  detached-HEAD resolution) and for `_pkgup_count`/`_pkgup_list` parsing on
+  apk/dnf/zypper/pacman — previously only apt was exercised.
+- `core-help` now lists the most-used **git aliases** (the OMZ-style set in `git.zsh`),
+  so they are discoverable from the cheat sheet.
 - `core.version` — a human-readable SemVer stamp vendored into every OS repo, plus a
   `core-version` verb that reads it, so you can tell WHICH Core a given OS repo carries
   from inside it (the subtree squash records the commit; this records the version).
@@ -111,6 +126,16 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Changed
 
+- The `command_not_found_handler` now also weighs this shell's **aliases** when proposing
+  a "did you mean?", so a near miss like `gts`→`gst` is caught, not just the Core verbs.
+- The markdown gate resolves `markdownlint-cli2` via PATH → `npx --no-install` →
+  `node_modules`, so an off-PATH global install runs instead of skipping (the most-skipped
+  gate in remote sessions).
+- `_cache_eval` gained `--salt`; the `atuin`/`carapace` inits fold `ATUIN_NOBIND`/
+  `CARAPACE_BRIDGES` into the cache filename, so flipping that env busts the cache
+  instead of serving a stale init.
+- Higher-friction failures now use the structured `_core_errbox` (headline + why/fix):
+  `up` with no package manager, and `serve` without `python3`.
 - `scripts/setup.sh` provisions `luacheck` via `luarocks` (no clean mise source) and
   emits precise, actionable install hints — closing the last manual onboarding gap.
 - Defensive confirms on impactful interactive actions: `please` now previews the exact
@@ -162,6 +187,20 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Fixed
 
+- `fbr`'s fzf preview used `{1}`, which on the current-branch row (`* main`) is the
+  literal `*` — so the preview ran `git log *` and broke. It now lists clean branch
+  names (`--format='%(refname:short)'`, `*/HEAD` dropped) and previews `{}`; a remote-only
+  pick strips `origin/` on checkout to create the matching local tracking branch.
+- `mkbak` could prompt or clobber: `cp -i` (from `aliases.zsh`, parsed first) bled into
+  it, so a same-second second backup stopped for a y/n. It now picks the next free `.bak`
+  suffix and copies via `command cp`, staying collision-safe and non-interactive.
+- `_core_confirm`'s gum path defaulted to **Yes** while the `[y/N]` fallback defaulted to
+  No — so the same destructive prompt (`please`/`up`/extract-overwrite) was one-Enter-to
+  confirm under gum. It now passes `gum confirm --default=false`, a consistent safe default.
+- The `_core-help` completion claimed "takes no arguments", but `core-help` accepts a
+  `[filter]`; it now completes that filter with the verbs/sections the cheat sheet knows.
+- `serve` now pre-checks the port is bindable (with `SO_REUSEADDR`, as `http.server`
+  does) and fails in Core's voice instead of letting a taken port surface a Python traceback.
 - `diff` was unconditionally aliased to `diff --color=auto`, which BSD/macOS `diff` (the
   dotfiles-MacBook target) does not support — every `diff` invocation would error there.
   The alias is now applied only after a feature-probe confirms this box's `diff` accepts it.

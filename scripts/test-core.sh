@@ -583,6 +583,12 @@ check "mkbak rejects a missing file" \
   'mkbak /no/such/file 2>/dev/null; (( $? != 0 ))'
 check "mkbak with no argument is rejected" \
   'mkbak 2>/dev/null; (( $? != 0 ))'
+# U6: a second backup must NOT clobber an existing .bak and must NOT prompt. Pre-create
+# the timestamped target, then run mkbak with stdin closed: collision-safe means a SECOND
+# .bak appears (≥2 total); had `cp -i` bled in, the closed stdin would abort the copy (1).
+# Robust to the same-second/next-second race either way (distinct name OR distinct suffix).
+check "mkbak never clobbers an existing .bak (collision-safe, non-interactive)" \
+  'd=$(mktemp -d); cd "$d"; print hi > f; ts=$(date +%Y%m%d-%H%M%S); : > "f.$ts.bak"; mkbak f </dev/null >/dev/null 2>&1; n=$(print -l -- f.*.bak(N) | wc -l); (( n >= 2 ))'
 check "serve rejects a non-numeric port" \
   'serve abc 2>/dev/null; (( $? != 0 ))'
 check "serve rejects an out-of-range port" \
@@ -628,6 +634,12 @@ check "core-help <term> filters to matching rows only" \
   'out=$(COLUMNS=120 core-help serve 2>&1); (( $? == 0 )) && [[ $out == *serve* && $out != *"maint-install"* ]]'
 check "core-help reports when a filter matches nothing" \
   'out=$(COLUMNS=120 core-help zzzznope 2>&1); (( $? == 0 )) && [[ $out == *"no entries match"* ]]'
+# U8: the git alias set (git.zsh) is now discoverable from the cheat sheet — the full
+# view carries the git section, and a filter still narrows to a specific git row.
+check "core-help surfaces the git alias section in the full sheet" \
+  'out=$(COLUMNS=120 NO_COLOR=1 core-help 2>&1); (( $? == 0 )) && [[ $out == *"git (most-used"* && $out == *gpf* ]]'
+check "core-help can filter to a git alias row" \
+  'out=$(COLUMNS=120 NO_COLOR=1 core-help gpf 2>&1); (( $? == 0 )) && [[ $out == *gpf* && $out != *"maint-install"* ]]'
 check "core-help --help returns 0 (not mis-read as a filter)" \
   'out=$(core-help --help); (( $? == 0 )) && [[ $out == *"usage: core-help"* ]]'
 # _core_suggest did-you-mean (U3/U1): nearest candidate on a near typo; SILENT when

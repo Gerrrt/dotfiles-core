@@ -262,7 +262,9 @@ up() {
   local mgr
   mgr="$(_pkgup_mgr)"
   if [[ "$mgr" == none ]]; then
-    _core_err "up: no supported package manager found"
+    _core_errbox "up: no supported package manager found" \
+      "why: none of brew/pacman/dnf/zypper/apt/apk/emerge is on PATH" \
+      "fix: install your distro's package manager, or update by hand"
     return 1
   fi
   # Dry run: show what WOULD upgrade and exit 0, touching nothing — the non-destructive
