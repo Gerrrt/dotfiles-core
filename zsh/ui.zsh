@@ -37,6 +37,19 @@ else
   typeset -g _CORE_ACCENT_SPEC=75 _CORE_MUTED_SPEC=244
 fi
 
+# Glyphs + spinner frames degrade to ASCII when the locale is NOT UTF-8 (no *utf8*/*utf-8*
+# in LC_ALL/LC_CTYPE/LANG). A C/POSIX-locale terminal — a fresh server, a rescue shell, a
+# serial console: the exact bare box this layer targets — renders the braille spinner and
+# the ✓/✗/⚠ marks as mojibake boxes otherwise. One definition, consumed by every helper
+# below, so the fallback is consistent across ok/err/warn/errbox/spin.
+if [[ "${${LC_ALL:-${LC_CTYPE:-${LANG:-}}}:l}" == *utf(-|)8* ]]; then
+  typeset -g _CORE_G_OK='✓' _CORE_G_ERR='✗' _CORE_G_WARN='⚠'
+  typeset -ga _CORE_SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+else
+  typeset -g _CORE_G_OK='ok' _CORE_G_ERR='x' _CORE_G_WARN='!'
+  typeset -ga _CORE_SPIN_FRAMES=('-' '\' '|' '/')
+fi
+
 _core_have() { command -v "$1" >/dev/null 2>&1; }
 # Colourise fd $1 (default 2 = stderr)? The fd must be a terminal AND NO_COLOR
 # unset (https://no-color.org). Each helper asks about the stream it ACTUALLY
@@ -49,16 +62,16 @@ _core_color() { [[ -t ${1:-2} && -z ${NO_COLOR:-} ]]; }
 # ok goes to STDOUT (it's a result). None of them exits — a zsh helper that called
 # `exit` would kill the user's interactive shell. Callers do `_core_err …; return 1`.
 _core_ok() { # success line → stdout (so it checks fd 1, not fd 2)
-  if _core_color 1; then print -r -- "${_CORE_C_GRN}✓${_CORE_C_RST} $*"
-  else print -r -- "✓ $*"; fi
+  if _core_color 1; then print -r -- "${_CORE_C_GRN}${_CORE_G_OK}${_CORE_C_RST} $*"
+  else print -r -- "${_CORE_G_OK} $*"; fi
 }
 _core_err() { # error line → stderr
-  if _core_color; then print -u2 -r -- "${_CORE_C_RED}✗${_CORE_C_RST} $*"
-  else print -u2 -r -- "✗ $*"; fi
+  if _core_color; then print -u2 -r -- "${_CORE_C_RED}${_CORE_G_ERR}${_CORE_C_RST} $*"
+  else print -u2 -r -- "${_CORE_G_ERR} $*"; fi
 }
 _core_warn() { # warning line → stderr
-  if _core_color; then print -u2 -r -- "${_CORE_C_YEL}⚠${_CORE_C_RST} $*"
-  else print -u2 -r -- "⚠ $*"; fi
+  if _core_color; then print -u2 -r -- "${_CORE_C_YEL}${_CORE_G_WARN}${_CORE_C_RST} $*"
+  else print -u2 -r -- "${_CORE_G_WARN} $*"; fi
 }
 _core_hint() { # dim follow-up "hint:" line → stderr (the fix, after an error)
   # Word-wrap to $COLUMNS so a long fix-it hint (e.g. extract's supported-formats list)
@@ -104,8 +117,8 @@ _core_usage() { # "usage: …" → stderr
 # _core_err — this is reserved for the cases where the extra layout earns its space.
 _core_errbox() {
   local head="$1"; shift
-  if _core_color; then print -u2 -r -- "${_CORE_C_RED}✗${_CORE_C_RST} ${head}"
-  else print -u2 -r -- "✗ ${head}"; fi
+  if _core_color; then print -u2 -r -- "${_CORE_C_RED}${_CORE_G_ERR}${_CORE_C_RST} ${head}"
+  else print -u2 -r -- "${_CORE_G_ERR} ${head}"; fi
   local l
   for l in "$@"; do
     if _core_color; then print -u2 -r -- "${_CORE_C_DIM}    ${l}${_CORE_C_RST}"
@@ -274,7 +287,8 @@ _core_spin() {
   # localtraps scopes the INT trap below to THIS function; nomonitor silences the
   # job-control "[1] <pid>"/"done" chatter the background job would otherwise emit.
   setopt localoptions localtraps nomonitor
-  local -a fr=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+  local -a fr=("${_CORE_SPIN_FRAMES[@]}")
+  local -i nfr=${#fr}
   # Colour honours NO_COLOR even though stderr is a TTY here (the cursor/erase escapes
   # below are control, not colour, so they always apply). Blank vars = plain output.
   local _g='' _r='' _d='' _x=''
@@ -293,7 +307,7 @@ _core_spin() {
   trap 'kill -INT "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; printf "\r\e[K\e[?25h" >&2; return 130' INT
   local i=0
   while kill -0 "$pid" 2>/dev/null; do
-    printf '\r%s %s %s(%ds)%s' "${fr[$((i % 10 + 1))]}" "$title" "$_d" "$SECONDS" "$_x" >&2
+    printf '\r%s %s %s(%ds)%s' "${fr[$((i % nfr + 1))]}" "$title" "$_d" "$SECONDS" "$_x" >&2
     _core_nap
     ((i++))
   done
@@ -304,9 +318,9 @@ _core_spin() {
   # cursor either way. Colour follows the same stderr-TTY/NO_COLOR rule as the rest, via
   # the local _g/_r/_d/_x (blank when _core_color is false) — NOT the global constants.
   if ((rc == 0)); then
-    printf '\r\e[K%s✓%s %s %s(%ds)%s\n' "$_g" "$_x" "$title" "$_d" "$SECONDS" "$_x" >&2
+    printf '\r\e[K%s%s%s %s %s(%ds)%s\n' "$_g" "$_CORE_G_OK" "$_x" "$title" "$_d" "$SECONDS" "$_x" >&2
   else
-    printf '\r\e[K%s✗%s %s %s(%ds, exit %d)%s\n' "$_r" "$_x" "$title" "$_d" "$SECONDS" "$rc" "$_x" >&2
+    printf '\r\e[K%s%s%s %s %s(%ds, exit %d)%s\n' "$_r" "$_CORE_G_ERR" "$_x" "$title" "$_d" "$SECONDS" "$rc" "$_x" >&2
   fi
   printf '\e[?25h' >&2 # restore the cursor
   return $rc
