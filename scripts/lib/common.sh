@@ -93,7 +93,10 @@ pass() {
 skip() {
   SKIP=$((SKIP + 1))
   _CORE_SKIPS+=("$*")
-  printf '%s–%s %s\n' "$c_yel" "$c_rst" "$*"
+  # Always shown (even under --quiet) so a skip is never silent — EXCEPT in --json mode,
+  # where stdout must carry only the JSON object (CORE_JSON=1, set by the caller's --json
+  # arm and exported to nested gates). The skip is still tallied + recorded either way.
+  ((${CORE_JSON:-0})) || printf '%s–%s %s\n' "$c_yel" "$c_rst" "$*"
 }
 fail() {
   FAIL=$((FAIL + 1))

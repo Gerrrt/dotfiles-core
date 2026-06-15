@@ -43,6 +43,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 1
 
 QUIET=0
+JSON=0           # --json: machine-readable summary on stdout (implies quiet); for CI/editors
 STRICT=0         # --strict: treat any SKIP as a failure (a gate that didn't actually run)
 CHANGED=0        # --changed: derive the scope from the local git diff (fast dev loop)
 SCOPE_EXPLICIT=0 # an explicit --scope always wins over --changed
@@ -75,6 +76,7 @@ _scope_str() {
 while (($#)); do
   case "$1" in
   -q | --quiet) QUIET=1 ;;
+  --json) JSON=1 QUIET=1 CORE_JSON=1 && export CORE_JSON ;; # only JSON on stdout (incl. nested skips)
   --strict) STRICT=1 ;;
   --scope)
     # Require an explicit value: without this, `--scope --quiet` would swallow the
@@ -115,6 +117,9 @@ THE audit button — manifest/exec-bit/syntax/lint/config/markdown/workflow/
 version/behavioral checks. CI and pre-commit run this exact script.
 
   -q, --quiet     only print SKIP/FAIL lines and the final summary
+  --json          emit a machine-readable summary object on stdout (implies --quiet):
+                  {pass,skip,fail,seconds,strict,tool_skips,skipped[],result}. For CI
+                  steps / editor integrations that want to parse, not scrape, the result.
   --strict        fail if any gate SKIPPED because its TOOL is absent — that gate did
                   not actually run, so a "green" with such skips is only PARTIAL. An
                   out-of-scope skip (a narrowed --scope/--changed run) is intentional and
@@ -644,7 +649,11 @@ hdr "behavioral (scripts/test-core.sh)"
 # the old inline run, just time-shifted. CORE_AUDIT_SERIAL=1 takes the inline path below.
 if ((BEHAV_BG)); then
   if wait "$BEHAV_PID"; then _behav_rc=0; else _behav_rc=$?; fi
-  [[ -s "$BEHAV_OUT" ]] && cat "$BEHAV_OUT"
+  # In --json mode the behavioral output must not reach stdout (JSON-only); send it to
+  # stderr so it's still there for debugging. Otherwise print it in place as before.
+  if [[ -s "$BEHAV_OUT" ]]; then
+    if ((JSON)); then cat "$BEHAV_OUT" >&2; else cat "$BEHAV_OUT"; fi
+  fi
   rm -f "$BEHAV_OUT"
   if ((_behav_rc == 0)); then
     pass "behavioral tests (load-order smoke + function units)"
@@ -663,6 +672,34 @@ else
   fi
 fi
 
+# Count tool-skips (absent tool = real coverage gap) vs out-of-scope skips up front so
+# both the human summary and the --json object can report it. (Done before either render.)
+_tool_skips=0
+for _s in ${_CORE_SKIPS[@]+"${_CORE_SKIPS[@]}"}; do
+  [[ "$_s" == *"out of scope"* ]] || _tool_skips=$((_tool_skips + 1))
+done
+
+# ── machine-readable summary (--json): one object on stdout, then exit with the same
+# status the human path would. Lets a CI step / editor parse the result instead of
+# scraping coloured text. Strings are JSON-escaped (\ and ") via parameter expansion. ──
+if ((JSON)); then
+  if ((FAIL > 0)); then _result=failed
+  elif ((STRICT && _tool_skips > 0)); then _result=failed-strict
+  else _result=ok; fi
+  printf '{"pass":%d,"skip":%d,"fail":%d,"seconds":%d,"strict":%s,"tool_skips":%d,"skipped":[' \
+    "$PASS" "$SKIP" "$FAIL" "$SECONDS" "$( ((STRICT)) && echo true || echo false )" "$_tool_skips"
+  _first=1
+  for _s in ${_CORE_SKIPS[@]+"${_CORE_SKIPS[@]}"}; do
+    _s="${_s//\\/\\\\}"
+    _s="${_s//\"/\\\"}"
+    ((_first)) || printf ','
+    printf '"%s"' "$_s"
+    _first=0
+  done
+  printf '],"result":"%s"}\n' "$_result"
+  [[ "$_result" == ok ]] && exit 0 || exit 1
+fi
+
 # ── summary ──────────────────────────────────────────────────────────────────
 printf '\n%s──────── audit summary ────────%s\n' "$c_blu" "$c_rst"
 printf '  %spass %d%s   %sskip %d%s   %sfail %d%s   %s(%ds)%s\n' \
@@ -676,12 +713,10 @@ printf '  %spass %d%s   %sskip %d%s   %sfail %d%s   %s(%ds)%s\n' \
 # one skipped because its AREA is out of scope (a narrowed --scope/--changed run) is
 # intentional. --strict fails ONLY on the former, so it can run on a fully-provisioned CI
 # leg (every in-scope tool installed) without tripping on deliberately-narrowed areas.
-_tool_skips=0
 if ((SKIP > 0)); then
   printf '  %s%d check(s) SKIPPED — this run is PARTIAL, not full:%s\n' "$c_yel" "$SKIP" "$c_rst" >&2
   for _s in "${_CORE_SKIPS[@]}"; do
     printf '    %s–%s %s\n' "$c_yel" "$c_rst" "$_s" >&2
-    [[ "$_s" == *"out of scope"* ]] || _tool_skips=$((_tool_skips + 1))
   done
 fi
 ((FAIL == 0)) || {

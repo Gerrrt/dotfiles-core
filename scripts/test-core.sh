@@ -40,6 +40,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 1
 
 QUIET=0
+JSON=0 # --json: machine-readable summary on stdout (implies quiet); mirrors audit-core.sh
 # Scope mirrors audit-core.sh: gate the slow AREA-specific sections so a per-area run
 # does less. FAIL-CLOSED default (no --scope → both areas run). The cross-cutting,
 # pure-bash sections (clipboard ladder, CI-classifier) ALWAYS run — they are fast and
@@ -71,6 +72,7 @@ while (($#)); do
     _set_scope "$1"
     ;;
   --scope=*) _set_scope "${1#*=}" ;;
+  --json) JSON=1 QUIET=1 CORE_JSON=1 && export CORE_JSON ;; # only JSON on stdout
   --color)
     if (($# < 2)) || ! _core_set_color "$2"; then
       printf 'test-core.sh: --color requires a value (auto|always|never)\n' >&2
@@ -87,7 +89,7 @@ while (($#)); do
     ;;
   -h | --help)
     cat <<'EOF'
-usage: test-core.sh [-q|--quiet] [--scope LIST] [--color WHEN] [-h|--help]
+usage: test-core.sh [-q|--quiet] [--scope LIST] [--color WHEN] [--json] [-h|--help]
 
 Behavioral suite: clipboard ladder + nvim headless load + nvim event callbacks
 + zsh load-order smoke + function/unit + detection tests. Degrades gracefully
@@ -97,6 +99,8 @@ when zsh/nvim are absent.
   --scope LIST    limit the slow area sections: shell, nvim, all (default), none.
                   The clipboard + CI-classifier sections always run.
   --color WHEN    auto (default) | always | never; NO_COLOR still wins. (CORE_COLOR env.)
+  --json          machine-readable summary on stdout (implies --quiet):
+                  {pass,skip,fail,seconds,skipped[],result}
   -h, --help      show this help and exit
 EOF
     exit 0
@@ -119,6 +123,21 @@ SECONDS=0
 NESTED="${CORE_TEST_NESTED:-0}"
 summary() {
   [[ "$NESTED" == 1 ]] && return 0
+  if ((JSON)); then
+    local _result _first=1 _s
+    ((FAIL == 0)) && _result=ok || _result=failed
+    printf '{"pass":%d,"skip":%d,"fail":%d,"seconds":%d,"skipped":[' \
+      "$PASS" "$SKIP" "$FAIL" "$SECONDS"
+    for _s in ${_CORE_SKIPS[@]+"${_CORE_SKIPS[@]}"}; do
+      _s="${_s//\\/\\\\}"
+      _s="${_s//\"/\\\"}"
+      ((_first)) || printf ','
+      printf '"%s"' "$_s"
+      _first=0
+    done
+    printf '],"result":"%s"}\n' "$_result"
+    return 0
+  fi
   printf '\n%s──────── test summary ────────%s\n' "$c_blu" "$c_rst"
   printf '  %spass %d%s   %sskip %d%s   %sfail %d%s   %s(%ds)%s\n' \
     "$c_grn" "$PASS" "$c_rst" "$c_yel" "$SKIP" "$c_rst" "$c_red" "$FAIL" "$c_rst" \
@@ -428,10 +447,10 @@ if ! ((SCOPE_SHELL)) || ! have zsh; then
   fi
   summary
   ((FAIL == 0)) || {
-    [[ "$NESTED" == 1 ]] || printf '%stests FAILED%s\n' "$c_red" "$c_rst" >&2
+    { [[ "$NESTED" == 1 ]] || ((JSON)); } || printf '%stests FAILED%s\n' "$c_red" "$c_rst" >&2
     exit 1
   }
-  [[ "$NESTED" == 1 ]] || printf '%stests OK%s\n' "$c_grn" "$c_rst"
+  { [[ "$NESTED" == 1 ]] || ((JSON)); } || printf '%stests OK%s\n' "$c_grn" "$c_rst"
   exit 0
 fi
 
@@ -1060,7 +1079,7 @@ ucheck "update: _pkgup_list parses pacman package names" \
 # ── summary ───────────────────────────────────────────────────────────────────
 summary
 ((FAIL == 0)) || {
-  [[ "$NESTED" == 1 ]] || printf '%stests FAILED%s\n' "$c_red" "$c_rst" >&2
+  { [[ "$NESTED" == 1 ]] || ((JSON)); } || printf '%stests FAILED%s\n' "$c_red" "$c_rst" >&2
   exit 1
 }
-[[ "$NESTED" == 1 ]] || printf '%stests OK%s\n' "$c_grn" "$c_rst"
+{ [[ "$NESTED" == 1 ]] || ((JSON)); } || printf '%stests OK%s\n' "$c_grn" "$c_rst"
