@@ -49,7 +49,21 @@ core-version() {
 # via _core_have (command -v), so it's honest even if tools.zsh hasn't run, and shows
 # the RESOLVED binary names (fd vs fdfind, bat vs batcat) — the cross-distro detail that
 # silently changes behaviour. Read-only: it inspects, never installs.
+# Public verb: render the health report, paging it when taller than the window (a small
+# split + core-doctor -v). Same wrapper shape as core-help: TTY-only paging, forced colour
+# through the capture, direct render (byte-identical) on a pipe/redirect/the unit tests.
 core-doctor() {
+  emulate -L zsh
+  if [[ -t 1 && -z ${CORE_NO_PAGER:-} ]]; then
+    local _out
+    _out="$(_CORE_FORCE_COLOR=1 _core_doctor_render "$@")"
+    local _rc=$?
+    _core_page "$_out"
+    return $_rc
+  fi
+  _core_doctor_render "$@"
+}
+_core_doctor_render() {
   emulate -L zsh
   _core_wants_help "$1" && { _core_help "core-doctor [-v|--versions]" "report Core's detected tools + active integrations on this box (-v also shows versions)"; return 0; }
   # Default stays fast + scannable (one `command -v` per tool). -v/--versions opts INTO a
@@ -66,7 +80,7 @@ core-doctor() {
     ;;
   esac
   local g='' c='' d='' r=''
-  if [[ -t 1 && -z ${NO_COLOR:-} ]]; then
+  if [[ ( -t 1 || -n ${_CORE_FORCE_COLOR:-} ) && -z ${NO_COLOR:-} ]]; then
     # green/cyan stay local (doctor's own ✓/group semantics); the dim muted reuses
     # ui.zsh's canonical $_CORE_C_MUTED so "muted grey" has one definition Core-wide.
     g=$'\e[32m' c=$'\e[36m' d="${_CORE_C_MUTED:-$'\e[2;37m'}" r=$'\e[0m'
@@ -439,7 +453,24 @@ PY
 # maintenance verbs. Static + instant — the discoverability surface for the Core
 # layer (the shell counterpart to which-key in Neovim). Rows are "key|description"
 # pairs grouped under "§heading" markers, so the list stays trivially editable.
+# Public verb: render the sheet, paging it through $PAGER when it's taller than the
+# terminal (the full sheet easily overflows a tmux split). Paging only kicks in on a real
+# TTY; a pipe/redirect/the unit tests take the direct render path below — byte-identical
+# to before — so nothing captured changes. Colour is FORCED on for the captured render
+# (_core_page's pipe would otherwise look non-TTY and blank it); _core_page then prints or
+# pages. A filtered/short sheet that fits one screen is printed inline (less -F).
 core-help() {
+  emulate -L zsh
+  if [[ -t 1 && -z ${CORE_NO_PAGER:-} ]]; then
+    local _out
+    _out="$(_CORE_FORCE_COLOR=1 _core_help_render "$@")"
+    local _rc=$?
+    _core_page "$_out"
+    return $_rc
+  fi
+  _core_help_render "$@"
+}
+_core_help_render() {
   emulate -L zsh
   _core_wants_help "$1" && { _core_help "core-help [filter]" "scannable cheat sheet of Core's functions, keys & maintenance; pass a word to filter"; return 0; }
   # Optional case-insensitive filter: `core-help serve` jumps straight to the matching
@@ -454,7 +485,9 @@ core-help() {
   # copies. The TTY/NO_COLOR blanking below still applies locally.
   local title="${_CORE_C_ACCENT:-}" dc="${_CORE_C_MUTED:-}"
   local te=$'\e[0m' kc=$'\e[36m' ke=$'\e[0m' de=$'\e[0m'
-  if [[ ! -t 1 || -n ${NO_COLOR:-} ]]; then title='' te='' kc='' ke='' dc='' de=''; fi
+  # Blank colour off a non-TTY UNLESS the paging wrapper forced it on (_CORE_FORCE_COLOR),
+  # and always off under NO_COLOR — so the captured-for-paging render keeps its colour.
+  if { [[ ! -t 1 ]] && [[ -z ${_CORE_FORCE_COLOR:-} ]]; } || [[ -n ${NO_COLOR:-} ]]; then title='' te='' kc='' ke='' dc='' de=''; fi
   # Rows are "key|description" or "key|description|requires" — the optional third
   # field names a command this entry NEEDS. When it's absent on THIS box the row is
   # dimmed and tagged "— needs <cmd>", so the cheat sheet reflects what actually works

@@ -188,6 +188,37 @@ _core_help() {
   for d in "$@"; do print -r -- "  $d"; done
 }
 
+# ── paging ──────────────────────────────────────────────────────────────────────
+# For the long, scannable verbs (core-help's full sheet, core-doctor -v) that can be
+# taller than a tmux split. _core_page prints content, routing it through $PAGER ONLY
+# when stdout is a real TTY and the content is taller than the window — so a pipe, a
+# redirect, or the unit tests (all non-TTY) get a byte-identical unpaged print and never
+# block on an interactive pager. Colour must be baked into <content> already: a caller
+# pages by FORCING colour on (the renderer can't see a TTY through the pipe), the same
+# trick scripts/lib/common.sh uses with CLICOLOR_FORCE. CORE_NO_PAGER=1 disables it.
+_core_pager_cmd() { # → the pager command line on stdout, or non-zero when none/disabled
+  [[ -n ${CORE_NO_PAGER:-} ]] && return 1
+  local p="${PAGER:-less}"
+  # less needs -R to render our ANSI; -F quits if it fits one screen (so a short sheet
+  # doesn't trap you in the pager), -X doesn't clear the screen, -I case-folds search.
+  if [[ ${p:t} == less ]]; then
+    _core_have less && { print -r -- "less -FIRX"; return 0; }
+  else
+    _core_have "${p%% *}" && { print -r -- "$p"; return 0; }
+  fi
+  return 1
+}
+_core_page() { # _core_page <content>
+  emulate -L zsh
+  local content="$1" pager
+  local -i nlines=${#${(f)content}}
+  if [[ -t 1 ]] && ((nlines > LINES)) && pager="$(_core_pager_cmd)"; then
+    print -r -- "$content" | ${=pager}
+  else
+    print -r -- "$content"
+  fi
+}
+
 # ── confirm ───────────────────────────────────────────────────────────────────
 # _core_confirm <prompt>  → 0 = yes, non-zero = no. Defensive by default: with no
 # controlling TTY (a pipe, a cron job, a captured run) it DECLINES rather than
