@@ -71,9 +71,23 @@ while (($#)); do
     _set_scope "$1"
     ;;
   --scope=*) _set_scope "${1#*=}" ;;
+  --color)
+    if (($# < 2)) || ! _core_set_color "$2"; then
+      printf 'test-core.sh: --color requires a value (auto|always|never)\n' >&2
+      printf 'try: test-core.sh --help\n' >&2
+      exit 2
+    fi
+    shift
+    ;;
+  --color=*)
+    _core_set_color "${1#*=}" || {
+      printf 'test-core.sh: --color requires auto|always|never\n' >&2
+      exit 2
+    }
+    ;;
   -h | --help)
     cat <<'EOF'
-usage: test-core.sh [-q|--quiet] [--scope LIST] [-h|--help]
+usage: test-core.sh [-q|--quiet] [--scope LIST] [--color WHEN] [-h|--help]
 
 Behavioral suite: clipboard ladder + nvim headless load + nvim event callbacks
 + zsh load-order smoke + function/unit + detection tests. Degrades gracefully
@@ -82,6 +96,7 @@ when zsh/nvim are absent.
   -q, --quiet     only print SKIP/FAIL lines and the final summary
   --scope LIST    limit the slow area sections: shell, nvim, all (default), none.
                   The clipboard + CI-classifier sections always run.
+  --color WHEN    auto (default) | always | never; NO_COLOR still wins. (CORE_COLOR env.)
   -h, --help      show this help and exit
 EOF
     exit 0

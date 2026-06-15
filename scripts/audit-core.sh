@@ -93,6 +93,20 @@ while (($#)); do
     SCOPE_EXPLICIT=1
     ;;
   --changed) CHANGED=1 ;;
+  --color)
+    if (($# < 2)) || ! _core_set_color "$2"; then
+      printf 'audit-core.sh: --color requires a value (auto|always|never)\n' >&2
+      printf 'try: audit-core.sh --help\n' >&2
+      exit 2
+    fi
+    shift
+    ;;
+  --color=*)
+    _core_set_color "${1#*=}" || {
+      printf 'audit-core.sh: --color requires auto|always|never\n' >&2
+      exit 2
+    }
+    ;;
   -h | --help)
     cat <<'EOF'
 usage: audit-core.sh [-q|--quiet] [--scope LIST] [--changed] [-h|--help]
@@ -110,6 +124,8 @@ version/behavioral checks. CI and pre-commit run this exact script.
                   shell, nvim, all (default), none. Cheap structural/config/
                   markdown/workflow/version checks always run. CI sets this from
                   scripts/ci-classify.sh; omit it locally to run the full audit.
+  --color WHEN    auto (default) | always | never. `always` keeps colour when piped
+                  (e.g. into `less -R`); NO_COLOR still wins. Also via CORE_COLOR env.
   --changed       derive the scope from your local git diff (working tree vs HEAD,
                   falling back to the branch delta vs the default branch) using the
                   SAME scripts/ci-classify.sh CI uses — so a docs- or nvim-only edit
