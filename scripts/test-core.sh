@@ -742,6 +742,14 @@ ucheck "ui: _core_confirm declines with no TTY (fail-safe)" \
 ucheck "ui: _core_spin propagates the wrapped command's exit code" \
   "source '$UI'; _core_spin t true 2>/dev/null && ! _core_spin t false 2>/dev/null"
 
+# ui.zsh: _core_nap is the spinner's per-frame delay primitive — it must return 0
+# (the while-loop relies on it not aborting) and complete promptly via zselect WITHOUT
+# forking a fractional `sleep` that busybox may reject. We can't time it portably here,
+# but asserting it succeeds exercises the zselect path on every CI userland (glibc/musl)
+# — the bare-box regression the old literal `sleep 0.1` risked. Driven without a TTY.
+ucheck "ui: _core_nap completes and returns 0 (zselect tick, no fractional sleep fork)" \
+  "source '$UI'; _core_nap; (( \$? == 0 ))"
+
 # update.zsh: _pkgup_mgr must pick the manager that's actually on PATH. Isolate PATH to
 # a lone apt-get stub (so the brew/pacman/dnf/zypper arms above it all miss) and disable
 # the two background startup hooks, so the answer is deterministic on any runner.

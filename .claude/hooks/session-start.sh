@@ -116,14 +116,29 @@ if [ -n "${LUACHECK_VERSION:-}" ] && ! have luacheck && have luarocks; then
 fi
 
 # ── markdownlint-cli2 (pinned, via npm) ───────────────────────────────────────
+# This is the gate that SILENTLY SKIPPED most often in remote sessions (npm's global
+# bin frequently lands off PATH), and markdown IS the deliverable on these showcase
+# repos — so missing it is the exact "audit OK because absent" false-green this hook
+# exists to kill. Resolve the bin from npm ITSELF (prefix/bin) rather than guessing
+# with find, then fall back to a find sweep across the layouts the prefix probe misses.
 if [ -n "${MARKDOWNLINT_VERSION:-}" ] && ! have markdownlint-cli2 && have npm; then
   $SUDO --preserve-env=NODE_EXTRA_CA_CERTS npm install -g "markdownlint-cli2@${MARKDOWNLINT_VERSION}" >/dev/null 2>&1 || true
-  # Some images put the npm global bin off PATH; locate + symlink it.
+  # 1. Ask npm where its global bin is (authoritative) and symlink onto PATH.
   if ! have markdownlint-cli2; then
-    mdl="$(find /opt /usr/local /usr/lib -name markdownlint-cli2 -type f 2>/dev/null | head -n1)"
+    for npm_prefix in "$(npm prefix -g 2>/dev/null)" "$(npm config get prefix 2>/dev/null)"; do
+      [ -n "$npm_prefix" ] || continue
+      if [ -x "$npm_prefix/bin/markdownlint-cli2" ]; then
+        $SUDO ln -sf "$npm_prefix/bin/markdownlint-cli2" /usr/local/bin/markdownlint-cli2 2>/dev/null
+        break
+      fi
+    done
+  fi
+  # 2. Last resort: sweep the common global-install roots (covers nvm/volta/npm-global).
+  if ! have markdownlint-cli2; then
+    mdl="$(find /opt /usr/local /usr/lib "${HOME}/.npm-global" -name markdownlint-cli2 -type f 2>/dev/null | head -n1)"
     [ -n "$mdl" ] && $SUDO ln -sf "$mdl" /usr/local/bin/markdownlint-cli2 2>/dev/null
   fi
-  have markdownlint-cli2 || log "could not install markdownlint-cli2"
+  have markdownlint-cli2 || log "could not install markdownlint-cli2 — the markdown gate WILL SKIP"
 fi
 
 # ── PyYAML (the audit's YAML parse section imports it; tomllib/json are stdlib) ─
@@ -132,9 +147,23 @@ if have python3 && ! python3 -c 'import yaml' 2>/dev/null; then
 fi
 
 # ── doctor: report what the audit will actually be able to run ────────────────
+# An absent tool means `make audit` SKIPS that gate while still printing "audit OK" —
+# a false green. So count the misses and warn LOUDLY at the end: a remote green is only
+# trustworthy if you know which gates actually ran. (python3 ships in the base image and
+# zsh/shellcheck/gitleaks are the load-bearing ones; nvim/luacheck only matter for nvim
+# changes, but we still surface them so the picture is complete.)
 log "toolchain ready — gate availability:"
+missing=0
 for t in zsh shellcheck luacheck nvim markdownlint-cli2 actionlint gitleaks hyperfine python3; do
-  if have "$t"; then printf '  ✓ %s\n' "$t"; else printf '  – %s (gate will skip)\n' "$t"; fi
+  if have "$t"; then
+    printf '  ✓ %s\n' "$t"
+  else
+    printf '  – %s (gate will skip)\n' "$t"
+    missing=$((missing + 1))
+  fi
 done
+if [ "$missing" -gt 0 ]; then
+  log "WARNING: $missing gate tool(s) unavailable — \`make audit\` may report OK while SKIPPING them; treat a green run as partial until these resolve"
+fi
 log "run \`make audit\` to verify Core end-to-end"
 exit 0

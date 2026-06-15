@@ -27,12 +27,15 @@
 : "${UPDATE_CHECK_INTERVAL:=86400}"
 typeset -g _PKGUP_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/pkg-updates"
 
-# Accent colours for the nudge + welcome below. Use the truecolor hex ONLY when the
-# terminal advertises 24-bit ($COLORTERM); otherwise a 256-colour approximation, so a
-# 16/256-colour TTY (rescue shell, serial console — the bare boxes Core targets) gets a
-# sane colour instead of a raw 24-bit escape it would render as garbage. Same "degrade,
-# don't assume" rule as Core's NO_COLOR handling. These feed `print -P %F{…}`.
-if [[ "${COLORTERM:-}" == (24bit|truecolor) ]]; then
+# Accent colours for the nudge + welcome below (they feed `print -P %F{…}`). These
+# come from ui.zsh's canonical palette ($_CORE_ACCENT_SPEC/$_CORE_MUTED_SPEC — the one
+# place $COLORTERM is interpreted) when it's loaded, which it is in canonical order
+# (ui precedes update). The COLORTERM branch below is a STANDALONE fallback for the
+# unit tests, which source this module alone: it reproduces the same truecolor-hex vs
+# 256-colour choice so a 16/256-colour TTY never gets a raw 24-bit escape.
+if [[ -n ${_CORE_ACCENT_SPEC:-} ]]; then
+  typeset -g _PKGUP_ACCENT=$_CORE_ACCENT_SPEC _PKGUP_MUTED=$_CORE_MUTED_SPEC
+elif [[ "${COLORTERM:-}" == (24bit|truecolor) ]]; then
   typeset -g _PKGUP_ACCENT='#7aa2f7' _PKGUP_MUTED='#565f89'
 else
   typeset -g _PKGUP_ACCENT=75 _PKGUP_MUTED=244
@@ -155,13 +158,23 @@ _pkgup_notice() {
 }
 
 # ── Startup hook: throttle + background the check, then show cached nudge ──────
-if ((UPDATE_CHECK_ENABLED)) && [[ "$(_pkgup_mgr)" != none ]]; then
+# The manager probe (_pkgup_mgr — up to 7 `command -v` forks) used to run on EVERY
+# interactive shell, in a synchronous `$()` on the critical path before the first
+# prompt — against this stack's own startup-perf thesis (cached inits in tools.zsh,
+# deferred plugins, the bench budget gate). It's only NEEDED when the once/day throttle
+# window has actually elapsed and we're about to refresh, so it now lives INSIDE that
+# branch. The nudge (_pkgup_notice) just reads the cache — no probe — so it still prints
+# every shell. (A box with no manager simply has no positive count cached, so the nudge
+# stays silent there exactly as before.)
+if ((UPDATE_CHECK_ENABLED)); then
   () {
     local now last=0
     now="$(date +%s)"
     [[ -r "$_PKGUP_CACHE" ]] && last="$(sed -n 2p "$_PKGUP_CACHE" 2>/dev/null)"
     [[ "$last" == <-> ]] || last=0
-    if ((now - last >= UPDATE_CHECK_INTERVAL)); then
+    # Throttle FIRST (cheap: a date + a cache read), then — only when due — pay for the
+    # manager probe. No elapsed window → no probe, the common per-shell path.
+    if ((now - last >= UPDATE_CHECK_INTERVAL)) && [[ "$(_pkgup_mgr)" != none ]]; then
       # Claim the slot immediately (bump the timestamp) so sibling shells opened
       # in the same instant don't all fire, then refresh in a disowned subshell.
       mkdir -p "${_PKGUP_CACHE:h}"

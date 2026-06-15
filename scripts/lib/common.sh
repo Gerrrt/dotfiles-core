@@ -27,7 +27,10 @@ _CORE_COMMON_SH=1
 # the dev tooling and the shell layer. (fail() writes to stderr, but keying the whole
 # palette on stdout keeps it simple and means a redirect strips every escape at once;
 # a plain `2>&1 | tee log` therefore stays readable too.) Codes live here, once.
-if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+# CLICOLOR_FORCE keeps colour on even when stdout is NOT a tty — used when a parent
+# captures a child's output to a file and re-prints it to a real terminal (audit-core.sh
+# overlaps the behavioral suite this way). NO_COLOR still wins (https://no-color.org).
+if [[ -z "${NO_COLOR:-}" && (-t 1 || -n "${CLICOLOR_FORCE:-}") ]]; then
   c_grn=$'\e[32m' c_yel=$'\e[33m' c_red=$'\e[31m' c_blu=$'\e[34m' c_rst=$'\e[0m'
 else
   c_grn='' c_yel='' c_red='' c_blu='' c_rst=''

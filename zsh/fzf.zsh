@@ -31,8 +31,15 @@ export FZF_CTRL_R_OPTS='
 # to cat/ls on a bare box so the pane shows the file/dir instead of an error.
 if [[ -n ${BAT_BIN:-} ]]; then
   export _FZF_PREVIEW_CMD="$BAT_BIN --color=always --style=plain,numbers --line-range=:500 {}"
+  # fzf-tab does NOT substitute fzf's `{}` placeholder — it appends $realpath itself.
+  # So it needs the SAME previewer WITHOUT the trailing `{}`; reusing $_FZF_PREVIEW_CMD
+  # there leaked a literal `{}` arg into bat (a phantom "No such file", swallowed by
+  # 2>/dev/null — and a wrong preview if a file named `{}` existed). Keep the two forms
+  # distinct: `{}` for fzf proper, placeholder-free for fzf-tab (plugins.zsh appends it).
+  export _FZF_TAB_PREVIEW_CMD="$BAT_BIN --color=always --style=plain,numbers --line-range=:500"
 else
   export _FZF_PREVIEW_CMD='cat {}'
+  export _FZF_TAB_PREVIEW_CMD='cat'
 fi
 # Dir preview: eza when present, classic `ls` otherwise (eza has no rename quirk — the
 # only failure mode is absence, so a fallback is all it needs).
