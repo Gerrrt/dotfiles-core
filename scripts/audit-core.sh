@@ -409,17 +409,26 @@ fi
 # ~/Library/LaunchAgents (it switches on _maint_scheduler, the correct cross-OS shape).
 # Comment-stripped first, so an explanatory comment naming an OS path can't trip it.
 # Pure sed+grep (busybox-safe), shell-scoped like the other shell-layer gates.
-hdr "Core⇄OS boundary (no OS paths in portable shell modules)"
+hdr "Core⇄OS boundary (no OS paths in portable Core files)"
 if ((SCOPE_SHELL)); then
   bnd_fail=0
+  # Scan BOTH the portable shell modules AND the SYMLINKED config files (mise, git,
+  # tmux, starship). The latter were previously ungated — yet they are vendored and
+  # symlinked verbatim into every OS repo just like the zsh modules, so a hard-coded
+  # /opt/homebrew in starship.toml or an /Library/ path in gitconfig fans out N-way
+  # exactly the same way. A real drift of this shape was found downstream (an OS path
+  # baked into mise/config.toml). The os/ layer is where those belong. The .example
+  # templates are EXCLUDED — they are user-edited illustrations, not the live config.
   while IFS= read -r f; do
     [[ "$f" == zsh/maint.zsh ]] && continue # OS-switched scheduler surface (see above)
     if sed 's/#.*//' "$f" | grep -qE '/opt/homebrew|/home/linuxbrew|/usr/local/Cellar|/Library/|/mnt/c/'; then
       bnd_fail=1
-      fail "OS-specific path in a portable module ($f) — it belongs in the OS layer, not Core"
+      fail "OS-specific path in a portable Core file ($f) — it belongs in the OS layer, not Core"
     fi
-  done < <(git ls-files 'zsh/*.zsh' 2>/dev/null)
-  ((bnd_fail)) || pass "portable zsh modules carry no OS-absolute paths"
+  done < <(git ls-files 'zsh/*.zsh' \
+    'mise/config.toml' 'git/gitconfig' \
+    'tmux/tmux.conf' 'tmux/tmux.reset.conf' 'starship/starship.toml' 2>/dev/null)
+  ((bnd_fail)) || pass "portable Core files (shell modules + symlinked configs) carry no OS-absolute paths"
 else
   skip "Core⇄OS boundary (out of scope)"
 fi
