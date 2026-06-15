@@ -31,16 +31,24 @@ _have() { command -v "$1" >/dev/null 2>&1; }
 # is newer than the cache (or the cache is missing). Turns an eval-of-subprocess
 # into a plain source. Used for the tools whose init output is deterministic. ──
 #
-# CACHE-INVALIDATION CAVEAT: the cache is rebuilt only when the *binary* is newer
-# than it (the mtime check below). If a tool's init output also depends on ENV
-# read at generation time — e.g. ATUIN_NOBIND for atuin, CARAPACE_BRIDGES for
-# carapace — flipping that env will NOT bust the cache. After such a change force
-# a regen: `rm "${XDG_CACHE_HOME:-$HOME/.cache}/zsh/<name>.zsh"`, then new shell.
-_cache_eval() { # _cache_eval <name> <command...>
+# CACHE-INVALIDATION: the cache is rebuilt when the *binary* is newer than it (the
+# mtime check below). A tool whose init output ALSO depends on env read at generation
+# time — ATUIN_NOBIND for atuin, CARAPACE_BRIDGES for carapace — passes that env via
+# `_cache_eval --salt`, which folds it into the cache FILENAME, so flipping the env
+# selects a different cache and regenerates. (Salt-free callers — starship/zoxide/mise,
+# whose output doesn't vary on env here — keep the plain mtime-only behaviour.)
+_cache_eval() { # _cache_eval [--salt <sig>] <name> <command...>
+  # --salt folds an env SIGNATURE into the cache filename, so changing env the generator
+  # reads at generation time (ATUIN_NOBIND, CARAPACE_BRIDGES) selects a DIFFERENT cache
+  # and regenerates — closing the "flip the env, keep the stale cache" caveat above for
+  # those callers. Sanitised to a path-safe token. Salt-free callers are unchanged.
+  local salt=""
+  if [[ "$1" == --salt ]]; then salt="$2"; shift 2; fi
   local name="$1"
   shift
   local dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
-  local cache="$dir/${name}.zsh"
+  local sig="${salt//[^A-Za-z0-9]/_}"
+  local cache="$dir/${name}${sig:+.$sig}.zsh"
   local bin
   bin="$(command -v "$1" 2>/dev/null)"
   [[ -z "$bin" ]] && return 0
@@ -141,8 +149,8 @@ fi
 # `mise activate zsh --shims` or put "$(mise where)"/shims on PATH and drop this
 # line; pick ONE deliberately.)
 [[ -n ${HAVE_MISE:-} ]] && _cache_eval mise mise activate zsh
-# atuin: init script is static text; ATUIN_NOBIND (set above) is read at
-# generation, so the caveat above applies if you ever flip it.
-[[ -n ${HAVE_ATUIN:-} ]] && _cache_eval atuin atuin init zsh
+# atuin: init script is static text; ATUIN_NOBIND (set above) is read at generation, so
+# salt the cache on it — flipping ATUIN_NOBIND now busts the cache instead of serving stale.
+[[ -n ${HAVE_ATUIN:-} ]] && _cache_eval --salt "${ATUIN_NOBIND:-}" atuin atuin init zsh
 
 unfunction _have 2>/dev/null

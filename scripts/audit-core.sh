@@ -16,11 +16,13 @@
 #   3. shell syntax                     — bash -n on bash scripts; zsh -n on zsh modules
 #   4. lua                              — luacheck nvim/        (if luacheck present)
 #   5. lint                             — shellcheck            (if present)
+#  5c. Core⇄OS boundary                — no OS-absolute paths in portable zsh modules
 #   6. config files                     — toml/yaml parse-check (if python3 present)
 #   7. markdown                          — markdownlint (if markdownlint-cli2 present)
 #   8. workflows                         — actionlint on .github/workflows (if present)
 #  8b. secrets                           — gitleaks working-tree scan (if present)
-#   9. version consistency              — pre-commit hook revs == tool-versions.env
+#   9. version consistency              — pre-commit hook revs == tool-versions.env;
+#                                         core.version SemVer + CHANGELOG coherence
 #  10. behavioral                       — load-order smoke + function units (test-core.sh)
 #
 # We deliberately do NOT enforce shfmt: the hand-tuned scripts here use an
@@ -99,10 +101,11 @@ THE audit button — manifest/exec-bit/syntax/lint/config/markdown/workflow/
 version/behavioral checks. CI and pre-commit run this exact script.
 
   -q, --quiet     only print SKIP/FAIL lines and the final summary
-  --strict        treat any SKIP as a FAILURE — a gate whose tool is absent did not
-                  actually run, so a "green" with skips is only PARTIAL. Use this for
-                  release verification / a fully-provisioned CI leg where every gate
-                  must execute. The summary always names the skipped checks.
+  --strict        fail if any gate SKIPPED because its TOOL is absent — that gate did
+                  not actually run, so a "green" with such skips is only PARTIAL. An
+                  out-of-scope skip (a narrowed --scope/--changed run) is intentional and
+                  does NOT trip --strict, so this is safe on a fully-provisioned CI leg
+                  where every IN-SCOPE tool is installed. The summary names every skip.
   --scope LIST    limit the slow area-specific sections to a comma list:
                   shell, nvim, all (default), none. Cheap structural/config/
                   markdown/workflow/version checks always run. CI sets this from
@@ -384,6 +387,30 @@ else
   skip "fzf preview resolution (out of scope)"
 fi
 
+# ── 5c. Core⇄OS boundary (portable shell modules carry no OS-absolute paths) ──
+# README's contract: "if it changes when the OS changes, it does NOT belong in Core."
+# That rule is documented but was ungated — a hard-coded /opt/homebrew, /home/linuxbrew,
+# or macOS ~/Library path could slip into a portable shell module and fan out to 9 repos
+# where it is simply wrong. Assert the sourced zsh modules stay OS-agnostic. EXCLUDED:
+# zsh/maint.zsh — the scheduler CONTROL SURFACE whose launchd arm legitimately writes
+# ~/Library/LaunchAgents (it switches on _maint_scheduler, the correct cross-OS shape).
+# Comment-stripped first, so an explanatory comment naming an OS path can't trip it.
+# Pure sed+grep (busybox-safe), shell-scoped like the other shell-layer gates.
+hdr "Core⇄OS boundary (no OS paths in portable shell modules)"
+if ((SCOPE_SHELL)); then
+  bnd_fail=0
+  while IFS= read -r f; do
+    [[ "$f" == zsh/maint.zsh ]] && continue # OS-switched scheduler surface (see above)
+    if sed 's/#.*//' "$f" | grep -qE '/opt/homebrew|/home/linuxbrew|/usr/local/Cellar|/Library/|/mnt/c/'; then
+      bnd_fail=1
+      fail "OS-specific path in a portable module ($f) — it belongs in the OS layer, not Core"
+    fi
+  done < <(git ls-files 'zsh/*.zsh' 2>/dev/null)
+  ((bnd_fail)) || pass "portable zsh modules carry no OS-absolute paths"
+else
+  skip "Core⇄OS boundary (out of scope)"
+fi
+
 # ── 6. config files (toml / yaml parse) ──────────────────────────────────────
 # A malformed starship.toml / mise config.toml / ci.yml is still valid *text* —
 # so zsh -n and shellcheck never look at it — yet it breaks every one of the 9
@@ -436,8 +463,21 @@ fi
 # like the linters above; pre-commit's markdownlint-cli2 hook is the author-time
 # mirror, and CI installs it so the gate actually runs there.
 hdr "markdown (markdownlint)"
+# Resolve a RUNNABLE markdownlint WITHOUT requiring it on PATH — the npm global bin
+# frequently lands off PATH, making this the most-skipped gate in remote sessions even
+# when the tool IS installed. Prefer a PATH binary; else `npx --no-install` (resolves a
+# global/local install with NO network fetch); else a repo-local node_modules bin. Only a
+# genuinely-absent tool still skips — which --strict (a fully-provisioned CI leg) then catches.
+_mdl=()
 if have markdownlint-cli2; then
-  if markdownlint-cli2 "**/*.md" >/dev/null 2>&1; then
+  _mdl=(markdownlint-cli2)
+elif have npx && npx --no-install markdownlint-cli2 --version >/dev/null 2>&1; then
+  _mdl=(npx --no-install markdownlint-cli2)
+elif [[ -x node_modules/.bin/markdownlint-cli2 ]]; then
+  _mdl=(node_modules/.bin/markdownlint-cli2)
+fi
+if ((${#_mdl[@]})); then
+  if "${_mdl[@]}" "**/*.md" >/dev/null 2>&1; then
     pass "markdownlint (all tracked markdown clean)"
   else
     fail "markdownlint reported issues — run: markdownlint-cli2 '**/*.md'"
@@ -531,6 +571,29 @@ else
   fail "core.version missing — the vendored version stamp (core-version reads it)"
 fi
 
+# core.version ↔ CHANGELOG coherence. A release is a TWO-file edit (bump core.version,
+# move CHANGELOG's [Unreleased] under a dated heading) done by hand — so the two drift.
+# Gate it: a -dev/prerelease stamp means work-in-progress, so CHANGELOG must keep an
+# [Unreleased] section open; a CLEAN release stamp (X.Y.Z) must have a matching heading
+# (## [vX.Y.Z] / ## [X.Y.Z]). Catches "bumped the stamp but forgot the CHANGELOG entry"
+# (and vice-versa) before it fans out. Pure grep (busybox-safe); skips if a file is gone.
+if [[ -r core.version && -r CHANGELOG.md ]]; then
+  cvc="$(tr -d '[:space:]' <core.version)"
+  if [[ "$cvc" == *-* ]]; then
+    if grep -qE '^## +\[[Uu]nreleased\]' CHANGELOG.md; then
+      pass "core.version ($cvc) is prerelease and CHANGELOG keeps an [Unreleased] section"
+    else
+      fail "core.version ($cvc) is prerelease but CHANGELOG.md has no [Unreleased] section"
+    fi
+  elif grep -qE "^## +\[v?${cvc//./\\.}\]" CHANGELOG.md; then
+    pass "core.version ($cvc) has a matching CHANGELOG release heading"
+  else
+    fail "core.version ($cvc) has no '## [v$cvc]' heading in CHANGELOG.md — cut the release section"
+  fi
+else
+  skip "core.version ↔ CHANGELOG coherence (a file is unreadable)"
+fi
+
 # ── 10. behavioral tests (load-order smoke + function unit tests) ─────────────
 # Static analysis above proves the modules PARSE; this proves they LOAD TOGETHER
 # in canonical order and that the pure functions behave. Delegated to test-core.sh
@@ -571,16 +634,24 @@ printf '  %spass %d%s   %sskip %d%s   %sfail %d%s   %s(%ds)%s\n' \
 # was absent did not actually run, and several of those (markdownlint, actionlint, gitleaks,
 # luacheck, nvim) ARE enforced in CI — so a clean local box can still differ from the gate.
 # This makes the gap explicit instead of hiding it behind a bare count. --strict turns it red.
+# Partition the skips: a gate skipped because its TOOL is absent is a real coverage gap;
+# one skipped because its AREA is out of scope (a narrowed --scope/--changed run) is
+# intentional. --strict fails ONLY on the former, so it can run on a fully-provisioned CI
+# leg (every in-scope tool installed) without tripping on deliberately-narrowed areas.
+_tool_skips=0
 if ((SKIP > 0)); then
-  printf '  %s%d check(s) SKIPPED (tool absent) — this run is PARTIAL, not full:%s\n' "$c_yel" "$SKIP" "$c_rst" >&2
-  for _s in "${_CORE_SKIPS[@]}"; do printf '    %s–%s %s\n' "$c_yel" "$c_rst" "$_s" >&2; done
+  printf '  %s%d check(s) SKIPPED — this run is PARTIAL, not full:%s\n' "$c_yel" "$SKIP" "$c_rst" >&2
+  for _s in "${_CORE_SKIPS[@]}"; do
+    printf '    %s–%s %s\n' "$c_yel" "$c_rst" "$_s" >&2
+    [[ "$_s" == *"out of scope"* ]] || _tool_skips=$((_tool_skips + 1))
+  done
 fi
 ((FAIL == 0)) || {
   printf '%saudit FAILED%s\n' "$c_red" "$c_rst" >&2
   exit 1
 }
-if ((STRICT && SKIP > 0)); then
-  printf '%saudit FAILED (--strict: %d gate(s) skipped, must all run)%s\n' "$c_red" "$SKIP" "$c_rst" >&2
+if ((STRICT && _tool_skips > 0)); then
+  printf '%saudit FAILED (--strict: %d gate(s) skipped because their tool is absent — must all run)%s\n' "$c_red" "$_tool_skips" "$c_rst" >&2
   exit 1
 fi
 printf '%saudit OK%s\n' "$c_grn" "$c_rst"

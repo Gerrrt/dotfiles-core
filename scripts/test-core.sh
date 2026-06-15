@@ -944,6 +944,88 @@ _flag_drift() { # _flag_drift <verb> <completion-file> <source-file>
 _flag_drift serve "$HERE/zsh/completions/_serve" "$HERE/zsh/functions.zsh"
 _flag_drift up "$HERE/zsh/completions/_up" "$HERE/zsh/update.zsh"
 
+# ── git helper unit tests (git.zsh) (B2) ──────────────────────────────────────
+# git.zsh's trunk/branch resolution (git_main_branch's 6-way ref search, git_current_branch's
+# detached-HEAD fallback) is real logic that branch-aware aliases (gcom/grbm/gpu) ride on and
+# that fans out to 9 repos — yet it was the ONE shell module with no behavioral coverage (only
+# `zsh -n`). Drive each helper against throwaway repos, hermetic: HOME → sandbox and git config
+# pinned to /dev/null so the host's init.defaultBranch can't skew the result. Skips without git.
+hdr "git helper unit tests (git.zsh)"
+if ! have git; then
+  skip "git helpers (git not installed)"
+else
+  GITZSH="$HERE/zsh/git.zsh"
+  gcheck() { # gcheck <label> <zsh-body that must exit 0>
+    local out
+    if out="$(HOME="$SANDBOX" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+      GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@e GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@e \
+      zsh -fc "source '$GITZSH' || exit 1; $2" 2>&1)"; then
+      pass "$1"
+    else
+      fail "$1"
+      [[ -n "$out" ]] && printf '%s\n' "$out" | sed 's/^/    /' >&2
+    fi
+  }
+  gcheck "git_current_branch reads the checked-out branch" \
+    'd=$(mktemp -d); cd "$d"; git -c init.defaultBranch=main init -q .; [[ $(git_current_branch) == main ]]'
+  gcheck "git_current_branch falls back to a short SHA on detached HEAD" \
+    'd=$(mktemp -d); cd "$d"; git -c init.defaultBranch=main init -q .; git commit -q --allow-empty -m x; git checkout -q --detach HEAD; [[ -n $(git_current_branch) ]]'
+  gcheck "git_current_branch is empty outside a repo" \
+    'd=$(mktemp -d); cd "$d"; [[ -z $(git_current_branch) ]]'
+  gcheck "git_main_branch resolves main when present" \
+    'd=$(mktemp -d); cd "$d"; git -c init.defaultBranch=main init -q .; git commit -q --allow-empty -m x; [[ $(git_main_branch) == main ]]'
+  gcheck "git_main_branch resolves master when that is the trunk" \
+    'd=$(mktemp -d); cd "$d"; git -c init.defaultBranch=master init -q .; git commit -q --allow-empty -m x; [[ $(git_main_branch) == master ]]'
+  gcheck "git_main_branch defaults to master when no known trunk exists" \
+    'd=$(mktemp -d); cd "$d"; git -c init.defaultBranch=main init -q .; git commit -q --allow-empty -m x; git branch -m weirdtrunk; [[ $(git_main_branch) == master ]]'
+fi
+
+# ── update.zsh per-manager parse (B5) ─────────────────────────────────────────
+# The detection LADDER is covered above (apt), but _pkgup_count/_pkgup_list use a DISTINCT
+# grep/awk heuristic PER manager — and only apt had a test. A regex that miscounts a header
+# or blank row would ship silently to that one distro's repo. Pin each: isolate PATH to a
+# lone manager stub (+ the coreutils its pipeline forks) so _pkgup_mgr resolves to it, feed
+# canned `outdated` output, and assert the parsed count/names. Mirrors the apt stub above.
+hdr "update.zsh per-manager parse (apk / dnf / zypper / pacman)"
+_mgr_stub() { # _mgr_stub <mgr> <sh-body>
+  rm -rf "$PMBIN"
+  mkdir -p "$PMBIN"
+  printf '#!/bin/sh\n%s\n' "$2" >"$PMBIN/$1"
+  chmod +x "$PMBIN/$1"
+  local t
+  for t in grep awk sort cut sed; do
+    [[ -e "$PMBIN/$t" ]] || ln -s "$(command -v "$t")" "$PMBIN/$t" 2>/dev/null
+  done
+}
+_mgr_stub apk 'case "$*" in *"list -u"*) printf "a-1.0 ...\nb-2.0 ...\nc-3.0 ...\n" ;; esac'
+ucheck "update: _pkgup_count parses apk (3 upgradable)" \
+  "source '$UPD'; [[ \$(_pkgup_count) == 3 ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "update: _pkgup_list parses apk package names" \
+  "source '$UPD'; out=\$(_pkgup_list); [[ \$out == *a-1.0* && \$out == *c-3.0* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+_mgr_stub dnf 'case "$*" in *check-update*) printf "bash.x86_64    5.1-2    baseos\nvim.x86_64    9.0-1    appstream\n" ;; esac'
+ucheck "update: _pkgup_count parses dnf check-update (2 upgradable)" \
+  "source '$UPD'; [[ \$(_pkgup_count) == 2 ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "update: _pkgup_list parses dnf package names" \
+  "source '$UPD'; out=\$(_pkgup_list); [[ \$out == *bash.x86_64* && \$out == *vim.x86_64* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+_mgr_stub zypper 'case "$*" in *list-updates*) printf "v | repo | bash | 1 | 2 | x86_64\nv | repo | vim | 1 | 2 | x86_64\n" ;; esac'
+ucheck "update: _pkgup_count parses zypper list-updates (2 upgradable)" \
+  "source '$UPD'; [[ \$(_pkgup_count) == 2 ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "update: _pkgup_list parses zypper package names" \
+  "source '$UPD'; out=\$(_pkgup_list); [[ \$out == *bash* && \$out == *vim* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+_mgr_stub pacman 'case "$*" in *-Qu*) printf "bash 5.1.0\nvim 9.0.0\n" ;; esac'
+ucheck "update: _pkgup_count parses pacman -Qu (2 upgradable)" \
+  "source '$UPD'; [[ \$(_pkgup_count) == 2 ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "update: _pkgup_list parses pacman package names" \
+  "source '$UPD'; out=\$(_pkgup_list); [[ \$out == *bash* && \$out == *vim* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+
 # ── summary ───────────────────────────────────────────────────────────────────
 summary
 ((FAIL == 0)) || {
