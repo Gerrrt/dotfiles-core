@@ -142,6 +142,42 @@ _pkgup_refresh() {
   print -r -- "$(date +%s)" >>"$_PKGUP_CACHE"
 }
 
+# Capture _pkgup_list into a file so a spinner can wrap the slow, SILENT fetch (brew
+# outdated / apt -s can stall a second or two with no output) while the caller still gets
+# the names. `>|` forces past options.zsh's NO_CLOBBER (the mktemp target pre-exists).
+_pkgup_list_to() { _pkgup_list >|"$1" 2>/dev/null; }
+
+# _up_pending — populate the caller's `pending` array with upgradable package names,
+# behind a spinner on a TTY (U8). Falls back to a plain capture with no spinner on a
+# pipe/non-TTY or when ui.zsh's _core_spin isn't loaded — so captured/scripted runs and
+# the unit tests are byte-identical to the old inline `pending=(${(f)"$(_pkgup_list)"})`.
+# Relies on zsh dynamic scope: `mgr` + `pending` are the caller's locals.
+_up_pending() {
+  if (($+functions[_core_spin])) && [[ -t 2 ]]; then
+    local _f
+    if _f="$(mktemp "${TMPDIR:-/tmp}/up-list.XXXXXX" 2>/dev/null)" && [[ -n "$_f" ]]; then
+      _core_spin "checking ${mgr} for upgradable packages" _pkgup_list_to "$_f"
+      pending=(${(f)"$(<"$_f")"})
+      rm -f "$_f"
+      return 0
+    fi
+  fi
+  pending=(${(f)"$(_pkgup_list 2>/dev/null)"})
+}
+
+# _up_select <pkg...> — interactive multi-select (U2), printing the chosen names. gum's
+# checklist when present, else fzf --multi; non-zero (silent) if neither is available so
+# the caller can fall back. The caller already gated this on a TTY.
+_up_select() {
+  if _core_have gum; then
+    printf '%s\n' "$@" | gum choose --no-limit --header "select packages to upgrade (space toggles, enter confirms)"
+  elif _core_have fzf; then
+    printf '%s\n' "$@" | fzf --multi --prompt "upgrade> " --header "TAB selects · ENTER confirms · ESC cancels"
+  else
+    return 1
+  fi
+}
+
 # Manual force: `update-check`
 update-check() {
   _core_wants_help "$1" && { _core_help "update-check" "refresh the cached 'updates available' nudge now"; return 0; }
@@ -228,33 +264,34 @@ up() {
   emulate -L zsh
   # Help BEFORE anything else: without this, `up --help` fell through (not `-y`, so
   # yes=0) and proceeded to actually apply updates — a help flag must never do that.
-  _core_wants_help "$1" && { _core_help "up [-y|--yes] [-n|--dry-run]" "apply package updates (interactive; -y auto-confirms where safe; -n only lists)"; return 0; }
+  _core_wants_help "$1" && { _core_help "up [-y|--yes] [-n|--dry-run] [-i|--interactive]" "apply package updates (interactive; -y auto-confirms where safe; -n only lists; -i pick packages)"; return 0; }
   # Parse EVERY argument (not just $1) so flag ORDER doesn't matter and an unknown
   # flag or stray operand is REJECTED in Core's voice — matching the fail-closed
   # parsers in scripts/*.sh. The old `[[ "$1" == … ]]` form silently ignored a
   # second flag (`up -n -y`) and let a typo like `up --bogus` fall through to a real,
   # privileged update. Usage errors return 1, the convention every Core VERB uses
   # (serve/mkcd/cdup/…); the gate SCRIPTS use 2, but `up` is a verb, not a gate.
-  local yes=0 dry=0 arg
+  local yes=0 dry=0 interactive=0 arg
   for arg in "$@"; do
     case "$arg" in
     -y | --yes) yes=1 ;;
     -n | --dry-run) dry=1 ;;
+    -i | --interactive) interactive=1 ;;
     *)
       _core_err "up: unexpected argument: $arg"
       local _sug
-      _sug="$(_core_suggest "$arg" -y --yes -n --dry-run)"
+      _sug="$(_core_suggest "$arg" -y --yes -n --dry-run -i --interactive)"
       [[ -n "$_sug" ]] && _core_hint "did you mean ${_sug}?"
-      _core_usage "up [-y|--yes] [-n|--dry-run]"
+      _core_usage "up [-y|--yes] [-n|--dry-run] [-i|--interactive]"
       return 1
       ;;
     esac
   done
-  # -y (apply) and -n (inspect-only) are mutually exclusive — refuse the contradiction
-  # rather than silently letting one win.
-  if ((yes && dry)); then
-    _core_err "up: -y/--yes and -n/--dry-run are mutually exclusive"
-    _core_usage "up [-y|--yes] [-n|--dry-run]"
+  # The three modes are mutually exclusive: -n only inspects, -y auto-applies everything,
+  # -i hand-picks. Refuse a contradiction rather than letting one silently win.
+  if ((yes + dry + interactive > 1)); then
+    _core_err "up: -y/--yes, -n/--dry-run and -i/--interactive are mutually exclusive"
+    _core_usage "up [-y|--yes] [-n|--dry-run] [-i|--interactive]"
     return 1
   fi
   local y=()
@@ -272,7 +309,7 @@ up() {
   # didn't offer. Uses the same non-root, no-mutation _pkgup_list as the preview below.
   if ((dry)); then
     local -a pending
-    pending=(${(f)"$(_pkgup_list 2>/dev/null)"})
+    _up_pending
     if ((${#pending})); then
       _core_ok "up: ${#pending} package$([[ ${#pending} -ne 1 ]] && echo s) upgradable via ${mgr}:"
       print -rl -- "${(@)pending/#/    }"
@@ -281,17 +318,51 @@ up() {
     fi
     return 0
   fi
-  # Defensive pre-confirm (skipped by -y): name the manager BEFORE touching the
-  # system, so `up` on the wrong box is a one-keystroke abort, not a surprise sync.
-  # _core_confirm declines with no TTY, so `up` (sans -y) stays interactive-only.
-  if ((! yes)); then
+  # ── interactive selection (U2): hand-pick WHICH packages to upgrade. This HONORS the
+  # safety model — partial upgrades are offered ONLY where they're safe (apt/dnf/zypper/
+  # brew). pacman/emerge/apk are full-sync-only by design (Arch partial-break, Gentoo
+  # compiles, musl rolling), so -i refuses there and points back at a full `up` rather
+  # than risk a partial system. Needs a TTY + fzf or gum; selecting IS the consent, so
+  # the generic confirm below is skipped for -i. ──
+  local -a selected=()
+  if ((interactive)); then
+    case "$mgr" in
+    pacman | emerge | apk)
+      _core_errbox "up -i: ${mgr} does not support safe partial upgrades" \
+        "why: ${mgr} must update as a whole — a partial upgrade risks a broken system" \
+        "fix: run a full \`up\` (or \`up -y\`) instead"
+      return 1
+      ;;
+    esac
+    [[ -t 0 && -t 2 ]] || {
+      _core_err "up -i: needs an interactive terminal"
+      return 1
+    }
+    local -a pending
+    _up_pending
+    if ((! ${#pending})); then
+      _core_ok "up: nothing to upgrade (via ${mgr})"
+      return 0
+    fi
+    selected=("${(@f)$(_up_select "${pending[@]}")}")
+    selected=(${selected:#}) # drop empty lines
+    if ((! ${#selected})); then
+      _core_warn "up: nothing selected — cancelled (need fzf or gum for -i)"
+      return 1
+    fi
+    _core_warn "up: upgrading ${#selected} selected package(s) via ${mgr}"
+  fi
+  # Defensive pre-confirm (skipped by -y AND by -i, whose selection is the consent): name
+  # the manager BEFORE touching the system, so `up` on the wrong box is a one-keystroke
+  # abort, not a surprise sync. _core_confirm declines with no TTY, so `up` stays interactive-only.
+  if ((! yes && ! interactive)); then
     # Preview WHAT will change, not just the manager: the nudge already shows a count,
     # so surface the names too — informed consent before a privileged, hard-to-undo
     # sync. Best-effort + capped (a 300-package upgrade shouldn't scroll the confirm
     # off-screen) and TTY-only (no point listing when the confirm below will decline).
     if [[ -t 2 ]]; then
       local -a pending
-      pending=(${(f)"$(_pkgup_list 2>/dev/null)"})
+      _up_pending
       if ((${#pending})); then
         local n=${#pending} cap=20
         _core_warn "up: ${n} package$([[ $n -ne 1 ]] && echo s) upgradable via ${mgr}:"
@@ -309,16 +380,39 @@ up() {
       return 1
     }
   fi
+  # Graceful interrupt (U3): a Ctrl-C mid-sync would otherwise drop you back at the prompt
+  # with no word on what state you're in. localtraps scopes this to `up`; the message
+  # reassures that re-running is safe (every manager path is idempotent). The manager
+  # itself gets the SIGINT too (shared foreground group) and stops; we just frame it.
+  setopt localoptions localtraps
+  trap '_core_warn "up: interrupted — safe to re-run \`up\` (every path is idempotent)"; return 130' INT
+  local rc=0
+  # `selected` is non-empty ONLY under -i on a safe manager (above); every other path
+  # leaves it empty, so the default/-y/-n behaviour is byte-identical to before.
   case "$mgr" in
-  brew) brew update && brew upgrade && brew cleanup ;;
+  brew)
+    if ((${#selected})); then brew upgrade "${selected[@]}"
+    else brew update && brew upgrade && brew cleanup; fi
+    ;;
   pacman) _pkgup_priv pacman -Syu ;; # full sync only; never partial
-  dnf) _pkgup_priv dnf upgrade --refresh "${y[@]}" ;;
-  zypper) if grep -qi tumbleweed /etc/os-release 2>/dev/null; then
-    _pkgup_priv zypper dup "${y[@]}"
-  else _pkgup_priv zypper up "${y[@]}"; fi ;;
-  apt) _pkgup_priv apt-get update &&
-    _pkgup_priv apt-get full-upgrade "${y[@]}" &&
-    _pkgup_priv apt-get autoremove "${y[@]}" ;;
+  dnf)
+    if ((${#selected})); then _pkgup_priv dnf upgrade --refresh "${y[@]}" "${selected[@]}"
+    else _pkgup_priv dnf upgrade --refresh "${y[@]}"; fi
+    ;;
+  zypper)
+    if ((${#selected})); then _pkgup_priv zypper up "${selected[@]}"
+    elif grep -qi tumbleweed /etc/os-release 2>/dev/null; then _pkgup_priv zypper dup "${y[@]}"
+    else _pkgup_priv zypper up "${y[@]}"; fi
+    ;;
+  apt)
+    _pkgup_priv apt-get update
+    if ((${#selected})); then
+      _pkgup_priv apt-get install --only-upgrade "${y[@]}" "${selected[@]}"
+    else
+      _pkgup_priv apt-get full-upgrade "${y[@]}" &&
+        _pkgup_priv apt-get autoremove "${y[@]}"
+    fi
+    ;;
   apk) _pkgup_priv apk update && _pkgup_priv apk upgrade ;;
   emerge) _pkgup_priv emerge --sync && _pkgup_priv emerge -auvDN @world ;; # -a always asks
   *)
@@ -327,7 +421,18 @@ up() {
     return 1
     ;;
   esac
+  rc=$?
+  trap - INT
+  # Defensive failure framing (U9): a non-zero manager exit is usually offline or a held
+  # package lock — surface that in Core's voice instead of leaving the user with a raw
+  # apt/brew traceback and no next step. The refresh still runs so the nudge re-syncs.
+  if ((rc != 0)); then
+    _core_errbox "up: ${mgr} did not complete (exit ${rc})" \
+      "why: most often no network, or another package operation holds the lock" \
+      "fix: check connectivity / wait for the other run, then re-run \`up\` (safe to repeat)"
+  fi
   _pkgup_refresh 2>/dev/null
+  return $rc
 }
 
 # ── True hands-off auto-APPLY belongs at the OS layer, not here ───────────────

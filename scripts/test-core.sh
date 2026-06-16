@@ -873,6 +873,25 @@ ucheck "update: up rejects an unknown flag (rc 1, does not attempt an update)" \
 ucheck "update: up refuses -y and -n together (mutually exclusive, rc 1)" \
   "source '$UI'; source '$UPD'; out=\$(up -y -n 2>&1); (( \$? == 1 )) && [[ \$out == *'mutually exclusive'* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# up -i interactive selection (U2): three new contracts, all BEFORE any privileged apply.
+# (a) -i is mutually exclusive with -y/-n; (b) on a safe manager with no TTY it declines
+# (selection needs a terminal) instead of applying; (c) --help advertises -i.
+ucheck "update: up refuses -i with -y (three-way mutual exclusion, rc 1)" \
+  "source '$UI'; source '$UPD'; out=\$(up -i -y 2>&1); (( \$? == 1 )) && [[ \$out == *'mutually exclusive'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "update: up -i on a safe manager declines without a TTY (no apply)" \
+  "source '$UI'; source '$UPD'; out=\$(up -i </dev/null 2>&1); (( \$? == 1 )) && [[ \$out == *'needs an interactive terminal'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "update: up --help advertises -i/--interactive" \
+  "source '$UI'; source '$UPD'; out=\$(up --help); (( \$? == 0 )) && [[ \$out == *'-i'* && \$out == *interactive* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# up -i must REFUSE on full-sync-only managers (pacman/emerge/apk): a partial upgrade there
+# risks a broken system, so the safety model (documented in update.zsh) forbids it. Stub a
+# pacman-only PATH so _pkgup_mgr resolves to it, then assert the refusal + rc 1.
+_pm_only pacman
+ucheck "update: up -i refuses on pacman (full-sync-only safety, rc 1)" \
+  "source '$UI'; source '$UPD'; out=\$(up -i 2>&1); (( \$? == 1 )) && [[ \$out == *'does not support safe partial upgrades'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 # core-help context-awareness (U7): a row whose tool is ABSENT on this box must be
 # tagged "needs <tool>", while an always-on verb (mkcd) still renders normally. Drive
 # it on a bare PATH so fzf is guaranteed missing, making the assertion deterministic.

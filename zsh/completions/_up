@@ -1,5 +1,6 @@
 #compdef up
 # Completion for Core's `up` package-updater (zsh/update.zsh).
 _arguments \
-  '(-y --yes -n --dry-run)'{-y,--yes}'[auto-confirm where safe (apt/dnf/zypper)]' \
-  '(-y --yes -n --dry-run)'{-n,--dry-run}'[list upgradable packages and exit, touching nothing]'
+  '(-y --yes -n --dry-run -i --interactive)'{-y,--yes}'[auto-confirm where safe (apt/dnf/zypper)]' \
+  '(-y --yes -n --dry-run -i --interactive)'{-n,--dry-run}'[list upgradable packages and exit, touching nothing]' \
+  '(-y --yes -n --dry-run -i --interactive)'{-i,--interactive}'[pick which packages to upgrade (safe managers; needs fzf/gum)]'
