@@ -1,6 +1,8 @@
 #compdef core-doctor
 # Completion for Core's `core-doctor` (zsh/functions.zsh). It prints a read-only health
-# report of detected tools + integrations; -v/--versions adds a version readout.
+# report of detected tools + which integrations are wired; -v/--versions adds a version
+# readout; --json emits a machine-readable object for statuslines/editors/CI.
 _arguments -s \
   '(-h --help)'{-h,--help}'[show usage and exit]' \
-  '(-v --versions)'{-v,--versions}'[also show each detected tool'\''s version]'
+  '(-v --versions --json)'{-v,--versions}'[also show each detected tool'\''s version]' \
+  '(-v --versions --json)--json[machine-readable health object on stdout]'

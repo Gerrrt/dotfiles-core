@@ -87,8 +87,59 @@ core() {
 # Public verb: render the health report, paging it when taller than the window (a small
 # split + core-doctor -v). Same wrapper shape as core-help: TTY-only paging, forced colour
 # through the capture, direct render (byte-identical) on a pipe/redirect/the unit tests.
+# _core_wired <tool> — is this integration actually WIRED into the live shell, not
+# merely installed? Presence (command -v) ≠ active: starship can be on PATH while the
+# prompt is plain, atuin installed while Ctrl-E is dead, mise present while the chpwd
+# hook never registered. Probe the function/widget each tool's init defines, so
+# core-doctor can tell "✓ present" from "✓ present AND working". Returns non-zero for an
+# unknown tool. (Inherited into core-doctor's `$()` capture: zsh forks keep functions +
+# the $widgets/$precmd_functions params readable.)
+_core_wired() {
+  case "$1" in
+  starship) (( $+functions[starship_precmd] )) ;;
+  atuin)    [[ -n ${widgets[atuin-search]:-} ]] || (( $+functions[_atuin_precmd] )) ;;
+  mise)     (( $+functions[_mise_hook] )) || (( $+functions[__mise_hook] )) ;;
+  zoxide)   (( $+functions[__zoxide_hook] )) || (( $+functions[__zoxide_z] )) ;;
+  carapace) (( $+functions[_carapace] )) ;;
+  *) return 1 ;;
+  esac
+}
+
+# _core_doctor_json — machine-readable health (B12). The gate scripts emit --json; the
+# RUNTIME health verb did not, so a statusline/editor/CI could not consume it. One object
+# on stdout, never paged: {version, tools{name:bool}, wired{name:bool}, resolved{…}}.
+# Pure zsh (no python): tool names are fixed identifiers, so no escaping is needed.
+_core_doctor_json() {
+  emulate -L zsh
+  local ver="unknown"
+  [[ -r "$_CORE_VERSION_FILE" ]] && ver="$(<"$_CORE_VERSION_FILE")"
+  local -a alltools=(
+    eza bat fd rg fzf zoxide delta dust duf procs btop yazi
+    starship atuin mise carapace gum sesh jq yq gron sd xh doggo glow op
+  )
+  local -a wir=(starship atuin mise zoxide carapace)
+  local t first=1
+  print -rn -- "{\"version\":\"${ver}\",\"tools\":{"
+  for t in $alltools; do
+    ((first)) || print -rn -- ","; first=0
+    if _core_have "$t"; then print -rn -- "\"$t\":true"; else print -rn -- "\"$t\":false"; fi
+  done
+  print -rn -- "},\"wired\":{"
+  first=1
+  for t in $wir; do
+    ((first)) || print -rn -- ","; first=0
+    if _core_have "$t" && _core_wired "$t"; then print -rn -- "\"$t\":true"; else print -rn -- "\"$t\":false"; fi
+  done
+  print -rn -- "},\"resolved\":{\"fd\":\"${FD_BIN:-}\",\"bat\":\"${BAT_BIN:-}\""
+  (($+functions[_pkgup_mgr])) && print -rn -- ",\"pkg_manager\":\"$(_pkgup_mgr)\""
+  print -r -- "}}"
+}
+
 core-doctor() {
   emulate -L zsh
+  # --json (anywhere on the line) → machine-readable, never paged (B12).
+  local a
+  for a in "$@"; do [[ "$a" == --json ]] && { _core_doctor_json; return 0; }; done
   if [[ -t 1 && -z ${CORE_NO_PAGER:-} ]]; then
     local _out
     _out="$(_CORE_FORCE_COLOR=1 _core_doctor_render "$@")"
@@ -100,17 +151,18 @@ core-doctor() {
 }
 _core_doctor_render() {
   emulate -L zsh
-  _core_wants_help "$1" && { _core_help "core-doctor [-v|--versions]" "report Core's detected tools + active integrations on this box (-v also shows versions)"; return 0; }
+  _core_wants_help "$1" && { _core_help "core-doctor [-v|--versions] [--json]" "report Core's detected tools + which integrations are actually wired (-v adds versions; --json for machines)"; return 0; }
   # Default stays fast + scannable (one `command -v` per tool). -v/--versions opts INTO a
   # version readout next to each ✓ — useful for spotting an ancient fzf/bat — at the cost of
-  # one `--version` fork per present tool, so it is deliberately NOT the default.
+  # one `--version` fork per present tool, so it is deliberately NOT the default. --json is
+  # intercepted by the wrapper before here, so it never reaches this arm.
   local show_versions=0
   case "${1:-}" in
   -v | --versions) show_versions=1 ;;
   "") ;;
   *)
     _core_err "core-doctor: unexpected argument: $1"
-    _core_usage "core-doctor [-v|--versions]"
+    _core_usage "core-doctor [-v|--versions] [--json]"
     return 1
     ;;
   esac
@@ -165,6 +217,23 @@ _core_doctor_render() {
       print -r -- "  ${d}${_pfx} ${missing[*]}${r}"
       print -r -- "  ${d}(some package names differ per distro — e.g. rg=ripgrep, delta=git-delta)${r}"
     fi
+  fi
+
+  # Active-integration probe (U1): presence (command -v, above) is NOT the same as wired.
+  # Report which integrations actually registered their hooks/widgets in THIS shell, so a
+  # "starship installed but the prompt is plain" or "atuin present but Ctrl-E is dead" is
+  # visible instead of a misleading green ✓. ○ = installed but idle (not wired here). Only
+  # the present ones are listed (an absent tool already shows ✗ in the group above).
+  local -a wirable=(starship atuin mise zoxide carapace)
+  local w wline=""
+  for w in $wirable; do
+    _core_have "$w" || continue
+    if _core_wired "$w"; then wline+="  ${g}✓${r} ${w}"
+    else wline+="  ${d}○ ${w} (idle)${r}"; fi
+  done
+  if [[ -n "$wline" ]]; then
+    print -r -- "${c}integrations wired${r}"
+    print -r -- " $wline"
   fi
 
   # Resolved binary names + the detected package manager — the behaviour-affecting bits

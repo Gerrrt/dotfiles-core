@@ -38,7 +38,12 @@ optoken() {
   [[ -z "$1" ]] && { _core_usage "optoken <vault>/<item>"; return 1; }
   # `clip` is the cross-OS copier this verb's whole purpose depends on — fail in Core's
   # voice if it isn't resolvable rather than letting the pipe swallow the code silently.
-  _core_have clip || { _core_err "optoken: requires Core's 'clip' on PATH"; return 1; }
+  _core_have clip || {
+    _core_errbox "optoken: requires Core's 'clip' on PATH" \
+      "why: the TOTP is piped to clip so it never lands in your shell history/scrollback" \
+      "fix: wire core/bin/clip onto PATH (bootstrap links it into ~/.local/bin)"
+    return 1
+  }
   local otp
   otp=$(op item get "$1" --otp) || return 1
   printf '%s' "$otp" | clip && _core_ok "TOTP copied to clipboard"

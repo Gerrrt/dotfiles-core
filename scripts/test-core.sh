@@ -656,6 +656,17 @@ check "core-doctor renders a health report and returns 0" \
   'out=$(NO_COLOR=1 core-doctor 2>&1); (( $? == 0 )) && [[ $out == *dotfiles-core* && $out == *"modern CLI"* ]]'
 check "core-doctor --help returns 0 (not mis-read)" \
   'out=$(core-doctor --help); (( $? == 0 )) && [[ $out == *"usage: core-doctor"* ]]'
+# core-doctor --json (B12): a machine-readable object on stdout that actually parses and
+# carries the tools/wired/resolved keys — so a statusline/editor/CI can consume health.
+check "core-doctor --json emits parseable JSON with tools/wired/resolved" \
+  'out=$(core-doctor --json); print -r -- "$out" | python3 -c "import json,sys; d=json.load(sys.stdin); assert set([\"version\",\"tools\",\"wired\",\"resolved\"]) <= set(d)"'
+# _core_wired (U1): presence != wired. The probe is true ONLY when the integration's hook
+# function is actually defined in this shell, and false for an idle/unknown one — that gap
+# is exactly what the doctor's "integrations wired" line surfaces.
+check "_core_wired detects an integration once its hook function exists" \
+  'starship_precmd() { :; }; _core_wired starship'
+check "_core_wired is false for an idle integration and an unknown name" \
+  '_core_wired starship 2>/dev/null; (( $? != 0 )); _core_wired bogustool 2>/dev/null; (( $? != 0 ))'
 # core-help (U5): the width-aware renderer must emit every verb and never crash on its
 # kw arithmetic — including a pathologically narrow terminal where the key column clamps.
 check "core-help renders all verbs (wide terminal)" \
