@@ -30,7 +30,33 @@ zsh/plugins.zsh        # lightweight plugin loader (zsh-defer, carapace, fzf-tab
 zsh/op.zsh             # 1Password CLI helpers (macOS agent socket -> os layer)
 zsh/maint.zsh          # daily-maintenance control surface (maint-install/run/log/...)
 zsh/update.zsh         # `up` updater + once/day "updates available" nudge
-zsh/completions/       # autoloaded completions for Core's own verbs (up/extract/mkcd/…) — fpath-added by options.zsh, not symlinked
+# autoloaded completions for Core's own verbs — fpath-added by options.zsh, not symlinked.
+# Listed PER-FILE (not as `zsh/completions/`) so the offline audit catches an ADDED or
+# REMOVED completion, not just a deleted directory (B10): a new Core verb must register its
+# completion here deliberately, and an orphaned one is flagged without needing the
+# network-bound verify-core backstop. Keep alphabetical.
+zsh/completions/_cdup
+zsh/completions/_core
+zsh/completions/_core-doctor
+zsh/completions/_core-help
+zsh/completions/_core-version
+zsh/completions/_extract
+zsh/completions/_fbr
+zsh/completions/_fcd
+zsh/completions/_fif
+zsh/completions/_maint-install
+zsh/completions/_maint-log
+zsh/completions/_maint-noargs
+zsh/completions/_mkbak
+zsh/completions/_mkcd
+zsh/completions/_openv
+zsh/completions/_opsecret
+zsh/completions/_opssh
+zsh/completions/_optoken
+zsh/completions/_please
+zsh/completions/_serve
+zsh/completions/_up
+zsh/completions/_update-check
 # ── starship — prompt theme; symlinked to the DEFAULT ~/.config/starship.toml ─
 # (so no STARSHIP_CONFIG needed). Not a .zsh module, so bootstrap links it
 # explicitly rather than via the core/zsh/*.zsh loop.
@@ -49,12 +75,25 @@ sesh/sesh.toml.example
 # ── tmux — base conf + keybinding layer; OS-specific bits -> os/<os>.conf ──────
 tmux/tmux.conf            # main config; sources tmux.reset.conf first, os.conf last
 tmux/tmux.reset.conf      # the keybinding layer (prefix C-a lives here) — MUST be symlinked
-tmux/scripts/             # tmux-menu / tmux-scratch / tmux-sesh / tmux-netinfo (popups + status)
+# tmux popup + status scripts. Listed PER-FILE (not as `tmux/scripts/`) so an added or
+# removed script is caught offline (B10) — this is the exact gap that let an orphaned
+# tmux-sessionizer.sh linger here once (see verify-core.sh). Keep alphabetical.
+tmux/scripts/tmux-battery.sh
+tmux/scripts/tmux-cheat.sh
+tmux/scripts/tmux-menu.sh
+tmux/scripts/tmux-netinfo.sh
+tmux/scripts/tmux-scratch.sh
+tmux/scripts/tmux-sesh.sh
 # ── maintenance runner (invoked by the scheduler maint.zsh installs) ──────────
 maint/dotfiles-maint.sh
 # ── git — portable config; credential/identity split to OS+local ──────────────
 git/gitconfig
 git/local.gitconfig.example
 # ── nvim — entire lazy.nvim tree; portable, clipboard via `clip` ──────────────
-nvim/                    # whole directory: lua/gerrrt/{config,plugins,servers,utils}
+# whole directory: lua/gerrrt/{config,plugins,servers,utils}. Kept DIRECTORY-granular on
+# purpose (unlike completions/ + tmux/scripts/ above): this is a vendored lazy.nvim tree
+# that legitimately churns wholesale as plugins/servers come and go, so per-file listing
+# would be maintenance noise. verify-core.sh (byte-for-byte vs upstream) is the orphan
+# backstop here instead of the manifest (B10).
+nvim/
 # ── Core layers: zsh + clip + mise + sesh + tmux + maint + git + nvim. ────────
