@@ -111,7 +111,7 @@ while (($#)); do
     ;;
   -h | --help)
     cat <<'EOF'
-usage: audit-core.sh [-q|--quiet] [--scope LIST] [--changed] [-h|--help]
+usage: audit-core.sh [-q|--quiet] [--strict] [--scope LIST] [--changed] [--color WHEN] [--json] [-h|--help]
 
 THE audit button — manifest/exec-bit/syntax/lint/config/markdown/workflow/
 version/behavioral checks. CI and pre-commit run this exact script.

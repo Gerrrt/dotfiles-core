@@ -42,7 +42,11 @@ _verify_pin() {
     git -C "$d" remote add origin "https://github.com/${slug}" 2>/dev/null &&
     git -C "$d" fetch -q --depth 1 origin "$sha" 2>/dev/null &&
     git -C "$d" checkout -q --detach FETCH_HEAD 2>/dev/null; then
-    for f in "$name.plugin.zsh" "$name.zsh" "$name.sh" "fsh.plugin.zsh"; do
+    # Mirror _zplugin_load's entry-file resolution, INCLUDING its srcfile override: the one
+    # pinned plugin whose entry doesn't match ${name}.* is zsh-you-should-use, loaded as
+    # you-should-use.plugin.zsh (plugins.zsh) — i.e. the name with the leading `zsh-` dropped.
+    # Cover that with ${name#zsh-}.plugin.zsh so rolling its pin doesn't falsely fail (rc=4).
+    for f in "$name.plugin.zsh" "$name.zsh" "$name.sh" "fsh.plugin.zsh" "${name#zsh-}.plugin.zsh"; do
       [[ -f "$d/$f" ]] && {
         src="$d/$f"
         break

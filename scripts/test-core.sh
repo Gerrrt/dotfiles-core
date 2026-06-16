@@ -686,6 +686,13 @@ check "_core_suggest returns the nearest flag for a near typo" \
   'out=$(_core_suggest --locl -l --local); [[ $out == "--local" ]]'
 check "_core_suggest stays silent when nothing is close" \
   'out=$(_core_suggest zzzzzz -l --local); [[ -z $out ]]'
+# Damerau/OSA (U12): an adjacent transposition scores 1, NOT 2 as plain Levenshtein would —
+# guards the transposition path so a regression can't silently fall back to plain edit
+# distance (which would drop near-miss suggestions like gts→gst back below the cutoff).
+check "_core_lev scores an adjacent transposition as 1 (Damerau, not plain Levenshtein 2)" \
+  '[[ $(_core_lev gts gst) == 1 ]]'
+check "_core_suggest catches a transposition typo (gts → gst)" \
+  'out=$(_core_suggest gts gst gco gaa); [[ $out == gst ]]'
 # _core_errbox (U8): a ✗ headline line plus dim INDENTED body lines (plain when piped).
 check "_core_errbox renders a headline and indented body lines" \
   'out=$(_core_errbox head why fix 2>&1); L=("${(@f)out}"); (( ${#L} == 3 )) && [[ ${L[1]} == *head* && ${L[2]} == "    why" && ${L[3]} == "    fix" ]]'
