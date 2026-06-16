@@ -20,6 +20,8 @@
 # Env overrides:
 #   REPOS_ROOT        parent dir holding the repos   (default: parent of this repo)
 #   CORE_REMOTE       remote name/URL for dotfiles-core in each OS repo (default: origin of core)
+#   CORE_BRANCH       Core branch to vendor          (default: main)
+#   SYNC_JOBS         parallel prefetch jobs; 1 disables the warm-up (default: 4)
 #   SYNC_SKIP_AUDIT   set to 1 to skip the pre-fan-out audit gate (escape hatch; see below)
 #
 # FAN-OUT GATE: this is the single point where Core is vendored into all 9 repos, so a
@@ -80,6 +82,7 @@ Env overrides:
   REPOS_ROOT        parent dir holding the repos   (default: parent of this repo)
   CORE_REMOTE       remote name/URL for dotfiles-core in each OS repo (default: core's origin)
   CORE_BRANCH       Core branch to vendor          (default: main)
+  SYNC_JOBS         parallel prefetch jobs; 1 disables the warm-up (default: 4)
   SYNC_SKIP_AUDIT   set to 1 to skip the pre-fan-out audit gate (documented escape hatch)
 
 Refuses to fan out a red tree: runs scripts/audit-core.sh first (--dry-run exempt).
@@ -176,9 +179,13 @@ if ((!DRY)) && ((SYNC_JOBS > 1)) && [[ "$CORE_SHA" != unknown ]]; then
     [[ -d "$path/.git" && -d "$path/core" ]] || continue
     git -C "$path" fetch -q "$CORE_REMOTE" "$CORE_BRANCH" >/dev/null 2>&1 &
     _pf=$((_pf + 1))
-    ((_pf % SYNC_JOBS == 0)) && wait
+    # `|| true` keeps the prefetch best-effort under `set -e`: a flaky background fetch
+    # must never abort the script before the (real) serial merge loop below. A no-arg
+    # `wait` returns 0 even when a child failed in modern bash, but the guard makes the
+    # best-effort intent explicit AND holds on the bash-3.2 macOS target we can't assume.
+    ((_pf % SYNC_JOBS == 0)) && { wait || true; }
   done
-  wait
+  wait || true
   echo
 fi
 
