@@ -141,9 +141,14 @@ _doctor() { # _doctor <bin> <pinned> <version-cmd...>
     skip "$bin absent (CI pins $want) — see ci.yml for the install path"
     return
   fi
-  # Each tool formats --version differently; pull the first semver-ish token.
-  local got
-  got="$("$@" 2>&1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)"
+  # Each tool formats --version differently; capture once, then prefer a full X.Y.Z
+  # semver (every pin in tool-versions.env is 3-part) and fall back to X.Y. Matching the
+  # FIRST 2-part token outright would mis-read strings like "tool 2024.1 (lib 1.2.3)" —
+  # it'd report 2024.1 instead of the real 1.2.3.
+  local out got
+  out="$("$@" 2>&1)"
+  got="$(printf '%s\n' "$out" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
+  [[ -n "$got" ]] || got="$(printf '%s\n' "$out" | grep -oE '[0-9]+\.[0-9]+' | head -n1)"
   if [[ -z "$got" ]]; then
     printf '%s⚠%s %s present, but its version string could not be parsed (pinned %s)\n' "$c_yel" "$c_rst" "$bin" "$want"
   elif [[ "$got" == "$want" ]]; then
