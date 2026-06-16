@@ -334,6 +334,16 @@ up() {
       return 1
       ;;
     esac
+    # Two distinct -i requirements, checked separately so a message is never misleading:
+    # (1) a picker must exist, and (2) we need a real terminal. Checking the picker FIRST
+    # means an empty result further down can ONLY mean the user dismissed it (ESC / nothing
+    # selected) — never "no tool", which Copilot flagged the old conflated message for.
+    if ! _core_have fzf && ! _core_have gum; then
+      _core_errbox "up -i: needs fzf or gum for interactive selection" \
+        "why: -i opens a checklist to pick packages; neither picker is on PATH" \
+        "fix: install fzf (or gum), or run a full \`up\` / \`up -y\` instead"
+      return 1
+    fi
     [[ -t 0 && -t 2 ]] || {
       _core_err "up -i: needs an interactive terminal"
       return 1
@@ -347,7 +357,7 @@ up() {
     selected=("${(@f)$(_up_select "${pending[@]}")}")
     selected=(${selected:#}) # drop empty lines
     if ((! ${#selected})); then
-      _core_warn "up: nothing selected — cancelled (need fzf or gum for -i)"
+      _core_warn "up: no packages selected — cancelled"
       return 1
     fi
     _core_warn "up: upgrading ${#selected} selected package(s) via ${mgr}"

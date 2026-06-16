@@ -873,15 +873,25 @@ ucheck "update: up rejects an unknown flag (rc 1, does not attempt an update)" \
 ucheck "update: up refuses -y and -n together (mutually exclusive, rc 1)" \
   "source '$UI'; source '$UPD'; out=\$(up -y -n 2>&1); (( \$? == 1 )) && [[ \$out == *'mutually exclusive'* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
-# up -i interactive selection (U2): three new contracts, all BEFORE any privileged apply.
-# (a) -i is mutually exclusive with -y/-n; (b) on a safe manager with no TTY it declines
-# (selection needs a terminal) instead of applying; (c) --help advertises -i.
+# up -i interactive selection (U2): contracts checked BEFORE any privileged apply.
+# (a) -i is mutually exclusive with -y/-n; (b) with NO picker it errbox-names fzf/gum;
+# (c) with a picker but no TTY it declines for the terminal; (d) --help advertises -i.
+# (b)/(c) are kept DISTINCT so the message never conflates the two (Copilot, PR #15).
 ucheck "update: up refuses -i with -y (three-way mutual exclusion, rc 1)" \
   "source '$UI'; source '$UPD'; out=\$(up -i -y 2>&1); (( \$? == 1 )) && [[ \$out == *'mutually exclusive'* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
-ucheck "update: up -i on a safe manager declines without a TTY (no apply)" \
+# (b) no fzf AND no gum on the isolated PATH → the picker errbox, not a TTY/cancel message.
+ucheck "update: up -i names fzf/gum when no picker is installed" \
+  "source '$UI'; source '$UPD'; out=\$(up -i </dev/null 2>&1); (( \$? == 1 )) && [[ \$out == *'needs fzf or gum'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# (c) stub a picker (fzf) onto the isolated PATH so the picker check passes; a non-TTY run
+# must then decline with the TERMINAL message — proving the two failure modes are separate.
+printf '#!/bin/sh\n:\n' >"$PMBIN/fzf"
+chmod +x "$PMBIN/fzf"
+ucheck "update: up -i with a picker present still declines without a TTY" \
   "source '$UI'; source '$UPD'; out=\$(up -i </dev/null 2>&1); (( \$? == 1 )) && [[ \$out == *'needs an interactive terminal'* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+rm -f "$PMBIN/fzf"
 ucheck "update: up --help advertises -i/--interactive" \
   "source '$UI'; source '$UPD'; out=\$(up --help); (( \$? == 0 )) && [[ \$out == *'-i'* && \$out == *interactive* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
