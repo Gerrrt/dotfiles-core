@@ -34,8 +34,8 @@ quiet = false
 # (lts/latest/stable) so the declarations stay readable, but that means two boxes
 # provisioned a month apart can land on different runtimes. lockfile=true makes mise
 # record the EXACT resolved versions + checksums in a committed mise.lock (next to this
-# config), so `mise install` reproduces the same toolchain everywhere — the runtime
-# equivalent of Brewfile.lock.json. Generate/refresh it on a real box: `mise install`
+# config), so `mise install` reproduces the same toolchain everywhere — the same idea as
+# Cargo.lock / package-lock.json. Generate/refresh it on a real box: `mise install`
 # (or `mise lock`) writes mise.lock; commit it. Until it's committed mise resolves
 # floating as before, so this is a safe no-op until the lock lands.
 lockfile = true
