@@ -115,16 +115,17 @@ jobs:
           path: ~/.local/core-tools
           key: core-tools-${{ runner.os }}-${{ hashFiles('scripts/tool-versions.env') }}
 
-      # ── Linux: pinned shellcheck binary (deterministic, faster than apt's index) ──
-      - name: Install shellcheck (Linux, pinned)
-        if: runner.os == 'Linux' && steps.toolcache.outputs.cache-hit != 'true'
-        run: |
-          set -euxo pipefail
-          ver="${SHELLCHECK_VERSION}"
-          url="https://github.com/koalaman/shellcheck/releases/download/v${ver}/shellcheck-v${ver}.linux.x86_64.tar.xz"
-          curl -fsSL "$url" | tar -xJ
-          install -m755 "shellcheck-v${ver}/shellcheck" "$HOME/.local/core-tools/bin/shellcheck"
-          rm -rf "shellcheck-v${ver}"
+      # ── Linux: pinned single-binary gate tools (shellcheck/actionlint/gitleaks) via the
+      # shared composite action — ONE definition of each install, also used by freshness.yml
+      # (B8). Idempotent: it no-ops anything the tool cache already restored, so the
+      # cache-hit fast path is preserved without a per-tool conditional. ──
+      - name: Install pinned CLI tools (Linux)
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/setup-core-tools
+        with:
+          shellcheck: "true"
+          actionlint: "true"
+          gitleaks: "true"
 
       - name: Install zsh (Linux)
         if: runner.os == 'Linux'
@@ -182,44 +183,18 @@ jobs:
       - name: Install markdownlint-cli2 (pinned)
         run: npm install -g "markdownlint-cli2@${MARKDOWNLINT_VERSION}"
 
-      # actionlint gates the workflows themselves (the one fan-out artifact with no
-      # gate of its own). Pinned release binary, Linux-only (workflows are OS-agnostic,
-      # so no need to also install on the macOS leg — the audit section skips there).
-      - name: Install actionlint (Linux, pinned)
-        if: runner.os == 'Linux' && steps.toolcache.outputs.cache-hit != 'true'
-        run: |
-          set -euxo pipefail
-          ver="${ACTIONLINT_VERSION}"
-          url="https://github.com/rhysd/actionlint/releases/download/v${ver}/actionlint_${ver}_linux_amd64.tar.gz"
-          curl -fsSL "$url" | tar -xz actionlint
-          install -m755 actionlint "$HOME/.local/core-tools/bin/actionlint"
-          rm -f actionlint
+      # actionlint (workflows) + gitleaks (secrets) are installed by the shared composite
+      # action above (Linux-only; workflows + secrets are OS-agnostic so the macOS leg's
+      # audit skips both sections). See the "Install pinned CLI tools (Linux)" step.
 
-      # gitleaks gates secrets (the one fan-out artifact the syntax/lint/config/doc
-      # checks never inspect). Pinned release binary, Linux-only — secrets are
-      # OS-agnostic, so the macOS leg's audit skips this section, mirroring actionlint.
-      - name: Install gitleaks (Linux, pinned)
-        if: runner.os == 'Linux' && steps.toolcache.outputs.cache-hit != 'true'
-        run: |
-          set -euxo pipefail
-          ver="${GITLEAKS_VERSION}"
-          url="https://github.com/gitleaks/gitleaks/releases/download/v${ver}/gitleaks_${ver}_linux_x64.tar.gz"
-          curl -fsSL "$url" | tar -xz gitleaks
-          install -m755 gitleaks "$HOME/.local/core-tools/bin/gitleaks"
-          rm -f gitleaks
-
-      # ── neovim: Linux gets the maintainer's pinned release tarball (deterministic,
-      # like shellcheck above); macOS uses brew, mirroring the shellcheck/luarocks
-      # macOS path (the runner's preinstalled-tap route, no per-arch tarball juggling).
-      # Drives test-core.sh's headless config-load smoke test. ──
+      # ── neovim: Linux gets the maintainer's pinned release tarball via the same shared
+      # composite action (idempotent; the action no-ops if nvim is already present). macOS
+      # uses brew below. Drives test-core.sh's headless config-load smoke test. ──
       - name: Install neovim (Linux, pinned)
         if: runner.os == 'Linux' && needs.changes.outputs.nvim == 'true'
-        run: |
-          set -euxo pipefail
-          ver="${NVIM_VERSION}"
-          url="https://github.com/neovim/neovim/releases/download/v${ver}/nvim-linux-x86_64.tar.gz"
-          curl -fsSL "$url" | sudo tar -xz -C /opt
-          sudo ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
+        uses: ./.github/actions/setup-core-tools
+        with:
+          neovim: "true"
 
       - name: Install neovim (macOS)
         if: runner.os == 'macOS' && needs.changes.outputs.nvim == 'true'

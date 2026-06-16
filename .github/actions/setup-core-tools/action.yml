@@ -1,0 +1,79 @@
+name: setup-core-tools
+description: >
+  Install Core's pinned CLI gate tools (shellcheck / actionlint / gitleaks / neovim) from
+  their release tarballs. ONE definition of each install, consumed by ci.yml and
+  freshness.yml — previously the same curl/tar blocks were copy-pasted across jobs (B8).
+  Versions are read from the environment (the caller loads scripts/tool-versions.env into
+  $GITHUB_ENV first, the single pin source). Each install is idempotent: it no-ops when the
+  tool is already on PATH (e.g. restored from the job's tool cache), so it composes with
+  actions/cache without a cache-hit conditional. Linux x86_64 (the tarball arch the gates use).
+
+inputs:
+  shellcheck:
+    description: "install pinned shellcheck"
+    default: "false"
+  actionlint:
+    description: "install pinned actionlint"
+    default: "false"
+  gitleaks:
+    description: "install pinned gitleaks"
+    default: "false"
+  neovim:
+    description: "install pinned neovim"
+    default: "false"
+  bindir:
+    description: "dir for the single-binary tools (must be on PATH)"
+    default: "$HOME/.local/core-tools/bin"
+
+runs:
+  using: composite
+  steps:
+    - name: shellcheck (pinned)
+      if: inputs.shellcheck == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        command -v shellcheck >/dev/null 2>&1 && { echo "shellcheck cached"; exit 0; }
+        mkdir -p "${{ inputs.bindir }}"
+        ver="${SHELLCHECK_VERSION}"
+        url="https://github.com/koalaman/shellcheck/releases/download/v${ver}/shellcheck-v${ver}.linux.x86_64.tar.xz"
+        curl -fsSL "$url" | tar -xJ
+        install -m755 "shellcheck-v${ver}/shellcheck" "${{ inputs.bindir }}/shellcheck"
+        rm -rf "shellcheck-v${ver}"
+
+    - name: actionlint (pinned)
+      if: inputs.actionlint == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        command -v actionlint >/dev/null 2>&1 && { echo "actionlint cached"; exit 0; }
+        mkdir -p "${{ inputs.bindir }}"
+        ver="${ACTIONLINT_VERSION}"
+        url="https://github.com/rhysd/actionlint/releases/download/v${ver}/actionlint_${ver}_linux_amd64.tar.gz"
+        curl -fsSL "$url" | tar -xz actionlint
+        install -m755 actionlint "${{ inputs.bindir }}/actionlint"
+        rm -f actionlint
+
+    - name: gitleaks (pinned)
+      if: inputs.gitleaks == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        command -v gitleaks >/dev/null 2>&1 && { echo "gitleaks cached"; exit 0; }
+        mkdir -p "${{ inputs.bindir }}"
+        ver="${GITLEAKS_VERSION}"
+        url="https://github.com/gitleaks/gitleaks/releases/download/v${ver}/gitleaks_${ver}_linux_x64.tar.gz"
+        curl -fsSL "$url" | tar -xz gitleaks
+        install -m755 gitleaks "${{ inputs.bindir }}/gitleaks"
+        rm -f gitleaks
+
+    - name: neovim (pinned)
+      if: inputs.neovim == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        command -v nvim >/dev/null 2>&1 && { echo "nvim present"; exit 0; }
+        ver="${NVIM_VERSION}"
+        url="https://github.com/neovim/neovim/releases/download/v${ver}/nvim-linux-x86_64.tar.gz"
+        curl -fsSL "$url" | sudo tar -xz -C /opt
+        sudo ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
