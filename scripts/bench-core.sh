@@ -37,41 +37,46 @@ cd "$HERE" || exit 1
 # shellcheck source=scripts/lib/common.sh
 source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
-# Tuning is via env (CORE_BENCH_RUNS / CORE_BENCH_BUDGET_MS, see header); the only flag
-# is -h/--help. There's no state-setting flag, so a loop isn't needed — but we still
-# reject an unknown flag OR a trailing extra (`--help extra`) rather than ignore it.
-if (($#)); then
+# Tuning is via env (CORE_BENCH_RUNS / CORE_BENCH_BUDGET_MS, see header). Flags: --profile
+# (B11: per-module cost attribution) and -h/--help. Parse EVERY arg and reject an unknown
+# one (or a stray extra) rather than ignore it — same fail-closed contract as the gates.
+PROFILE=0
+while (($#)); do
   case "$1" in
-  -h | --help) ;;
+  --profile) PROFILE=1 ;;
+  -h | --help)
+    cat <<'EOF'
+usage: bench-core.sh [--profile] [-h|--help]
+
+Hermetic benchmark of the canonical zsh load chain. Report-only unless a budget is set.
+
+  --profile                   per-module load-cost breakdown (attributes the total to
+                              each module, slowest first) instead of the aggregate mean —
+                              so a regression points at the culprit module. Needs zsh only.
+  -h, --help                  show this help and exit
+
+Tuning via environment:
+  CORE_BENCH_RUNS=<n>          minimum hyperfine runs (default 10)
+  CORE_BENCH_BUDGET_MS=<ms>    FAIL if the mean exceeds this (gate mode; needs python3)
+EOF
+    exit 0
+    ;;
   *)
     printf 'bench-core.sh: unexpected argument: %s\n' "$1" >&2
     printf 'try: bench-core.sh --help\n' >&2
     exit 2
     ;;
   esac
-  if (($# > 1)); then
-    printf 'bench-core.sh: unexpected argument: %s\n' "$2" >&2
-    printf 'try: bench-core.sh --help\n' >&2
-    exit 2
-  fi
-  cat <<'EOF'
-usage: bench-core.sh [-h|--help]
-
-Hermetic hyperfine benchmark of the canonical zsh load chain. Report-only unless
-a budget is set. Tuning via environment:
-
-  CORE_BENCH_RUNS=<n>          minimum hyperfine runs (default 10)
-  CORE_BENCH_BUDGET_MS=<ms>    FAIL if the mean exceeds this (gate mode; needs python3)
-  -h, --help                  show this help and exit
-EOF
-  exit 0
-fi
+  shift
+done
 
 if ! have zsh; then
   skip "bench skipped (zsh not installed)"
   exit 0
 fi
-if ! have hyperfine; then
+# hyperfine is only needed for the aggregate benchmark, NOT for --profile (which times
+# each module in-process via zsh/datetime) — so don't skip the profile run for its absence.
+if ((!PROFILE)) && ! have hyperfine; then
   skip "bench skipped (hyperfine not installed — tools.zsh detects it as HAVE_HYPERFINE)"
   exit 0
 fi
@@ -91,6 +96,31 @@ export CORE_DIR="$HERE/zsh"
 # shellcheck disable=SC2016
 printf 'for _m in %s; do source "$CORE_DIR/$_m.zsh"; done\n' "${CORE_MODULES[*]}" \
   >"$SANDBOX/zdot/.zshrc"
+
+# ── --profile: per-module cost attribution (B11) ──────────────────────────────
+# The aggregate mean tells you startup got slower; it doesn't tell you WHICH module. This
+# sources the canonical chain in ONE hermetic interactive zsh, timing each module with
+# zsh/datetime's $EPOCHREALTIME, and prints the breakdown slowest-first — so a regression
+# points at the culprit. Informational (no gate); needs zsh only, not hyperfine.
+if ((PROFILE)); then
+  printf '\n%s== Core startup profile (per-module, hermetic) ==%s\n' "$c_blu" "$c_rst"
+  # shellcheck disable=SC2016  # $EPOCHREALTIME/$m/$CORE_DIR expand in the zsh CHILD.
+  prof_body='zmodload zsh/datetime
+    typeset -F prev=$EPOCHREALTIME now total=0
+    for _m in '"${CORE_MODULES[*]}"'; do
+      source "$CORE_DIR/$_m.zsh" 2>/dev/null
+      now=$EPOCHREALTIME
+      printf "%8.1f ms  %s\n" $(( (now-prev)*1000 )) "$_m"
+      (( total += (now-prev)*1000 )); prev=$now
+    done
+    printf "%8.1f ms  %s\n" $total "TOTAL"'
+  HOME="$SANDBOX" ZDOTDIR="$SANDBOX/zdot" \
+    XDG_CACHE_HOME="$SANDBOX/cache" XDG_STATE_HOME="$SANDBOX/state" \
+    XDG_RUNTIME_DIR="$SANDBOX/run" CORE_DIR="$CORE_DIR" \
+    zsh -ic "$prof_body" 2>/dev/null | sort -rn | sed "s/^/  /"
+  printf '%s(per-module wall time; TOTAL sorts to the top — run twice, the 2nd is warm)%s\n' "$c_blu" "$c_rst"
+  exit 0
+fi
 
 runs="${CORE_BENCH_RUNS:-10}"
 printf '\n%s== Core startup benchmark (canonical .zshrc chain, hermetic) ==%s\n' "$c_blu" "$c_rst"
