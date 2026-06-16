@@ -43,6 +43,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 1
 
 QUIET=0
+JSON=0           # --json: machine-readable summary on stdout (implies quiet); for CI/editors
 STRICT=0         # --strict: treat any SKIP as a failure (a gate that didn't actually run)
 CHANGED=0        # --changed: derive the scope from the local git diff (fast dev loop)
 SCOPE_EXPLICIT=0 # an explicit --scope always wins over --changed
@@ -75,6 +76,7 @@ _scope_str() {
 while (($#)); do
   case "$1" in
   -q | --quiet) QUIET=1 ;;
+  --json) JSON=1 QUIET=1 CORE_JSON=1 && export CORE_JSON ;; # only JSON on stdout (incl. nested skips)
   --strict) STRICT=1 ;;
   --scope)
     # Require an explicit value: without this, `--scope --quiet` would swallow the
@@ -93,14 +95,31 @@ while (($#)); do
     SCOPE_EXPLICIT=1
     ;;
   --changed) CHANGED=1 ;;
+  --color)
+    if (($# < 2)) || ! _core_set_color "$2"; then
+      printf 'audit-core.sh: --color requires a value (auto|always|never)\n' >&2
+      printf 'try: audit-core.sh --help\n' >&2
+      exit 2
+    fi
+    shift
+    ;;
+  --color=*)
+    _core_set_color "${1#*=}" || {
+      printf 'audit-core.sh: --color requires auto|always|never\n' >&2
+      exit 2
+    }
+    ;;
   -h | --help)
     cat <<'EOF'
-usage: audit-core.sh [-q|--quiet] [--scope LIST] [--changed] [-h|--help]
+usage: audit-core.sh [-q|--quiet] [--strict] [--scope LIST] [--changed] [--color WHEN] [--json] [-h|--help]
 
 THE audit button — manifest/exec-bit/syntax/lint/config/markdown/workflow/
 version/behavioral checks. CI and pre-commit run this exact script.
 
   -q, --quiet     only print SKIP/FAIL lines and the final summary
+  --json          emit a machine-readable summary object on stdout (implies --quiet):
+                  {pass,skip,fail,seconds,strict,tool_skips,skipped[],result}. For CI
+                  steps / editor integrations that want to parse, not scrape, the result.
   --strict        fail if any gate SKIPPED because its TOOL is absent — that gate did
                   not actually run, so a "green" with such skips is only PARTIAL. An
                   out-of-scope skip (a narrowed --scope/--changed run) is intentional and
@@ -110,6 +129,8 @@ version/behavioral checks. CI and pre-commit run this exact script.
                   shell, nvim, all (default), none. Cheap structural/config/
                   markdown/workflow/version checks always run. CI sets this from
                   scripts/ci-classify.sh; omit it locally to run the full audit.
+  --color WHEN    auto (default) | always | never. `always` keeps colour when piped
+                  (e.g. into `less -R`); NO_COLOR still wins. Also via CORE_COLOR env.
   --changed       derive the scope from your local git diff (working tree vs HEAD,
                   falling back to the branch delta vs the default branch) using the
                   SAME scripts/ci-classify.sh CI uses — so a docs- or nvim-only edit
@@ -206,6 +227,19 @@ if [[ "${CORE_AUDIT_SERIAL:-0}" != 1 ]]; then
   BEHAV_BG=1
 fi
 
+# Reap the backgrounded behavioral child + remove its capture file on ANY exit. The
+# normal path (section 10) already waits for it and rm's the temp; but a Ctrl-C — or
+# an early FAIL/exit — mid-audit otherwise orphans the slow nvim/zsh leg and leaks the
+# mktemp. EXIT does the cleanup (idempotent: kill on a reaped pid and a second rm -f are
+# both no-ops); INT/TERM just exit with the conventional 128+signal code and let EXIT fire.
+_audit_cleanup() {
+  [[ -n "${BEHAV_PID:-}" ]] && kill "$BEHAV_PID" 2>/dev/null
+  [[ -n "${BEHAV_OUT:-}" ]] && rm -f "$BEHAV_OUT"
+}
+trap _audit_cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 # Tracked files that live in dotfiles-core but are NOT vendored into OS repos'
 # core/ subtree — repo-meta and dev tooling. Anything tracked, not matched by the
 # manifest, must appear here (or under a META_PREFIXES dir) or section 1 flags it.
@@ -223,7 +257,9 @@ META_ALLOWLIST=(
 # it lands here — the bin/-vs-scripts/ split is exactly what makes that unambiguous.
 # .claude/ holds the Claude-Code-on-the-web SessionStart hook (provisions the gate
 # toolchain in a remote session) — repo-meta tooling, likewise never vendored out.
-META_PREFIXES=(examples/ .github/ scripts/ .claude/)
+# .devcontainer/ is the dev-environment definition (one-command CI parity) — dev tooling
+# too, never part of the vendored Core layer.
+META_PREFIXES=(examples/ .github/ scripts/ .claude/ .devcontainer/)
 
 # ── 1. manifest <-> filesystem drift ─────────────────────────────────────────
 hdr "manifest ↔ filesystem"
@@ -396,17 +432,26 @@ fi
 # ~/Library/LaunchAgents (it switches on _maint_scheduler, the correct cross-OS shape).
 # Comment-stripped first, so an explanatory comment naming an OS path can't trip it.
 # Pure sed+grep (busybox-safe), shell-scoped like the other shell-layer gates.
-hdr "Core⇄OS boundary (no OS paths in portable shell modules)"
+hdr "Core⇄OS boundary (no OS paths in portable Core files)"
 if ((SCOPE_SHELL)); then
   bnd_fail=0
+  # Scan BOTH the portable shell modules AND the SYMLINKED config files (mise, git,
+  # tmux, starship). The latter were previously ungated — yet they are vendored and
+  # symlinked verbatim into every OS repo just like the zsh modules, so a hard-coded
+  # /opt/homebrew in starship.toml or an /Library/ path in gitconfig fans out N-way
+  # exactly the same way. A real drift of this shape was found downstream (an OS path
+  # baked into mise/config.toml). The os/ layer is where those belong. The .example
+  # templates are EXCLUDED — they are user-edited illustrations, not the live config.
   while IFS= read -r f; do
     [[ "$f" == zsh/maint.zsh ]] && continue # OS-switched scheduler surface (see above)
     if sed 's/#.*//' "$f" | grep -qE '/opt/homebrew|/home/linuxbrew|/usr/local/Cellar|/Library/|/mnt/c/'; then
       bnd_fail=1
-      fail "OS-specific path in a portable module ($f) — it belongs in the OS layer, not Core"
+      fail "OS-specific path in a portable Core file ($f) — it belongs in the OS layer, not Core"
     fi
-  done < <(git ls-files 'zsh/*.zsh' 2>/dev/null)
-  ((bnd_fail)) || pass "portable zsh modules carry no OS-absolute paths"
+  done < <(git ls-files 'zsh/*.zsh' \
+    'mise/config.toml' 'git/gitconfig' \
+    'tmux/tmux.conf' 'tmux/tmux.reset.conf' 'starship/starship.toml' 2>/dev/null)
+  ((bnd_fail)) || pass "portable Core files (shell modules + symlinked configs) carry no OS-absolute paths"
 else
   skip "Core⇄OS boundary (out of scope)"
 fi
@@ -606,7 +651,11 @@ hdr "behavioral (scripts/test-core.sh)"
 # the old inline run, just time-shifted. CORE_AUDIT_SERIAL=1 takes the inline path below.
 if ((BEHAV_BG)); then
   if wait "$BEHAV_PID"; then _behav_rc=0; else _behav_rc=$?; fi
-  [[ -s "$BEHAV_OUT" ]] && cat "$BEHAV_OUT"
+  # In --json mode the behavioral output must not reach stdout (JSON-only); send it to
+  # stderr so it's still there for debugging. Otherwise print it in place as before.
+  if [[ -s "$BEHAV_OUT" ]]; then
+    if ((JSON)); then cat "$BEHAV_OUT" >&2; else cat "$BEHAV_OUT"; fi
+  fi
   rm -f "$BEHAV_OUT"
   if ((_behav_rc == 0)); then
     pass "behavioral tests (load-order smoke + function units)"
@@ -625,6 +674,36 @@ else
   fi
 fi
 
+# Count tool-skips (absent tool = real coverage gap) vs out-of-scope skips up front so
+# both the human summary and the --json object can report it. (Done before either render.)
+_tool_skips=0
+for _s in ${_CORE_SKIPS[@]+"${_CORE_SKIPS[@]}"}; do
+  [[ "$_s" == *"out of scope"* ]] || _tool_skips=$((_tool_skips + 1))
+done
+
+# ── machine-readable summary (--json): one object on stdout, then exit with the same
+# status the human path would. Lets a CI step / editor parse the result instead of
+# scraping coloured text. Strings are JSON-escaped (\ and ") via parameter expansion. ──
+if ((JSON)); then
+  if ((FAIL > 0)); then
+    _result=failed
+  elif ((STRICT && _tool_skips > 0)); then
+    _result=failed-strict
+  else _result=ok; fi
+  printf '{"pass":%d,"skip":%d,"fail":%d,"seconds":%d,"strict":%s,"tool_skips":%d,"skipped":[' \
+    "$PASS" "$SKIP" "$FAIL" "$SECONDS" "$( ((STRICT)) && echo true || echo false)" "$_tool_skips"
+  _first=1
+  for _s in ${_CORE_SKIPS[@]+"${_CORE_SKIPS[@]}"}; do
+    _s="${_s//\\/\\\\}"
+    _s="${_s//\"/\\\"}"
+    ((_first)) || printf ','
+    printf '"%s"' "$_s"
+    _first=0
+  done
+  printf '],"result":"%s"}\n' "$_result"
+  [[ "$_result" == ok ]] && exit 0 || exit 1
+fi
+
 # ── summary ──────────────────────────────────────────────────────────────────
 printf '\n%s──────── audit summary ────────%s\n' "$c_blu" "$c_rst"
 printf '  %spass %d%s   %sskip %d%s   %sfail %d%s   %s(%ds)%s\n' \
@@ -638,12 +717,10 @@ printf '  %spass %d%s   %sskip %d%s   %sfail %d%s   %s(%ds)%s\n' \
 # one skipped because its AREA is out of scope (a narrowed --scope/--changed run) is
 # intentional. --strict fails ONLY on the former, so it can run on a fully-provisioned CI
 # leg (every in-scope tool installed) without tripping on deliberately-narrowed areas.
-_tool_skips=0
 if ((SKIP > 0)); then
   printf '  %s%d check(s) SKIPPED — this run is PARTIAL, not full:%s\n' "$c_yel" "$SKIP" "$c_rst" >&2
   for _s in "${_CORE_SKIPS[@]}"; do
     printf '    %s–%s %s\n' "$c_yel" "$c_rst" "$_s" >&2
-    [[ "$_s" == *"out of scope"* ]] || _tool_skips=$((_tool_skips + 1))
   done
 fi
 ((FAIL == 0)) || {

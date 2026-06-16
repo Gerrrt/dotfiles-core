@@ -37,6 +37,19 @@ else
   typeset -g _CORE_ACCENT_SPEC=75 _CORE_MUTED_SPEC=244
 fi
 
+# Glyphs + spinner frames degrade to ASCII when the locale is NOT UTF-8 (no *utf8*/*utf-8*
+# in LC_ALL/LC_CTYPE/LANG). A C/POSIX-locale terminal — a fresh server, a rescue shell, a
+# serial console: the exact bare box this layer targets — renders the braille spinner and
+# the ✓/✗/⚠ marks as mojibake boxes otherwise. One definition, consumed by every helper
+# below, so the fallback is consistent across ok/err/warn/errbox/spin.
+if [[ "${${LC_ALL:-${LC_CTYPE:-${LANG:-}}}:l}" == *utf(-|)8* ]]; then
+  typeset -g _CORE_G_OK='✓' _CORE_G_ERR='✗' _CORE_G_WARN='⚠'
+  typeset -ga _CORE_SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+else
+  typeset -g _CORE_G_OK='ok' _CORE_G_ERR='x' _CORE_G_WARN='!'
+  typeset -ga _CORE_SPIN_FRAMES=('-' '\' '|' '/')
+fi
+
 _core_have() { command -v "$1" >/dev/null 2>&1; }
 # Colourise fd $1 (default 2 = stderr)? The fd must be a terminal AND NO_COLOR
 # unset (https://no-color.org). Each helper asks about the stream it ACTUALLY
@@ -49,16 +62,16 @@ _core_color() { [[ -t ${1:-2} && -z ${NO_COLOR:-} ]]; }
 # ok goes to STDOUT (it's a result). None of them exits — a zsh helper that called
 # `exit` would kill the user's interactive shell. Callers do `_core_err …; return 1`.
 _core_ok() { # success line → stdout (so it checks fd 1, not fd 2)
-  if _core_color 1; then print -r -- "${_CORE_C_GRN}✓${_CORE_C_RST} $*"
-  else print -r -- "✓ $*"; fi
+  if _core_color 1; then print -r -- "${_CORE_C_GRN}${_CORE_G_OK}${_CORE_C_RST} $*"
+  else print -r -- "${_CORE_G_OK} $*"; fi
 }
 _core_err() { # error line → stderr
-  if _core_color; then print -u2 -r -- "${_CORE_C_RED}✗${_CORE_C_RST} $*"
-  else print -u2 -r -- "✗ $*"; fi
+  if _core_color; then print -u2 -r -- "${_CORE_C_RED}${_CORE_G_ERR}${_CORE_C_RST} $*"
+  else print -u2 -r -- "${_CORE_G_ERR} $*"; fi
 }
 _core_warn() { # warning line → stderr
-  if _core_color; then print -u2 -r -- "${_CORE_C_YEL}⚠${_CORE_C_RST} $*"
-  else print -u2 -r -- "⚠ $*"; fi
+  if _core_color; then print -u2 -r -- "${_CORE_C_YEL}${_CORE_G_WARN}${_CORE_C_RST} $*"
+  else print -u2 -r -- "${_CORE_G_WARN} $*"; fi
 }
 _core_hint() { # dim follow-up "hint:" line → stderr (the fix, after an error)
   # Word-wrap to $COLUMNS so a long fix-it hint (e.g. extract's supported-formats list)
@@ -104,8 +117,8 @@ _core_usage() { # "usage: …" → stderr
 # _core_err — this is reserved for the cases where the extra layout earns its space.
 _core_errbox() {
   local head="$1"; shift
-  if _core_color; then print -u2 -r -- "${_CORE_C_RED}✗${_CORE_C_RST} ${head}"
-  else print -u2 -r -- "✗ ${head}"; fi
+  if _core_color; then print -u2 -r -- "${_CORE_C_RED}${_CORE_G_ERR}${_CORE_C_RST} ${head}"
+  else print -u2 -r -- "${_CORE_G_ERR} ${head}"; fi
   local l
   for l in "$@"; do
     if _core_color; then print -u2 -r -- "${_CORE_C_DIM}    ${l}${_CORE_C_RST}"
@@ -121,13 +134,18 @@ _core_errbox() {
 _core_lev() {
   emulate -L zsh
   local a="$1" b="$2"
-  local -i la=${#a} lb=${#b} i j cost del ins sub m
+  local -i la=${#a} lb=${#b} i j cost del ins sub trn m
   ((la == 0)) && { print -r -- "$lb"; return; }
   ((lb == 0)) && { print -r -- "$la"; return; }
   # 1-based rows; index (k+1) holds column k (k = 0..lb). NOTE: array-element assignment
   # subscripts must NOT contain spaces (`prev[j+1]=`, not `prev[j + 1]=`) — with spaces
   # zsh parses the LHS as a glob word, not an assignment ("bad pattern: prev[j").
-  local -a prev cur
+  #
+  # Damerau/OSA, not plain Levenshtein: we ALSO score an adjacent transposition as ONE
+  # edit (needs the row two back, prev2), so a finger-fumble like `gts`→`gst` or
+  # `cmod`→`comd` is distance 1 — the single most common real typo class — instead of 2,
+  # which _core_suggest's ≤2 cutoff would otherwise treat the same as two unrelated edits.
+  local -a prev2 prev cur
   for ((j = 0; j <= lb; j++)); do prev[j+1]=$j; done
   for ((i = 1; i <= la; i++)); do
     cur[1]=$i
@@ -135,8 +153,13 @@ _core_lev() {
       [[ "${a[i]}" == "${b[j]}" ]] && cost=0 || cost=1
       del=$((prev[j+1] + 1)); ins=$((cur[j] + 1)); sub=$((prev[j] + cost))
       m=$del; ((ins < m)) && m=$ins; ((sub < m)) && m=$sub
+      # adjacent transposition: a[i] matches b[j-1] AND a[i-1] matches b[j].
+      if ((i > 1 && j > 1)) && [[ "${a[i]}" == "${b[j-1]}" && "${a[i-1]}" == "${b[j]}" ]]; then
+        trn=$((prev2[j-1] + 1)); ((trn < m)) && m=$trn
+      fi
       cur[j+1]=$m
     done
+    prev2=("${prev[@]}")
     prev=("${cur[@]}")
   done
   print -r -- "${prev[lb+1]}"
@@ -176,6 +199,37 @@ _core_help() {
   # (callers pass a single line today, but this lets a verb give multi-line help).
   local d
   for d in "$@"; do print -r -- "  $d"; done
+}
+
+# ── paging ──────────────────────────────────────────────────────────────────────
+# For the long, scannable verbs (core-help's full sheet, core-doctor -v) that can be
+# taller than a tmux split. _core_page prints content, routing it through $PAGER ONLY
+# when stdout is a real TTY and the content is taller than the window — so a pipe, a
+# redirect, or the unit tests (all non-TTY) get a byte-identical unpaged print and never
+# block on an interactive pager. Colour must be baked into <content> already: a caller
+# pages by FORCING colour on (the renderer can't see a TTY through the pipe), the same
+# trick scripts/lib/common.sh uses with CLICOLOR_FORCE. CORE_NO_PAGER=1 disables it.
+_core_pager_cmd() { # → the pager command line on stdout, or non-zero when none/disabled
+  [[ -n ${CORE_NO_PAGER:-} ]] && return 1
+  local p="${PAGER:-less}"
+  # less needs -R to render our ANSI; -F quits if it fits one screen (so a short sheet
+  # doesn't trap you in the pager), -X doesn't clear the screen, -I case-folds search.
+  if [[ ${p:t} == less ]]; then
+    _core_have less && { print -r -- "less -FIRX"; return 0; }
+  else
+    _core_have "${p%% *}" && { print -r -- "$p"; return 0; }
+  fi
+  return 1
+}
+_core_page() { # _core_page <content>
+  emulate -L zsh
+  local content="$1" pager
+  local -i nlines=${#${(f)content}}
+  if [[ -t 1 ]] && ((nlines > LINES)) && pager="$(_core_pager_cmd)"; then
+    print -r -- "$content" | ${=pager}
+  else
+    print -r -- "$content"
+  fi
 }
 
 # ── confirm ───────────────────────────────────────────────────────────────────
@@ -233,7 +287,8 @@ _core_spin() {
   # localtraps scopes the INT trap below to THIS function; nomonitor silences the
   # job-control "[1] <pid>"/"done" chatter the background job would otherwise emit.
   setopt localoptions localtraps nomonitor
-  local -a fr=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+  local -a fr=("${_CORE_SPIN_FRAMES[@]}")
+  local -i nfr=${#fr}
   # Colour honours NO_COLOR even though stderr is a TTY here (the cursor/erase escapes
   # below are control, not colour, so they always apply). Blank vars = plain output.
   local _g='' _r='' _d='' _x=''
@@ -252,7 +307,7 @@ _core_spin() {
   trap 'kill -INT "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; printf "\r\e[K\e[?25h" >&2; return 130' INT
   local i=0
   while kill -0 "$pid" 2>/dev/null; do
-    printf '\r%s %s %s(%ds)%s' "${fr[$((i % 10 + 1))]}" "$title" "$_d" "$SECONDS" "$_x" >&2
+    printf '\r%s %s %s(%ds)%s' "${fr[$((i % nfr + 1))]}" "$title" "$_d" "$SECONDS" "$_x" >&2
     _core_nap
     ((i++))
   done
@@ -263,9 +318,9 @@ _core_spin() {
   # cursor either way. Colour follows the same stderr-TTY/NO_COLOR rule as the rest, via
   # the local _g/_r/_d/_x (blank when _core_color is false) — NOT the global constants.
   if ((rc == 0)); then
-    printf '\r\e[K%s✓%s %s %s(%ds)%s\n' "$_g" "$_x" "$title" "$_d" "$SECONDS" "$_x" >&2
+    printf '\r\e[K%s%s%s %s %s(%ds)%s\n' "$_g" "$_CORE_G_OK" "$_x" "$title" "$_d" "$SECONDS" "$_x" >&2
   else
-    printf '\r\e[K%s✗%s %s %s(%ds, exit %d)%s\n' "$_r" "$_x" "$title" "$_d" "$SECONDS" "$rc" "$_x" >&2
+    printf '\r\e[K%s%s%s %s %s(%ds, exit %d)%s\n' "$_r" "$_CORE_G_ERR" "$_x" "$title" "$_d" "$SECONDS" "$rc" "$_x" >&2
   fi
   printf '\e[?25h' >&2 # restore the cursor
   return $rc

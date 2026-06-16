@@ -30,11 +30,28 @@ _CORE_COMMON_SH=1
 # CLICOLOR_FORCE keeps colour on even when stdout is NOT a tty — used when a parent
 # captures a child's output to a file and re-prints it to a real terminal (audit-core.sh
 # overlaps the behavioral suite this way). NO_COLOR still wins (https://no-color.org).
-if [[ -z "${NO_COLOR:-}" && (-t 1 || -n "${CLICOLOR_FORCE:-}") ]]; then
-  c_grn=$'\e[32m' c_yel=$'\e[33m' c_red=$'\e[31m' c_blu=$'\e[34m' c_rst=$'\e[0m'
-else
-  c_grn='' c_yel='' c_red='' c_blu='' c_rst=''
-fi
+# Colour MODE, re-evaluable so a script's `--color WHEN` flag can override the default
+# AFTER this lib is sourced (the gate scripts source common.sh before their arg loop).
+#   auto   (default) — colour on a TTY (or CLICOLOR_FORCE), off when piped/redirected
+#   always           — colour regardless of TTY (e.g. piping into `less -R`)
+#   never            — never
+# NO_COLOR (https://no-color.org) is a hard override-OFF that wins over `always`.
+: "${CORE_COLOR:=auto}"
+_core_palette() {
+  local on=0
+  case "${CORE_COLOR:-auto}" in
+  always) on=1 ;;
+  never) on=0 ;;
+  *) { [[ -t 1 || -n "${CLICOLOR_FORCE:-}" ]]; } && on=1 ;;
+  esac
+  [[ -n "${NO_COLOR:-}" ]] && on=0
+  if ((on)); then
+    c_grn=$'\e[32m' c_yel=$'\e[33m' c_red=$'\e[31m' c_blu=$'\e[34m' c_rst=$'\e[0m'
+  else
+    c_grn='' c_yel='' c_red='' c_blu='' c_rst=''
+  fi
+}
+_core_palette
 
 # Tallies + quiet flag. Initialised with `:=` so a caller that runs under `set -u`
 # (all of them) never trips an unbound-variable error on the first pass()/skip().
@@ -49,6 +66,21 @@ fi
 # idempotent), appended by skip() below.
 _CORE_SKIPS=()
 
+# _core_set_color <when> — validate WHEN (auto|always|never) and re-evaluate the palette.
+# Non-zero on a bad value so the caller can usage-error. Every gate script's `--color`
+# flag routes through this; `CORE_COLOR=<when>` in the environment works without a flag
+# (so even scripts with no --color flag, e.g. bench-core.sh, honour it).
+_core_set_color() {
+  case "$1" in
+  auto | always | never)
+    CORE_COLOR="$1"
+    _core_palette
+    return 0
+    ;;
+  *) return 1 ;;
+  esac
+}
+
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # pass/skip/fail keep a running tally; hdr prints a section banner. `((QUIET))` is
@@ -61,7 +93,10 @@ pass() {
 skip() {
   SKIP=$((SKIP + 1))
   _CORE_SKIPS+=("$*")
-  printf '%s–%s %s\n' "$c_yel" "$c_rst" "$*"
+  # Always shown (even under --quiet) so a skip is never silent — EXCEPT in --json mode,
+  # where stdout must carry only the JSON object (CORE_JSON=1, set by the caller's --json
+  # arm and exported to nested gates). The skip is still tallied + recorded either way.
+  ((${CORE_JSON:-0})) || printf '%s–%s %s\n' "$c_yel" "$c_rst" "$*"
 }
 fail() {
   FAIL=$((FAIL + 1))

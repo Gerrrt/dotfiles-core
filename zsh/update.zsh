@@ -296,7 +296,12 @@ up() {
         local n=${#pending} cap=20
         _core_warn "up: ${n} package$([[ $n -ne 1 ]] && echo s) upgradable via ${mgr}:"
         print -u2 -rl -- "${(@)pending[1,cap]/#/    }"
-        ((n > cap)) && print -u2 -- "    … and $((n - cap)) more"
+        # When the preview is capped, close the loop: point at the non-destructive
+        # full listing instead of leaving "… and N more" as a dead end.
+        ((n > cap)) && {
+          print -u2 -- "    … and $((n - cap)) more"
+          _core_hint "run \`up -n\` to list all ${n}"
+        }
       fi
     fi
     _core_confirm "Apply updates with ${mgr}?" || {

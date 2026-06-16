@@ -1,4 +1,6 @@
 #compdef core-doctor
 # Completion for Core's `core-doctor` (zsh/functions.zsh). It prints a read-only health
-# report of detected tools + integrations and takes no arguments.
-_message 'core-doctor takes no arguments (prints the Core health report)'
+# report of detected tools + integrations; -v/--versions adds a version readout.
+_arguments -s \
+  '(-h --help)'{-h,--help}'[show usage and exit]' \
+  '(-v --versions)'{-v,--versions}'[also show each detected tool'\''s version]'
