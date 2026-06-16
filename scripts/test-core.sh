@@ -656,6 +656,17 @@ check "core-doctor renders a health report and returns 0" \
   'out=$(NO_COLOR=1 core-doctor 2>&1); (( $? == 0 )) && [[ $out == *dotfiles-core* && $out == *"modern CLI"* ]]'
 check "core-doctor --help returns 0 (not mis-read)" \
   'out=$(core-doctor --help); (( $? == 0 )) && [[ $out == *"usage: core-doctor"* ]]'
+# core-doctor --json (B12): a machine-readable object on stdout that actually parses and
+# carries the tools/wired/resolved keys — so a statusline/editor/CI can consume health.
+check "core-doctor --json emits parseable JSON with tools/wired/resolved" \
+  'out=$(core-doctor --json); print -r -- "$out" | python3 -c "import json,sys; d=json.load(sys.stdin); assert set([\"version\",\"tools\",\"wired\",\"resolved\"]) <= set(d)"'
+# _core_wired (U1): presence != wired. The probe is true ONLY when the integration's hook
+# function is actually defined in this shell, and false for an idle/unknown one — that gap
+# is exactly what the doctor's "integrations wired" line surfaces.
+check "_core_wired detects an integration once its hook function exists" \
+  'starship_precmd() { :; }; _core_wired starship'
+check "_core_wired is false for an idle integration and an unknown name" \
+  '_core_wired starship 2>/dev/null; (( $? != 0 )); _core_wired bogustool 2>/dev/null; (( $? != 0 ))'
 # core-help (U5): the width-aware renderer must emit every verb and never crash on its
 # kw arithmetic — including a pathologically narrow terminal where the key column clamps.
 check "core-help renders all verbs (wide terminal)" \
@@ -680,6 +691,25 @@ check "core-help filters by section name (keybindings → its rows, not others)"
   'out=$(COLUMNS=120 NO_COLOR=1 core-help keybindings 2>&1); (( $? == 0 )) && [[ $out == *Ctrl-F* && $out != *"maint-install"* ]]'
 check "core-help --help returns 0 (not mis-read as a filter)" \
   'out=$(core-help --help); (( $? == 0 )) && [[ $out == *"usage: core-help"* ]]'
+# core umbrella dispatcher (B1): bare `core` is the cheat sheet (U6 — help, not an
+# error), subcommands route to the core-* family, and an unknown subcommand fails in
+# Core's voice with a did-you-mean against $_CORE_SUBCMDS.
+check "core (no args) prints the cheat sheet (U6: bare core is help, not an error)" \
+  'out=$(COLUMNS=120 core 2>&1); (( $? == 0 )) && [[ $out == *mkcd* && $out == *serve* ]]'
+check "core help <term> routes to core-help and filters" \
+  'out=$(COLUMNS=120 core help serve 2>&1); (( $? == 0 )) && [[ $out == *serve* && $out != *"maint-install"* ]]'
+check "core version routes to core-version" \
+  'out=$(core version); (( $? == 0 )) && [[ $out == "dotfiles-core "[0-9]* ]]'
+check "core doctor routes to core-doctor" \
+  'out=$(NO_COLOR=1 core doctor 2>&1); (( $? == 0 )) && [[ $out == *"modern CLI"* ]]'
+check "core rejects an unknown subcommand with a did-you-mean" \
+  'out=$(core verzion 2>&1); (( $? != 0 )) && [[ $out == *"did you mean core version"* ]]'
+# U5: a usage error points back at the discoverability surface — `see: core-help <verb>`,
+# the verb derived from the synopsis's first token, so every verb gets it for free.
+check "usage errors carry a 'see: core-help <verb>' footer (U5)" \
+  'out=$(serve 99999 2>&1); (( $? != 0 )) && [[ $out == *"see: core-help serve"* ]]'
+check "the U5 usage footer is suppressible via CORE_USAGE_HINT=0" \
+  'out=$(CORE_USAGE_HINT=0 serve 99999 2>&1); (( $? != 0 )) && [[ $out != *"see: core-help"* ]]'
 # _core_suggest did-you-mean (U3/U1): nearest candidate on a near typo; SILENT when
 # nothing is close or the input is too short to be a confident match.
 check "_core_suggest returns the nearest flag for a near typo" \
@@ -843,6 +873,35 @@ ucheck "update: up rejects an unknown flag (rc 1, does not attempt an update)" \
 ucheck "update: up refuses -y and -n together (mutually exclusive, rc 1)" \
   "source '$UI'; source '$UPD'; out=\$(up -y -n 2>&1); (( \$? == 1 )) && [[ \$out == *'mutually exclusive'* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# up -i interactive selection (U2): contracts checked BEFORE any privileged apply.
+# (a) -i is mutually exclusive with -y/-n; (b) with NO picker it errbox-names fzf/gum;
+# (c) with a picker but no TTY it declines for the terminal; (d) --help advertises -i.
+# (b)/(c) are kept DISTINCT so the message never conflates the two (Copilot, PR #15).
+ucheck "update: up refuses -i with -y (three-way mutual exclusion, rc 1)" \
+  "source '$UI'; source '$UPD'; out=\$(up -i -y 2>&1); (( \$? == 1 )) && [[ \$out == *'mutually exclusive'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# (b) no fzf AND no gum on the isolated PATH → the picker errbox, not a TTY/cancel message.
+ucheck "update: up -i names fzf/gum when no picker is installed" \
+  "source '$UI'; source '$UPD'; out=\$(up -i </dev/null 2>&1); (( \$? == 1 )) && [[ \$out == *'needs fzf or gum'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# (c) stub a picker (fzf) onto the isolated PATH so the picker check passes; a non-TTY run
+# must then decline with the TERMINAL message — proving the two failure modes are separate.
+printf '#!/bin/sh\n:\n' >"$PMBIN/fzf"
+chmod +x "$PMBIN/fzf"
+ucheck "update: up -i with a picker present still declines without a TTY" \
+  "source '$UI'; source '$UPD'; out=\$(up -i </dev/null 2>&1); (( \$? == 1 )) && [[ \$out == *'needs an interactive terminal'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+rm -f "$PMBIN/fzf"
+ucheck "update: up --help advertises -i/--interactive" \
+  "source '$UI'; source '$UPD'; out=\$(up --help); (( \$? == 0 )) && [[ \$out == *'-i'* && \$out == *interactive* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# up -i must REFUSE on full-sync-only managers (pacman/emerge/apk): a partial upgrade there
+# risks a broken system, so the safety model (documented in update.zsh) forbids it. Stub a
+# pacman-only PATH so _pkgup_mgr resolves to it, then assert the refusal + rc 1.
+_pm_only pacman
+ucheck "update: up -i refuses on pacman (full-sync-only safety, rc 1)" \
+  "source '$UI'; source '$UPD'; out=\$(up -i 2>&1); (( \$? == 1 )) && [[ \$out == *'does not support safe partial upgrades'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 # core-help context-awareness (U7): a row whose tool is ABSENT on this box must be
 # tagged "needs <tool>", while an always-on verb (mkcd) still renders normally. Drive
 # it on a bare PATH so fzf is guaranteed missing, making the assertion deterministic.
@@ -946,15 +1005,15 @@ fi
 # update.zsh: the first-run welcome (U2 — the cheat-sheet discoverability hint) must
 # greet EXACTLY ONCE per machine. Drive _core_welcome directly (the TTY gate lives at
 # its call site, so a captured run can exercise the greet+sentinel logic): first call
-# prints the core-help pointer and persists the sentinel; a second call is silent.
+# prints the `core` front-door pointer and persists the sentinel; a second call is silent.
 # An isolated XDG_STATE_HOME keeps the sentinel out of the shared sandbox.
 ucheck "update: _core_welcome greets once, then the sentinel silences it" \
-  "source '$UPD'; o1=\$(_core_welcome); [[ \$o1 == *core-help* ]] || exit 1; [[ -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]] || exit 1; o2=\$(_core_welcome); [[ -z \$o2 ]]" \
+  "source '$UPD'; o1=\$(_core_welcome); [[ \$o1 == *'run \`core\`'* ]] || exit 1; [[ -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]] || exit 1; o2=\$(_core_welcome); [[ -z \$o2 ]]" \
   XDG_STATE_HOME="$SANDBOX/welcome-once" NO_COLOR=1 UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 # …and the startup hook stays SILENT without an interactive tty (captured/piped/CI):
 # sourcing update.zsh prints no greet and writes no sentinel, so it never spams logs.
 ucheck "update: welcome stays silent (no greet, no sentinel) without a tty" \
-  "o=\$(source '$UPD'); [[ \$o != *core-help* && ! -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]]" \
+  "o=\$(source '$UPD'); [[ \$o != *'dotfiles Core loaded'* && ! -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]]" \
   XDG_STATE_HOME="$SANDBOX/welcome-notty" NO_COLOR=1 UPDATE_CHECK_ENABLED=0 CORE_WELCOME=1
 
 # completions (U3 / DERIVED regression gate): every first-party PUBLIC verb must have a
@@ -979,6 +1038,24 @@ done < <(grep -rhoE '^(function[[:space:]]+)?[A-Za-z][A-Za-z0-9_-]*\(\)|^functio
 COMP_VERBS+=(cheat)
 ucheck "completions: every first-party verb has a compinit-resolved completion (derived)" \
   "fpath=('$HERE/zsh/completions' \$fpath); autoload -Uz compinit && compinit -u -d '$SANDBOX/zcd-comp' >/dev/null 2>&1; for c in ${COMP_VERBS[*]}; do [[ -n \${_comps[\$c]:-} ]] || { print \"no completion registered for: \$c\"; exit 1; }; done"
+
+# core-help coverage (B2): the cheat sheet is a HAND-MAINTAINED rows=() array — so a new
+# verb is trivially forgotten and the one discoverability surface silently drifts from
+# reality, with nothing to catch it across 9 repos. Derive the public-verb set from the
+# source (same technique as the completion gate above), then assert each appears in the
+# RENDERED core-help output (rows OR the footer line, where the op/health/front-door verbs
+# live). `cheat` is the alias and `core` is the dispatcher whose own help IS the sheet —
+# both exempt. A verb shipped without a sheet entry now FAILS here. ui.zsh + functions.zsh
+# are sourced so core-help renders; NO_COLOR keeps the match on plain text.
+HELP_ALLOWLIST=" $COMP_ALLOWLIST cheat core "
+HELP_VERBS=()
+for _v in "${COMP_VERBS[@]}"; do
+  case "$HELP_ALLOWLIST" in *" $_v "*) continue ;; esac
+  HELP_VERBS+=("$_v")
+done
+ucheck "core-help lists every first-party verb (derived B2 coverage gate)" \
+  "source '$UI'; source '$FN'; sheet=\$(COLUMNS=200 core-help 2>&1); for v in ${HELP_VERBS[*]}; do [[ \" \$sheet \" == *\" \$v \"* || \$sheet == *\"\$v \"* || \$sheet == *\" \$v\"* ]] || { print \"verb missing from core-help: \$v\"; exit 1; }; done" \
+  NO_COLOR=1
 
 # completion ↔ source flag drift (B7): the coverage test above proves a completion EXISTS;
 # this proves its FLAGS still match the verb. Every long flag a flag-bearing completion
@@ -1082,6 +1159,114 @@ ucheck "update: _pkgup_count parses pacman -Qu (2 upgradable)" \
 ucheck "update: _pkgup_list parses pacman package names" \
   "source '$UPD'; out=\$(_pkgup_list); [[ \$out == *bash* && \$out == *vim* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+
+# ── op.zsh 1Password helpers (B7) ─────────────────────────────────────────────
+# op.zsh fans out to 9 repos and handles SECRETS, yet had zero behavioral coverage. The
+# module short-circuits (returns) unless `op` is on PATH, so we stub a fake `op` (echoes
+# its args) + a fake `clip` (captures stdin) on an isolated PATH — the same hermetic
+# technique as the clip ladder — and assert the verbs' input-guards, the op:// path
+# construction, and optoken's clip dependency. No real 1Password, no network, no secrets.
+hdr "op.zsh 1Password helpers (hermetic stubs)"
+OPZSH="$HERE/zsh/op.zsh"
+OPBIN="$SANDBOX/opbin"
+_op_reset() { # _op_reset [with-clip]
+  rm -rf "$OPBIN"
+  mkdir -p "$OPBIN"
+  ln -s "$_real_zsh" "$OPBIN/zsh" 2>/dev/null
+  # fake op: print the OTP for `item get --otp`, a table for `item list`, else echo args.
+  cat >"$OPBIN/op" <<'OPSTUB'
+#!/bin/sh
+case "$*" in
+*"item get"*--otp*) echo 123456 ;;
+*"item list"*) printf 'NAME\tKEY\nmykey\tabc\n' ;;
+*) printf 'op %s\n' "$*" ;;
+esac
+OPSTUB
+  chmod +x "$OPBIN/op"
+  if [[ "${1:-}" == with-clip ]]; then
+    printf '#!/bin/sh\ncat >/dev/null\n' >"$OPBIN/clip"
+    chmod +x "$OPBIN/clip"
+  fi
+}
+# ocheck: source ui+op under a PATH that includes the op stub, run a body, expect exit 0.
+ocheck() { # ocheck <label> <zsh-body> [extra PATH entries already in OPBIN]
+  local out
+  if out="$(PATH="$OPBIN:$PATH" HOME="$SANDBOX" "$_real_zsh" -fc "source '$UI'||exit 1; source '$OPZSH'||exit 1; $2" 2>&1)"; then
+    pass "$1"
+  else
+    fail "$1"
+    [[ -n "$out" ]] && printf '%s\n' "$out" | sed 's/^/    /' >&2
+  fi
+}
+if ! have zsh; then
+  skip "op.zsh helpers (zsh not installed)"
+else
+  _op_reset with-clip
+  # input guards: a missing required arg is a usage error (rc 1), in Core's voice.
+  ocheck "opsecret with no arg is a usage error" 'opsecret 2>/dev/null; (( $? != 0 ))'
+  ocheck "openv with no arg is a usage error" 'openv 2>/dev/null; (( $? != 0 ))'
+  ocheck "optoken with no arg is a usage error" 'optoken 2>/dev/null; (( $? != 0 ))'
+  # op:// path construction: opsecret <path> must call `op read op://<path>` verbatim.
+  ocheck "opsecret builds the op:// read path" \
+    'out=$(opsecret Personal/AWS/key); [[ $out == *"op read op://Personal/AWS/key"* ]]'
+  # optoken copies the OTP via clip and confirms — present clip → success + the ok line.
+  ocheck "optoken fetches the OTP and copies it via clip" \
+    'out=$(optoken Personal/GitHub 2>&1); (( $? == 0 )) && [[ $out == *"TOTP copied"* ]]'
+  ocheck "opssh lists stored SSH keys (rc 0)" \
+    'out=$(opssh 2>&1); (( $? == 0 )) && [[ $out == *mykey* ]]'
+  # uniform --help contract: each op verb answers --help on stdout, rc 0.
+  ocheck "opsecret --help returns 0 with usage" \
+    'out=$(opsecret --help); (( $? == 0 )) && [[ $out == *"usage: opsecret"* ]]'
+  # optoken's clip dependency (U4 errbox): with NO clip on PATH it must fail in Core's
+  # voice (rc 1) rather than silently swallow the TOTP down a broken pipe.
+  _op_reset # no clip this time
+  ocheck "optoken fails clearly when clip is absent (no silent TOTP loss)" \
+    'out=$(optoken Personal/GitHub 2>&1); (( $? != 0 )) && [[ $out == *"requires Core"* && $out == *clip* ]]'
+fi
+
+# ── tmux status/popup scripts (U11) ───────────────────────────────────────────
+# The tmux helper scripts fan out to 9 repos and were covered only by bash -n + shellcheck
+# (static). Their PORTABILITY CONTRACT — "emit a styled pill when there's something to show,
+# emit NOTHING (segment vanishes) otherwise" — is pure logic that a bad edit could break
+# silently (a status helper that errors blanks the whole bar). Drive the two data-driven
+# ones hermetically against a stubbed PATH (same technique as the clip ladder): a fake
+# `pmset`/`ip` pins the environment so the output is deterministic on every box.
+hdr "tmux status/popup scripts (battery / netinfo, hermetic)"
+TMUXBIN="$SANDBOX/tmuxbin"
+BATTERY="$HERE/tmux/scripts/tmux-battery.sh"
+NETINFO="$HERE/tmux/scripts/tmux-netinfo.sh"
+_tmux_stub() { # _tmux_stub <name> <sh-body>
+  rm -rf "$TMUXBIN"
+  mkdir -p "$TMUXBIN"
+  printf '#!/bin/sh\n%s\n' "$2" >"$TMUXBIN/$1"
+  chmod +x "$TMUXBIN/$1"
+}
+# battery: a stubbed macOS `pmset` (87%, discharging) must yield a pill carrying "87%" —
+# guarding the awk %-extraction the script's header explains (tmux mangles a literal '%').
+_tmux_stub pmset 'printf -- "-InternalBattery-0 (id=1)\t87%%; discharging; 4:32 remaining present: true\n"'
+out="$(PATH="$TMUXBIN:$PATH" bash "$BATTERY" 2>/dev/null)"
+if [[ "$out" == *"87%"* && "$out" == *"#[fg="* ]]; then
+  pass "tmux-battery renders a pill from pmset (87%)"
+else fail "tmux-battery did not render the expected 87% pill (got: $out)"; fi
+# netinfo: a tunnel iface up → an ORANGE pill naming the iface + addr.
+_tmux_stub ip 'case "$*" in *"addr show tun0"*) echo "2: tun0 inet 10.8.0.2/24 scope global tun0" ;; esac'
+out="$(PATH="$TMUXBIN:$PATH" bash "$NETINFO" 2>/dev/null)"
+if [[ "$out" == *"tun0"* && "$out" == *"10.8.0.2"* ]]; then
+  pass "tmux-netinfo renders the tunnel pill when a tun iface is up"
+else fail "tmux-netinfo tunnel pill missing (got: $out)"; fi
+# netinfo: no tunnel but a routable LAN → a GREEN pill with the LAN IP.
+_tmux_stub ip 'case "$*" in *"route get"*) echo "1.1.1.1 via 192.168.1.1 dev en0 src 192.168.1.50 uid 0" ;; esac'
+out="$(PATH="$TMUXBIN:$PATH" bash "$NETINFO" 2>/dev/null)"
+if [[ "$out" == *"192.168.1.50"* ]]; then
+  pass "tmux-netinfo falls back to the LAN pill"
+else fail "tmux-netinfo LAN pill missing (got: $out)"; fi
+# netinfo: nothing reachable → NOTHING printed (the segment vanishes — the portability
+# contract that keeps it safe to ship to every repo). A non-empty output here is the bug.
+_tmux_stub ip ':'
+out="$(PATH="$TMUXBIN:$PATH" bash "$NETINFO" 2>/dev/null)"
+if [[ -z "$out" ]]; then
+  pass "tmux-netinfo emits nothing when no tunnel/LAN (segment vanishes)"
+else fail "tmux-netinfo should be silent with no net, printed: $out"; fi
 
 # ── summary ───────────────────────────────────────────────────────────────────
 summary

@@ -27,6 +27,11 @@ export HOME="${HOME:?}"
 : "${MAINT_NVIM_TIMEOUT:=600}"
 : "${MAINT_TS_TIMEOUT:=300}" # seconds the headless TS parser update may block (see below)
 : "${MAINT_BREW_TIMEOUT:=900}"
+# Log rotation bound (B6): trim to MAINT_LOG_KEEP lines once the log passes
+# MAINT_LOG_MAX, so an append-only daily log can't grow without limit. Configurable so
+# a noisy box can keep more history (or a tiny one less); KEEP < MAX or trimming churns.
+: "${MAINT_LOG_MAX:=800}"
+: "${MAINT_LOG_KEEP:=600}"
 
 [[ "$MAINT_ENABLED" == 1 ]] || exit 0
 
@@ -42,10 +47,10 @@ if ! mkdir "$LOCK" 2>/dev/null; then
 fi
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
-# ── keep the log from growing forever (last ~800 lines) ───────────────────────
-if [[ -f "$LOG" ]] && [[ "$(wc -l <"$LOG" 2>/dev/null || echo 0)" -gt 800 ]]; then
+# ── keep the log from growing forever (B6: trim to KEEP once past MAX) ─────────
+if [[ -f "$LOG" ]] && [[ "$(wc -l <"$LOG" 2>/dev/null || echo 0)" -gt "$MAINT_LOG_MAX" ]]; then
   # script scope, not a function — `local` is illegal here and prints an error.
-  tmp="$(mktemp "${LOG}.XXXXXX")" && tail -n 600 "$LOG" >"$tmp" && mv "$tmp" "$LOG"
+  tmp="$(mktemp "${LOG}.XXXXXX")" && tail -n "$MAINT_LOG_KEEP" "$LOG" >"$tmp" && mv "$tmp" "$LOG"
 fi
 
 log() { echo "$(date '+%F %T')  $*" | tee -a "$LOG"; }

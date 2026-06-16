@@ -43,6 +43,41 @@ core-version() {
   fi
 }
 
+# ── core — the umbrella front door (B1) ───────────────────────────────────────
+# ONE discoverable namespace over Core's first-party verbs, so a newcomer types a
+# single command (`core`) and finds everything instead of having to already know
+# `core-help` / `core-doctor` / `up` by name. The standalone verbs still exist
+# (muscle memory + their own completions); this is an additive front door, not a
+# replacement — and it keeps the generic-sounding verbs (`up`, `serve`) reachable
+# under a namespaced form that won't be mistaken for some other tool.
+#   core                  → the cheat sheet  (U6: bare `core` is help, never an error)
+#   core help [filter]    → core-help
+#   core doctor [-v]      → core-doctor
+#   core version          → core-version
+#   core update [-y|-n]   → up
+# The subcommand list is the single source the completion (_core) and the
+# unknown-subcommand did-you-mean both read, so they can't drift.
+typeset -ga _CORE_SUBCMDS=(help doctor version update)
+core() {
+  emulate -L zsh
+  local sub="${1:-}"
+  (($#)) && shift
+  case "$sub" in
+  "" | -h | --help | help) core-help "$@" ;;
+  doctor) core-doctor "$@" ;;
+  version | -V | --version) core-version "$@" ;;
+  update) up "$@" ;;
+  *)
+    _core_err "core: unknown subcommand: ${sub}"
+    local _sug
+    _sug="$(_core_suggest "$sub" "${_CORE_SUBCMDS[@]}")"
+    [[ -n "$_sug" ]] && _core_hint "did you mean core ${_sug}?"
+    _core_usage "core <${(j:|:)_CORE_SUBCMDS}>"
+    return 1
+    ;;
+  esac
+}
+
 # core-doctor — the shell counterpart to nvim's `:checkhealth gerrrt`: a scannable
 # report of which modern-CLI tools Core detected on THIS box and which integrations are
 # live, so you can see at a glance what's degraded to a classic fallback. Probes live
@@ -52,8 +87,59 @@ core-version() {
 # Public verb: render the health report, paging it when taller than the window (a small
 # split + core-doctor -v). Same wrapper shape as core-help: TTY-only paging, forced colour
 # through the capture, direct render (byte-identical) on a pipe/redirect/the unit tests.
+# _core_wired <tool> — is this integration actually WIRED into the live shell, not
+# merely installed? Presence (command -v) ≠ active: starship can be on PATH while the
+# prompt is plain, atuin installed while Ctrl-E is dead, mise present while the chpwd
+# hook never registered. Probe the function/widget each tool's init defines, so
+# core-doctor can tell "✓ present" from "✓ present AND working". Returns non-zero for an
+# unknown tool. (Inherited into core-doctor's `$()` capture: zsh forks keep functions +
+# the $widgets/$precmd_functions params readable.)
+_core_wired() {
+  case "$1" in
+  starship) (( $+functions[starship_precmd] )) ;;
+  atuin)    [[ -n ${widgets[atuin-search]:-} ]] || (( $+functions[_atuin_precmd] )) ;;
+  mise)     (( $+functions[_mise_hook] )) || (( $+functions[__mise_hook] )) ;;
+  zoxide)   (( $+functions[__zoxide_hook] )) || (( $+functions[__zoxide_z] )) ;;
+  carapace) (( $+functions[_carapace] )) ;;
+  *) return 1 ;;
+  esac
+}
+
+# _core_doctor_json — machine-readable health (B12). The gate scripts emit --json; the
+# RUNTIME health verb did not, so a statusline/editor/CI could not consume it. One object
+# on stdout, never paged: {version, tools{name:bool}, wired{name:bool}, resolved{…}}.
+# Pure zsh (no python): tool names are fixed identifiers, so no escaping is needed.
+_core_doctor_json() {
+  emulate -L zsh
+  local ver="unknown"
+  [[ -r "$_CORE_VERSION_FILE" ]] && ver="$(<"$_CORE_VERSION_FILE")"
+  local -a alltools=(
+    eza bat fd rg fzf zoxide delta dust duf procs btop yazi
+    starship atuin mise carapace gum sesh jq yq gron sd xh doggo glow op
+  )
+  local -a wir=(starship atuin mise zoxide carapace)
+  local t first=1
+  print -rn -- "{\"version\":\"${ver}\",\"tools\":{"
+  for t in $alltools; do
+    ((first)) || print -rn -- ","; first=0
+    if _core_have "$t"; then print -rn -- "\"$t\":true"; else print -rn -- "\"$t\":false"; fi
+  done
+  print -rn -- "},\"wired\":{"
+  first=1
+  for t in $wir; do
+    ((first)) || print -rn -- ","; first=0
+    if _core_have "$t" && _core_wired "$t"; then print -rn -- "\"$t\":true"; else print -rn -- "\"$t\":false"; fi
+  done
+  print -rn -- "},\"resolved\":{\"fd\":\"${FD_BIN:-}\",\"bat\":\"${BAT_BIN:-}\""
+  (($+functions[_pkgup_mgr])) && print -rn -- ",\"pkg_manager\":\"$(_pkgup_mgr)\""
+  print -r -- "}}"
+}
+
 core-doctor() {
   emulate -L zsh
+  # --json (anywhere on the line) → machine-readable, never paged (B12).
+  local a
+  for a in "$@"; do [[ "$a" == --json ]] && { _core_doctor_json; return 0; }; done
   if [[ -t 1 && -z ${CORE_NO_PAGER:-} ]]; then
     local _out
     _out="$(_CORE_FORCE_COLOR=1 _core_doctor_render "$@")"
@@ -65,17 +151,18 @@ core-doctor() {
 }
 _core_doctor_render() {
   emulate -L zsh
-  _core_wants_help "$1" && { _core_help "core-doctor [-v|--versions]" "report Core's detected tools + active integrations on this box (-v also shows versions)"; return 0; }
+  _core_wants_help "$1" && { _core_help "core-doctor [-v|--versions] [--json]" "report Core's detected tools + which integrations are actually wired (-v adds versions; --json for machines)"; return 0; }
   # Default stays fast + scannable (one `command -v` per tool). -v/--versions opts INTO a
   # version readout next to each ✓ — useful for spotting an ancient fzf/bat — at the cost of
-  # one `--version` fork per present tool, so it is deliberately NOT the default.
+  # one `--version` fork per present tool, so it is deliberately NOT the default. --json is
+  # intercepted by the wrapper before here, so it never reaches this arm.
   local show_versions=0
   case "${1:-}" in
   -v | --versions) show_versions=1 ;;
   "") ;;
   *)
     _core_err "core-doctor: unexpected argument: $1"
-    _core_usage "core-doctor [-v|--versions]"
+    _core_usage "core-doctor [-v|--versions] [--json]"
     return 1
     ;;
   esac
@@ -130,6 +217,23 @@ _core_doctor_render() {
       print -r -- "  ${d}${_pfx} ${missing[*]}${r}"
       print -r -- "  ${d}(some package names differ per distro — e.g. rg=ripgrep, delta=git-delta)${r}"
     fi
+  fi
+
+  # Active-integration probe (U1): presence (command -v, above) is NOT the same as wired.
+  # Report which integrations actually registered their hooks/widgets in THIS shell, so a
+  # "starship installed but the prompt is plain" or "atuin present but Ctrl-E is dead" is
+  # visible instead of a misleading green ✓. ○ = installed but idle (not wired here). Only
+  # the present ones are listed (an absent tool already shows ✗ in the group above).
+  local -a wirable=(starship atuin mise zoxide carapace)
+  local w wline=""
+  for w in $wirable; do
+    _core_have "$w" || continue
+    if _core_wired "$w"; then wline+="  ${g}✓${r} ${w}"
+    else wline+="  ${d}○ ${w} (idle)${r}"; fi
+  done
+  if [[ -n "$wline" ]]; then
+    print -r -- "${c}integrations wired${r}"
+    print -r -- " $wline"
   fi
 
   # Resolved binary names + the detected package manager — the behaviour-affecting bits
@@ -502,6 +606,7 @@ _core_help_render() {
     "mkbak <file>|timestamped .bak copy before you edit"
     "fcd|fuzzy-cd into any subdirectory|fzf"
     "serve [-l] [port]|HTTP server in the CWD (-l = loopback only); prints reachable URLs|python3"
+    "please|re-run your last command with sudo (previews + confirms first)"
     "§search"
     "fif <text>|find text inside files (rg + fzf + preview)|fzf"
     "fbr|fuzzy git-branch checkout|fzf"
@@ -529,6 +634,8 @@ _core_help_render() {
     "maint-install [HH:MM]|schedule the daily safe-update job"
     "maint-run|run daily maintenance now"
     "maint-log [-f]|view (or follow) the maintenance log"
+    "maint-status|when the job next runs / is it enabled"
+    "maint-uninstall|remove the scheduled maintenance job"
   )
   local ver=""
   [[ -r "$_CORE_VERSION_FILE" ]] && ver=" v$(<"$_CORE_VERSION_FILE")"
@@ -587,6 +694,7 @@ _core_help_render() {
     return 0
   fi
   print -r -- "${dc}  1Password: opsecret · openv · optoken · opssh    health: core-doctor · version: core-version${de}"
+  print -r -- "${dc}  front door: core <help|doctor|version|update>  (run \`core\` for this sheet anytime)${de}"
 }
 alias cheat='core-help'
 
@@ -606,8 +714,9 @@ if [[ $- == *i* ]] && ((CORE_CNF_ENABLED)); then
     _core_err "command not found: ${cmd}"
     # Did-you-mean against Core's own verbs — where typos land most often.
     local -a _verbs=(
-      mkcd cdup extract mkbak fcd serve fif fbr up update-check
-      maint-install maint-run maint-log core-help core-doctor core-version
+      core mkcd cdup extract mkbak fcd serve fif fbr up update-check
+      maint-install maint-run maint-log maint-status maint-uninstall
+      core-help core-doctor core-version
       opsecret openv optoken opssh
     )
     # Also weigh this shell's defined ALIASES — the most-typed commands (the g* git set,

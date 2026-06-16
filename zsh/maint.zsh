@@ -110,7 +110,11 @@ EOF
     crontab -l 2>/dev/null | grep -F "$marker"
     ;;
   *)
-    _core_err "maint: no supported scheduler (systemd/launchd/cron) found"
+    _core_errbox "maint-install: no supported scheduler found" \
+      "why: none of systemd (user), launchd, or cron is available on this box" \
+      "fix: install one, or run maintenance by hand / from your own timer:" \
+      "     maint-run        # run the daily job now, in the foreground" \
+      "     */1 …            # or wire \`$_MAINT_SH\` into whatever scheduler you do have"
     return 1
     ;;
   esac

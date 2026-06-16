@@ -1,19 +1,30 @@
 name: freshness
 
-# Supply-chain freshness gate for Core's RUNTIME pins. The zsh-plugin SHAs
-# (zsh/plugins.zsh) and the Neovim lockfile (nvim/lazy-lock.json) are pinned so
-# nothing floats silently into the 9 OS repos — but a pin, once set, also rots: a
-# pinned-and-forgotten plugin can sit on a known-vuln commit indefinitely across
-# every machine. dependabot only watches the github-actions ecosystem (see
-# .github/dependabot.yml), so these were unmonitored. This job is their watcher:
-# weekly (and on demand) it runs the scripts' --check mode, which exits non-zero when
-# a pin is behind upstream — surfacing drift proactively instead of during an incident.
-# A red run is the NUDGE to run `make update-plugins` / `make update-nvim-plugins`.
+# Supply-chain freshness bot for Core's RUNTIME pins. The zsh-plugin SHAs
+# (zsh/plugins.zsh) and the Neovim lockfile (nvim/lazy-lock.json) are pinned so nothing
+# floats silently into the 9 OS repos — but a pin, once set, also rots: a
+# pinned-and-forgotten plugin can sit on a known-vuln commit indefinitely across every
+# machine. dependabot only watches the github-actions ecosystem (see dependabot.yml), so
+# these were unmonitored. Weekly (and on demand) this rolls the pins forward and OPENS A
+# PR (B10) so the bump is reviewable in one click — instead of only a red "you should run
+# make update-plugins" nudge that a human still had to action by hand. The updater scripts
+# (--check) stay the source of truth for "is it behind"; this just automates the rest.
+#
+# First-party only: the PR is created with the preinstalled `gh` CLI + the job's
+# GITHUB_TOKEN — NO third-party action to pin/trust. A fixed branch per pin-set makes it
+# idempotent: a second run force-updates the existing branch/PR rather than stacking dupes.
+# workflow_dispatch input `mode=check` keeps the old report-only behaviour on demand.
 
 on:
   schedule:
     - cron: "0 6 * * 1" # Mondays 06:00 UTC
-  workflow_dispatch: # let the maintainer trigger a check on demand
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "pr = roll pins forward and open a PR; check = report only"
+        type: choice
+        default: pr
+        options: [pr, check]
 
 permissions:
   contents: read
@@ -26,46 +37,97 @@ jobs:
   zsh-plugins:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: write # push the bump branch
+      pull-requests: write # open/update the PR
+    env:
+      # schedule has no inputs → default to pr; dispatch honours the chosen mode.
+      MODE: ${{ github.event.inputs.mode || 'pr' }}
+      BRANCH: automation/freshness-zsh-plugins
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-      # Lightweight: --check just git-ls-remotes each pinned upstream's HEAD.
-      - name: Check zsh plugin pins against upstream
+      # check-only path (on demand): --check just git-ls-remotes each pinned upstream.
+      - name: Check zsh plugin pins (report only)
+        if: env.MODE == 'check'
         run: |
           if ./scripts/update-plugins.sh --check; then
             echo "✅ all zsh plugin pins current" >> "$GITHUB_STEP_SUMMARY"
           else
-            {
-              echo "### ⚠️ zsh plugin pins are behind upstream"
-              echo ""
-              echo "Run \`make update-plugins\` to roll them forward, review, and commit."
-            } >> "$GITHUB_STEP_SUMMARY"
+            { echo "### ⚠️ zsh plugin pins are behind upstream"; echo ""; \
+              echo "Re-run this workflow with mode=pr to roll them forward."; } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
+      # pr path (default/scheduled): roll the SHAs forward, and if anything moved, open a PR.
+      - name: Roll zsh plugin pins forward and open a PR
+        if: env.MODE == 'pr'
+        run: |
+          set -euo pipefail
+          ./scripts/update-plugins.sh        # apply mode: rewrites the pinned SHAs in place
+          if git diff --quiet -- zsh/plugins.zsh; then
+            echo "✅ zsh plugin pins already current — no PR needed" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git add zsh/plugins.zsh
+          git commit -m "chore(deps): roll zsh plugin pins forward (freshness bot)"
+          git push -f -u origin "$BRANCH"
+          # Idempotent: update the existing PR if one is already open for this branch.
+          if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            gh pr create --head "$BRANCH" --base "${GITHUB_REF_NAME}" \
+              --title "chore(deps): roll zsh plugin pins forward" \
+              --body "Automated by the freshness bot. Pinned zsh-plugin SHAs in \`zsh/plugins.zsh\` were behind upstream; this rolls them to current HEAD. Review the diff, let CI run, then merge."
+          fi
+          echo "📦 opened/updated PR on \`$BRANCH\`" >> "$GITHUB_STEP_SUMMARY"
 
   nvim-plugins:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      MODE: ${{ github.event.inputs.mode || 'pr' }}
+      BRANCH: automation/freshness-nvim-plugins
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Load pinned tool versions
         run: grep -E '^[A-Z0-9_]+=' scripts/tool-versions.env >> "$GITHUB_ENV"
-      # Heavier: re-clones the plugin set headlessly via the repo's real nvim config.
       - name: Install neovim (pinned)
-        run: |
-          set -euxo pipefail
-          ver="${NVIM_VERSION}"
-          url="https://github.com/neovim/neovim/releases/download/v${ver}/nvim-linux-x86_64.tar.gz"
-          curl -fsSL "$url" | sudo tar -xz -C /opt
-          sudo ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
-      - name: Check nvim lockfile against upstream
+        uses: ./.github/actions/setup-core-tools
+        with:
+          neovim: "true"
+      - name: Check nvim lockfile (report only)
+        if: env.MODE == 'check'
         run: |
           if ./scripts/update-nvim-plugins.sh --check; then
             echo "✅ nvim plugin lock current" >> "$GITHUB_STEP_SUMMARY"
           else
-            {
-              echo "### ⚠️ nvim plugin lock (nvim/lazy-lock.json) is behind upstream"
-              echo ""
-              echo "Run \`make update-nvim-plugins\` to refresh the lock, review, and commit."
-            } >> "$GITHUB_STEP_SUMMARY"
+            { echo "### ⚠️ nvim plugin lock is behind upstream"; echo ""; \
+              echo "Re-run this workflow with mode=pr to refresh it."; } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
+      - name: Refresh nvim lockfile and open a PR
+        if: env.MODE == 'pr'
+        run: |
+          set -euo pipefail
+          ./scripts/update-nvim-plugins.sh   # apply mode: refreshes nvim/lazy-lock.json
+          if git diff --quiet -- nvim/lazy-lock.json; then
+            echo "✅ nvim plugin lock already current — no PR needed" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git add nvim/lazy-lock.json
+          git commit -m "chore(deps): refresh nvim plugin lock (freshness bot)"
+          git push -f -u origin "$BRANCH"
+          if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            gh pr create --head "$BRANCH" --base "${GITHUB_REF_NAME}" \
+              --title "chore(deps): refresh nvim plugin lock" \
+              --body "Automated by the freshness bot. \`nvim/lazy-lock.json\` was behind upstream; this refreshes it to current. Review the diff, let CI run, then merge."
+          fi
+          echo "📦 opened/updated PR on \`$BRANCH\`" >> "$GITHUB_STEP_SUMMARY"

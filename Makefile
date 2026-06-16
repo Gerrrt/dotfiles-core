@@ -7,7 +7,7 @@
 # pre-commit call the same scripts/audit-core.sh, so `make audit` == green CI.
 # ──────────────────────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help setup doctor audit audit-changed test bench lint sync sync-dry hooks update-hooks update-plugins update-nvim-plugins check-pins
+.PHONY: help setup doctor audit audit-changed test bench profile lint sync sync-dry hooks update-hooks update-plugins update-nvim-plugins check-pins release
 
 help: ## Show this help
 	@echo "dotfiles-core — make targets:"
@@ -31,6 +31,9 @@ test: ## Run only the behavioral tests (load-order smoke + function units)
 
 bench: ## Benchmark Core's contribution to zsh startup (needs hyperfine; skips if absent)
 	@./scripts/bench-core.sh
+
+profile: ## Per-module zsh startup breakdown (attributes the total cost; slowest first)
+	@./scripts/bench-core.sh --profile
 
 lint: audit ## Alias for `audit` (the audit IS the lint+test gate)
 
@@ -56,3 +59,6 @@ update-nvim-plugins: ## Roll the pinned nvim plugin commits in nvim/lazy-lock.js
 
 check-pins: ## Report whether the zsh-plugin + nvim pins are behind upstream (the weekly freshness gate)
 	@./scripts/update-plugins.sh --check && ./scripts/update-nvim-plugins.sh --check
+
+release: ## Cut a release: bump core.version + CHANGELOG, run the audit (usage: make release VERSION=X.Y.Z)
+	@./scripts/release.sh $(VERSION)

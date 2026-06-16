@@ -3,9 +3,9 @@
 # OPTIONAL filter word that narrows the cheat sheet to matching rows — so complete that
 # with the verbs/sections core-help knows about (mirrors the rows in functions.zsh).
 local -a _ch_terms=(
-  mkcd cdup extract mkbak fcd serve fif fbr
-  up update-check maint-install maint-run maint-log
-  core-doctor core-version
-  navigation search git keybindings updates maintenance
+  mkcd cdup extract mkbak fcd serve please fif fbr
+  up update-check maint-install maint-run maint-log maint-status maint-uninstall
+  core-doctor core-version opsecret openv optoken opssh
+  navigation files search git keybindings updates maintenance
 )
 _arguments '1:filter:($_ch_terms)'

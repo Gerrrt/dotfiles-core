@@ -1,0 +1,25 @@
+#compdef core
+# Completion for Core's `core` umbrella front door (zsh/functions.zsh). The
+# subcommand list mirrors $_CORE_SUBCMDS — keep them in step (the audit's
+# core-help coverage gate keeps the verbs themselves honest).
+_core() {
+  local -a subs=(
+    'help:scannable cheat sheet of Core (optional filter word)'
+    'doctor:report detected tools + active integrations on this box'
+    'version:print the vendored Core layer version'
+    'update:apply package updates (interactive; -y where safe, -n to list)'
+  )
+  if (( CURRENT == 2 )); then
+    _describe -t commands 'core subcommand' subs
+    return
+  fi
+  # Delegate the sub-verb's own args to its existing completion, so
+  # `core update -<tab>` offers up's flags, `core help <tab>` its filter, etc.
+  case "${words[2]}" in
+  update) _up ;;
+  help) _core-help 2>/dev/null || _files ;;
+  doctor) _core-doctor 2>/dev/null ;;
+  version) _core-version 2>/dev/null ;;
+  esac
+}
+_core "$@"

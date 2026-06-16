@@ -306,9 +306,10 @@ if have git && git rev-parse --git-dir >/dev/null 2>&1; then
     mode="${line%% *}"
     path="${line#* }"
     case "$path" in
-    scripts/lib/*.sh)
+    scripts/lib/*.sh | lib/*.sh)
       # Sourced bash libraries — the bash sibling of zsh/*.zsh: no shebang, NOT
-      # executable. Must precede the generic *.sh arm below (case matches first).
+      # executable. scripts/lib/ is dev-tooling; lib/ (core/lib/ux.sh) is the VENDORED
+      # bash UX lib bootstrap.sh sources. Must precede the generic *.sh arm (first match).
       if [[ "$mode" == 100644 ]]; then
         pass "src  $path"
       else fail "sourced lib must NOT be executable, is $mode: $path"; fi
