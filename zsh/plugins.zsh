@@ -67,13 +67,20 @@ _zplugin_load() {
       # download history we don't run. On any failure, remove the half-built dir so
       # the next shell retries cleanly instead of sourcing an empty checkout. The
       # network-bound fetch carries a spinner; the local git steps are instant.
+      #
+      # B11: after checkout, ASSERT the resulting HEAD equals the pin before we source a
+      # single line. The pin IS the trust anchor — git verifies object SHAs on fetch, but
+      # this is cheap defence-in-depth that fails CLOSED if a remote ever resolves the
+      # request to a different object (a tampered/misconfigured mirror): we wipe the dir
+      # and refuse, rather than silently sourcing code that isn't the SHA we vouched for.
       git init -q "$plugin_path" &&
         git -C "$plugin_path" remote add origin "https://github.com/${repo}/${name}" &&
         _zp_run "installing ${name}@${pin:0:7}" \
           git -C "$plugin_path" fetch -q --depth 1 origin "$pin" &&
-        git -C "$plugin_path" checkout -q --detach FETCH_HEAD ||
+        git -C "$plugin_path" checkout -q --detach FETCH_HEAD &&
+        [[ "$(git -C "$plugin_path" rev-parse HEAD 2>/dev/null)" == "$pin" ]] ||
         {
-          echo "ERROR: failed to install ${name}@${pin:0:12}" >&2
+          echo "ERROR: failed to install ${name}@${pin:0:12} (or it did not resolve to the pinned commit)" >&2
           rm -rf "$plugin_path"
           return 1
         }
@@ -120,7 +127,8 @@ function zplugin-update {
       if [[ -n "$pin" ]]; then
         echo "Pinning ${name} → ${pin:0:12}..."
         git -C "$dir" fetch -q --depth 1 origin "$pin" 2>/dev/null &&
-          git -C "$dir" checkout -q --detach FETCH_HEAD 2>/dev/null ||
+          git -C "$dir" checkout -q --detach FETCH_HEAD 2>/dev/null &&
+          [[ "$(git -C "$dir" rev-parse HEAD 2>/dev/null)" == "$pin" ]] ||
           echo "  ! could not set ${name} to ${pin:0:12}" >&2
       else
         echo "Updating ${name} (unpinned)..."

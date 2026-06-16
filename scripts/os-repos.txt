@@ -1,0 +1,19 @@
+# scripts/os-repos.txt — the canonical OS-repo fleet that vendors Core.
+# ──────────────────────────────────────────────────────────────────────────────
+# ONE list of the repos Core fans out into, so adding a new OS target is a single
+# edit here instead of a hardcoded array buried in sync-core.sh (B9). Read by
+# scripts/sync-core.sh as the default TARGETS when no repos are named on the CLI.
+#
+# Format: one repo directory name per line. Blank lines and `#` comments ignored.
+# Order is the fan-out order. Keep it alphabetical after dotfiles-MacBook (the
+# reference implementation), which stays first so a smoke sync hits it soonest.
+# ──────────────────────────────────────────────────────────────────────────────
+dotfiles-MacBook
+dotfiles-Alpine
+dotfiles-Arch
+dotfiles-Debian
+dotfiles-Fedora
+dotfiles-Gentoo
+dotfiles-Kali
+dotfiles-Windows
+dotfiles-openSUSE

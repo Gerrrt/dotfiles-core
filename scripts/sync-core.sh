@@ -20,6 +20,8 @@
 # Env overrides:
 #   REPOS_ROOT        parent dir holding the repos   (default: parent of this repo)
 #   CORE_REMOTE       remote name/URL for dotfiles-core in each OS repo (default: origin of core)
+#   CORE_BRANCH       Core branch to vendor          (default: main)
+#   SYNC_JOBS         parallel prefetch jobs; 1 disables the warm-up (default: 4)
 #   SYNC_SKIP_AUDIT   set to 1 to skip the pre-fan-out audit gate (escape hatch; see below)
 #
 # FAN-OUT GATE: this is the single point where Core is vendored into all 9 repos, so a
@@ -41,11 +43,27 @@ CORE_BRANCH="${CORE_BRANCH:-main}"
 # same place. Override with CORE_REMOTE if your OS repos use a named remote.
 CORE_REMOTE="${CORE_REMOTE:-$(git -C "$HERE" remote get-url origin 2>/dev/null || echo '')}"
 
+# The fleet that vendors Core. SINGLE SOURCE: scripts/os-repos.txt (B9) — one edit
+# adds an OS target, instead of this array drifting from the README/PORTING-MATRIX.
+# The inline list stays as a hard fallback so a missing/corrupt data file can't strand
+# the maintain button (it degrades to the last-known fleet rather than fanning out to
+# nothing). Lines are trimmed; blanks and `#` comments are dropped.
 ALL_OS_REPOS=(
   dotfiles-MacBook dotfiles-Windows dotfiles-Debian dotfiles-Kali
   dotfiles-Fedora dotfiles-Arch dotfiles-openSUSE
   dotfiles-Alpine dotfiles-Gentoo
 )
+_OS_REPOS_FILE="$HERE/scripts/os-repos.txt"
+if [[ -r "$_OS_REPOS_FILE" ]]; then
+  _from_file=()
+  while IFS= read -r _line || [[ -n "$_line" ]]; do
+    _line="${_line%%#*}"                       # strip trailing comments
+    _line="${_line#"${_line%%[![:space:]]*}"}" # ltrim
+    _line="${_line%"${_line##*[![:space:]]}"}" # rtrim
+    [[ -n "$_line" ]] && _from_file+=("$_line")
+  done <"$_OS_REPOS_FILE"
+  ((${#_from_file[@]})) && ALL_OS_REPOS=("${_from_file[@]}")
+fi
 
 # usage() is a real heredoc, NOT `sed -n '2,30p' "$0"`: the old form was coupled to
 # this file's header line numbers, so editing the banner above silently drifted
@@ -64,6 +82,7 @@ Env overrides:
   REPOS_ROOT        parent dir holding the repos   (default: parent of this repo)
   CORE_REMOTE       remote name/URL for dotfiles-core in each OS repo (default: core's origin)
   CORE_BRANCH       Core branch to vendor          (default: main)
+  SYNC_JOBS         parallel prefetch jobs; 1 disables the warm-up (default: 4)
   SYNC_SKIP_AUDIT   set to 1 to skip the pre-fan-out audit gate (documented escape hatch)
 
 Refuses to fan out a red tree: runs scripts/audit-core.sh first (--dry-run exempt).
@@ -141,6 +160,32 @@ if ((!DRY)) && [[ "${SYNC_SKIP_AUDIT:-0}" != 1 ]]; then
     fail "the audit above validated your LOCAL tree, not what will vendor — push/pull to align, or set SYNC_SKIP_AUDIT=1"
     exit 1
   fi
+  echo
+fi
+
+# ── B6: parallel prefetch — warm each repo's object store with the Core commit in the
+# background so the (sequential, reviewable) subtree pulls below are mostly local. The
+# MERGE deliberately stays SERIAL: fanning a squash-merge into 9 working trees is the
+# high-stakes step an operator should watch one repo at a time — but the network
+# round-trips, the slow part, overlap here. Best-effort: a prefetch failure just means
+# that repo's pull fetches normally. Bounded by SYNC_JOBS (default 4; set 1 to disable),
+# using BATCHED waits (no `wait -n`) so it stays bash-3.2-safe on macOS. ──
+SYNC_JOBS="${SYNC_JOBS:-4}"
+if ((!DRY)) && ((SYNC_JOBS > 1)) && [[ "$CORE_SHA" != unknown ]]; then
+  echo ":: prefetching Core into up to $SYNC_JOBS repos in parallel (merge stays sequential)"
+  _pf=0
+  for repo in "${TARGETS[@]}"; do
+    path="$REPOS_ROOT/$repo"
+    [[ -d "$path/.git" && -d "$path/core" ]] || continue
+    git -C "$path" fetch -q "$CORE_REMOTE" "$CORE_BRANCH" >/dev/null 2>&1 &
+    _pf=$((_pf + 1))
+    # `|| true` keeps the prefetch best-effort under `set -e`: a flaky background fetch
+    # must never abort the script before the (real) serial merge loop below. A no-arg
+    # `wait` returns 0 even when a child failed in modern bash, but the guard makes the
+    # best-effort intent explicit AND holds on the bash-3.2 macOS target we can't assume.
+    ((_pf % SYNC_JOBS == 0)) && { wait || true; }
+  done
+  wait || true
   echo
 fi
 

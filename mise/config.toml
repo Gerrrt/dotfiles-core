@@ -30,6 +30,15 @@ legacy_version_file = true  # honor .nvmrc/.ruby-version/.python-version so repo
 experimental = true         # native shims (faster than the shell wrapper)
 paranoid = false            # set true to verify checksums on every download (slower)
 quiet = false
+# B3 — hermetic tool resolution. The [tools] versions above are deliberately FLOATING
+# (lts/latest/stable) so the declarations stay readable, but that means two boxes
+# provisioned a month apart can land on different runtimes. lockfile=true makes mise
+# record the EXACT resolved versions + checksums in a committed mise.lock (next to this
+# config), so `mise install` reproduces the same toolchain everywhere — the runtime
+# equivalent of Brewfile.lock.json. Generate/refresh it on a real box: `mise install`
+# (or `mise lock`) writes mise.lock; commit it. Until it's committed mise resolves
+# floating as before, so this is a safe no-op until the lock lands.
+lockfile = true
 # trusted_config_paths is machine-specific (the dotfiles dir differs per OS), so
 # keep only portable roots here and add the per-box path in a local override —
 # e.g. on the Mac: ['~/code', '~/dotfiles-MacBook'].
