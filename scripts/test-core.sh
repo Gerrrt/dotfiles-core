@@ -1150,6 +1150,70 @@ ucheck "update: _pkgup_list parses pacman package names" \
   "source '$UPD'; out=\$(_pkgup_list); [[ \$out == *bash* && \$out == *vim* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 
+# ── op.zsh 1Password helpers (B7) ─────────────────────────────────────────────
+# op.zsh fans out to 9 repos and handles SECRETS, yet had zero behavioral coverage. The
+# module short-circuits (returns) unless `op` is on PATH, so we stub a fake `op` (echoes
+# its args) + a fake `clip` (captures stdin) on an isolated PATH — the same hermetic
+# technique as the clip ladder — and assert the verbs' input-guards, the op:// path
+# construction, and optoken's clip dependency. No real 1Password, no network, no secrets.
+hdr "op.zsh 1Password helpers (hermetic stubs)"
+OPZSH="$HERE/zsh/op.zsh"
+OPBIN="$SANDBOX/opbin"
+_op_reset() { # _op_reset [with-clip]
+  rm -rf "$OPBIN"
+  mkdir -p "$OPBIN"
+  ln -s "$_real_zsh" "$OPBIN/zsh" 2>/dev/null
+  # fake op: print the OTP for `item get --otp`, a table for `item list`, else echo args.
+  cat >"$OPBIN/op" <<'OPSTUB'
+#!/bin/sh
+case "$*" in
+*"item get"*--otp*) echo 123456 ;;
+*"item list"*) printf 'NAME\tKEY\nmykey\tabc\n' ;;
+*) printf 'op %s\n' "$*" ;;
+esac
+OPSTUB
+  chmod +x "$OPBIN/op"
+  if [[ "${1:-}" == with-clip ]]; then
+    printf '#!/bin/sh\ncat >/dev/null\n' >"$OPBIN/clip"
+    chmod +x "$OPBIN/clip"
+  fi
+}
+# ocheck: source ui+op under a PATH that includes the op stub, run a body, expect exit 0.
+ocheck() { # ocheck <label> <zsh-body> [extra PATH entries already in OPBIN]
+  local out
+  if out="$(PATH="$OPBIN:$PATH" HOME="$SANDBOX" "$_real_zsh" -fc "source '$UI'||exit 1; source '$OPZSH'||exit 1; $2" 2>&1)"; then
+    pass "$1"
+  else
+    fail "$1"
+    [[ -n "$out" ]] && printf '%s\n' "$out" | sed 's/^/    /' >&2
+  fi
+}
+if ! have zsh; then
+  skip "op.zsh helpers (zsh not installed)"
+else
+  _op_reset with-clip
+  # input guards: a missing required arg is a usage error (rc 1), in Core's voice.
+  ocheck "opsecret with no arg is a usage error" 'opsecret 2>/dev/null; (( $? != 0 ))'
+  ocheck "openv with no arg is a usage error" 'openv 2>/dev/null; (( $? != 0 ))'
+  ocheck "optoken with no arg is a usage error" 'optoken 2>/dev/null; (( $? != 0 ))'
+  # op:// path construction: opsecret <path> must call `op read op://<path>` verbatim.
+  ocheck "opsecret builds the op:// read path" \
+    'out=$(opsecret Personal/AWS/key); [[ $out == *"op read op://Personal/AWS/key"* ]]'
+  # optoken copies the OTP via clip and confirms — present clip → success + the ok line.
+  ocheck "optoken fetches the OTP and copies it via clip" \
+    'out=$(optoken Personal/GitHub 2>&1); (( $? == 0 )) && [[ $out == *"TOTP copied"* ]]'
+  ocheck "opssh lists stored SSH keys (rc 0)" \
+    'out=$(opssh 2>&1); (( $? == 0 )) && [[ $out == *mykey* ]]'
+  # uniform --help contract: each op verb answers --help on stdout, rc 0.
+  ocheck "opsecret --help returns 0 with usage" \
+    'out=$(opsecret --help); (( $? == 0 )) && [[ $out == *"usage: opsecret"* ]]'
+  # optoken's clip dependency (U4 errbox): with NO clip on PATH it must fail in Core's
+  # voice (rc 1) rather than silently swallow the TOTP down a broken pipe.
+  _op_reset # no clip this time
+  ocheck "optoken fails clearly when clip is absent (no silent TOTP loss)" \
+    'out=$(optoken Personal/GitHub 2>&1); (( $? != 0 )) && [[ $out == *"requires Core"* && $out == *clip* ]]'
+fi
+
 # ── summary ───────────────────────────────────────────────────────────────────
 summary
 ((FAIL == 0)) || {

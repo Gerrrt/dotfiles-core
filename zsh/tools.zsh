@@ -137,8 +137,20 @@ export ATUIN_NOBIND=true
 # re-assert it on every precmd so it survives the deferred-plugin load.
 if [[ -n ${HAVE_STARSHIP:-} && -n ${RPROMPT:-} ]]; then
   typeset -g _STARSHIP_RPROMPT=$RPROMPT
+  typeset -gi _STARSHIP_RPROMPT_TRIES=0
   autoload -Uz add-zsh-hook
-  _starship_keep_rprompt() { RPROMPT=$_STARSHIP_RPROMPT; }
+  # B13: harden the workaround so it can't misbehave if zsh-defer's internals change.
+  #  (1) RESTORE ONLY WHEN BLANKED — re-assert only if RPROMPT is currently empty, so we
+  #      fix zsh-defer's reset but never clobber a non-empty RPROMPT an OS/local layer set
+  #      on purpose (the old unconditional assignment would stomp it on every precmd).
+  #  (2) SELF-REMOVE — the blank happens right after the FIRST prompt (the deferred-plugin
+  #      load); a few precmds past that the guard's job is done, so it unhooks itself
+  #      instead of running forever. If a future zsh-defer stops blanking RPS1 entirely,
+  #      this then simply no-ops a couple of times and detaches — no lingering side effect.
+  _starship_keep_rprompt() {
+    [[ -z ${RPROMPT:-} ]] && RPROMPT=$_STARSHIP_RPROMPT
+    ((++_STARSHIP_RPROMPT_TRIES >= 3)) && add-zsh-hook -d precmd _starship_keep_rprompt
+  }
   add-zsh-hook precmd _starship_keep_rprompt
 fi
 
