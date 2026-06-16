@@ -37,19 +37,16 @@ _CORE_COMMON_SH=1
 #   never            — never
 # NO_COLOR (https://no-color.org) is a hard override-OFF that wins over `always`.
 : "${CORE_COLOR:=auto}"
+# Palette now lives ONCE in the vendored bash UX lib (core/lib/ux.sh), shared with each OS
+# repo's bootstrap.sh — so the colour rule isn't hand-rolled in three places (B5). Source
+# it (sibling of this repo: scripts/lib/ → ../../lib/ux.sh) and map its UX_* into the c_*
+# names every gate script already uses, keeping this lib's public API byte-identical.
+# shellcheck source=lib/ux.sh
+source "${BASH_SOURCE[0]%/*}/../../lib/ux.sh"
 _core_palette() {
-  local on=0
-  case "${CORE_COLOR:-auto}" in
-  always) on=1 ;;
-  never) on=0 ;;
-  *) { [[ -t 1 || -n "${CLICOLOR_FORCE:-}" ]]; } && on=1 ;;
-  esac
-  [[ -n "${NO_COLOR:-}" ]] && on=0
-  if ((on)); then
-    c_grn=$'\e[32m' c_yel=$'\e[33m' c_red=$'\e[31m' c_blu=$'\e[34m' c_rst=$'\e[0m'
-  else
-    c_grn='' c_yel='' c_red='' c_blu='' c_rst=''
-  fi
+  UX_COLOR="${CORE_COLOR:-auto}"
+  ux_palette
+  c_grn=$UX_GRN c_yel=$UX_YEL c_red=$UX_RED c_blu=$UX_BLU c_rst=$UX_RST
 }
 _core_palette
 

@@ -38,6 +38,9 @@ starship/starship.toml
 # ── cross-OS helper scripts (called by zsh, tmux, AND nvim) ───────────────────
 bin/clip
 bin/clip-paste
+# ── shared BASH UX lib — palette/glyphs/spinner; SOURCED by each OS repo's
+#    bootstrap.sh (the pre-shell installer can't source the zsh ui.zsh) ─────────
+lib/ux.sh
 # ── mise — polyglot runtime manager; global tool versions (portable) ──────────
 mise/config.toml
 # ── sesh — portable session-manager config (SEEDED to ~/.config/sesh/sesh.toml;

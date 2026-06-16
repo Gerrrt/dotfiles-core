@@ -82,6 +82,9 @@ this tree is the human-readable version of it.
 bin/                      SHIPPED — vendored into every OS repo (in core.manifest):
   clip                    cross-OS "copy to clipboard"   (WSL/macOS/Wayland/X11)
   clip-paste              cross-OS "paste from clipboard"
+lib/                      SHIPPED — vendored bash libraries (sourced, not run):
+  ux.sh                   shared palette/glyphs/spinner — each OS repo's bootstrap.sh
+                          sources this (the pre-shell installer can't load the zsh ui.zsh)
 scripts/                  DEV TOOLING — runs the gate HERE, never vendored out:
   audit-core.sh           THE gate: manifest/exec-bit/syntax/lint/behavioral (CI + pre-commit run this)
   test-core.sh            behavioral suite: clip ladder + load-order smoke + functions + nvim load
