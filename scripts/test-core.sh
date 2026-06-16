@@ -1214,6 +1214,50 @@ else
     'out=$(optoken Personal/GitHub 2>&1); (( $? != 0 )) && [[ $out == *"requires Core"* && $out == *clip* ]]'
 fi
 
+# ── tmux status/popup scripts (U11) ───────────────────────────────────────────
+# The tmux helper scripts fan out to 9 repos and were covered only by bash -n + shellcheck
+# (static). Their PORTABILITY CONTRACT — "emit a styled pill when there's something to show,
+# emit NOTHING (segment vanishes) otherwise" — is pure logic that a bad edit could break
+# silently (a status helper that errors blanks the whole bar). Drive the two data-driven
+# ones hermetically against a stubbed PATH (same technique as the clip ladder): a fake
+# `pmset`/`ip` pins the environment so the output is deterministic on every box.
+hdr "tmux status/popup scripts (battery / netinfo, hermetic)"
+TMUXBIN="$SANDBOX/tmuxbin"
+BATTERY="$HERE/tmux/scripts/tmux-battery.sh"
+NETINFO="$HERE/tmux/scripts/tmux-netinfo.sh"
+_tmux_stub() { # _tmux_stub <name> <sh-body>
+  rm -rf "$TMUXBIN"
+  mkdir -p "$TMUXBIN"
+  printf '#!/bin/sh\n%s\n' "$2" >"$TMUXBIN/$1"
+  chmod +x "$TMUXBIN/$1"
+}
+# battery: a stubbed macOS `pmset` (87%, discharging) must yield a pill carrying "87%" —
+# guarding the awk %-extraction the script's header explains (tmux mangles a literal '%').
+_tmux_stub pmset 'printf -- "-InternalBattery-0 (id=1)\t87%%; discharging; 4:32 remaining present: true\n"'
+out="$(PATH="$TMUXBIN:$PATH" bash "$BATTERY" 2>/dev/null)"
+if [[ "$out" == *"87%"* && "$out" == *"#[fg="* ]]; then
+  pass "tmux-battery renders a pill from pmset (87%)"
+else fail "tmux-battery did not render the expected 87% pill (got: $out)"; fi
+# netinfo: a tunnel iface up → an ORANGE pill naming the iface + addr.
+_tmux_stub ip 'case "$*" in *"addr show tun0"*) echo "2: tun0 inet 10.8.0.2/24 scope global tun0" ;; esac'
+out="$(PATH="$TMUXBIN:$PATH" bash "$NETINFO" 2>/dev/null)"
+if [[ "$out" == *"tun0"* && "$out" == *"10.8.0.2"* ]]; then
+  pass "tmux-netinfo renders the tunnel pill when a tun iface is up"
+else fail "tmux-netinfo tunnel pill missing (got: $out)"; fi
+# netinfo: no tunnel but a routable LAN → a GREEN pill with the LAN IP.
+_tmux_stub ip 'case "$*" in *"route get"*) echo "1.1.1.1 via 192.168.1.1 dev en0 src 192.168.1.50 uid 0" ;; esac'
+out="$(PATH="$TMUXBIN:$PATH" bash "$NETINFO" 2>/dev/null)"
+if [[ "$out" == *"192.168.1.50"* ]]; then
+  pass "tmux-netinfo falls back to the LAN pill"
+else fail "tmux-netinfo LAN pill missing (got: $out)"; fi
+# netinfo: nothing reachable → NOTHING printed (the segment vanishes — the portability
+# contract that keeps it safe to ship to every repo). A non-empty output here is the bug.
+_tmux_stub ip ':'
+out="$(PATH="$TMUXBIN:$PATH" bash "$NETINFO" 2>/dev/null)"
+if [[ -z "$out" ]]; then
+  pass "tmux-netinfo emits nothing when no tunnel/LAN (segment vanishes)"
+else fail "tmux-netinfo should be silent with no net, printed: $out"; fi
+
 # ── summary ───────────────────────────────────────────────────────────────────
 summary
 ((FAIL == 0)) || {

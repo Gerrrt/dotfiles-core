@@ -1,5 +1,5 @@
 #compdef maint-log
 # Completion for Core's `maint-log` (zsh/maint.zsh): -f/--follow, or a line count.
 _arguments \
-  '(-f --follow)'{-f,--follow}'[follow the log (tail -f)]' \
-  '1:lines:'
+  '(-f --follow 1)'{-f,--follow}'[follow the log (tail -f)]' \
+  '(-f --follow)1:lines to show (default 50):(20 50 100 200)'
