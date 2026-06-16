@@ -5,8 +5,9 @@
 # scripts/sync-core.sh as the default TARGETS when no repos are named on the CLI.
 #
 # Format: one repo directory name per line. Blank lines and `#` comments ignored.
-# Order is the fan-out order. Keep it alphabetical after dotfiles-MacBook (the
-# reference implementation), which stays first so a smoke sync hits it soonest.
+# Order is the fan-out order. Keep it case-insensitively alphabetical after
+# dotfiles-MacBook (the reference implementation), which stays first so a smoke sync
+# hits it soonest — i.e. openSUSE sorts before Windows ('o' before 'w').
 # ──────────────────────────────────────────────────────────────────────────────
 dotfiles-MacBook
 dotfiles-Alpine
@@ -15,5 +16,5 @@ dotfiles-Debian
 dotfiles-Fedora
 dotfiles-Gentoo
 dotfiles-Kali
-dotfiles-Windows
 dotfiles-openSUSE
+dotfiles-Windows

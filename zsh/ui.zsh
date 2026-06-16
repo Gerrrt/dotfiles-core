@@ -223,6 +223,12 @@ _core_help() {
 _core_pager_cmd() { # → the pager command line on stdout, or non-zero when none/disabled
   [[ -n ${CORE_NO_PAGER:-} ]] && return 1
   local p="${PAGER:-less}"
+  # Match on the COMMAND TOKEN, not the whole $PAGER string: a user may set
+  # PAGER='bat -p' or PAGER='/usr/bin/bat --paging=always', so strip args first
+  # (${p%% *}) THEN take the basename (:t). Matching ${p:t} on the full string would
+  # miss those (':t' of "bat -p" is "bat -p"), letting bat still corrupt the output —
+  # the exact case this guard exists to prevent.
+  local cmd="${p%% *}"
   # less needs -R to render our ANSI; -F quits if it fits one screen (so a short sheet
   # doesn't trap you in the pager), -X doesn't clear the screen, -I case-folds search.
   #
@@ -233,10 +239,10 @@ _core_pager_cmd() { # → the pager command line on stdout, or non-zero when non
   # which preserves incoming ANSI with -R — fixing the prior behaviour where PAGER=bat ran
   # bare and corrupted the help/doctor sheet. (bat stays the right tool for fzf/file
   # previews, where IT does the colouring — just not for already-coloured text.)
-  if [[ ${p:t} == (less|bat|batcat) ]]; then
+  if [[ ${cmd:t} == (less|bat|batcat) ]]; then
     _core_have less && { print -r -- "less -FIRX"; return 0; }
   else
-    _core_have "${p%% *}" && { print -r -- "$p"; return 0; }
+    _core_have "$cmd" && { print -r -- "$p"; return 0; }
   fi
   return 1
 }
