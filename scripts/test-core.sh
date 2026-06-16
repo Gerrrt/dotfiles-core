@@ -680,6 +680,25 @@ check "core-help filters by section name (keybindings → its rows, not others)"
   'out=$(COLUMNS=120 NO_COLOR=1 core-help keybindings 2>&1); (( $? == 0 )) && [[ $out == *Ctrl-F* && $out != *"maint-install"* ]]'
 check "core-help --help returns 0 (not mis-read as a filter)" \
   'out=$(core-help --help); (( $? == 0 )) && [[ $out == *"usage: core-help"* ]]'
+# core umbrella dispatcher (B1): bare `core` is the cheat sheet (U6 — help, not an
+# error), subcommands route to the core-* family, and an unknown subcommand fails in
+# Core's voice with a did-you-mean against $_CORE_SUBCMDS.
+check "core (no args) prints the cheat sheet (U6: bare core is help, not an error)" \
+  'out=$(COLUMNS=120 core 2>&1); (( $? == 0 )) && [[ $out == *mkcd* && $out == *serve* ]]'
+check "core help <term> routes to core-help and filters" \
+  'out=$(COLUMNS=120 core help serve 2>&1); (( $? == 0 )) && [[ $out == *serve* && $out != *"maint-install"* ]]'
+check "core version routes to core-version" \
+  'out=$(core version); (( $? == 0 )) && [[ $out == "dotfiles-core "[0-9]* ]]'
+check "core doctor routes to core-doctor" \
+  'out=$(NO_COLOR=1 core doctor 2>&1); (( $? == 0 )) && [[ $out == *"modern CLI"* ]]'
+check "core rejects an unknown subcommand with a did-you-mean" \
+  'out=$(core verzion 2>&1); (( $? != 0 )) && [[ $out == *"did you mean core version"* ]]'
+# U5: a usage error points back at the discoverability surface — `see: core-help <verb>`,
+# the verb derived from the synopsis's first token, so every verb gets it for free.
+check "usage errors carry a 'see: core-help <verb>' footer (U5)" \
+  'out=$(serve 99999 2>&1); (( $? != 0 )) && [[ $out == *"see: core-help serve"* ]]'
+check "the U5 usage footer is suppressible via CORE_USAGE_HINT=0" \
+  'out=$(CORE_USAGE_HINT=0 serve 99999 2>&1); (( $? != 0 )) && [[ $out != *"see: core-help"* ]]'
 # _core_suggest did-you-mean (U3/U1): nearest candidate on a near typo; SILENT when
 # nothing is close or the input is too short to be a confident match.
 check "_core_suggest returns the nearest flag for a near typo" \
@@ -946,15 +965,15 @@ fi
 # update.zsh: the first-run welcome (U2 — the cheat-sheet discoverability hint) must
 # greet EXACTLY ONCE per machine. Drive _core_welcome directly (the TTY gate lives at
 # its call site, so a captured run can exercise the greet+sentinel logic): first call
-# prints the core-help pointer and persists the sentinel; a second call is silent.
+# prints the `core` front-door pointer and persists the sentinel; a second call is silent.
 # An isolated XDG_STATE_HOME keeps the sentinel out of the shared sandbox.
 ucheck "update: _core_welcome greets once, then the sentinel silences it" \
-  "source '$UPD'; o1=\$(_core_welcome); [[ \$o1 == *core-help* ]] || exit 1; [[ -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]] || exit 1; o2=\$(_core_welcome); [[ -z \$o2 ]]" \
+  "source '$UPD'; o1=\$(_core_welcome); [[ \$o1 == *'run \`core\`'* ]] || exit 1; [[ -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]] || exit 1; o2=\$(_core_welcome); [[ -z \$o2 ]]" \
   XDG_STATE_HOME="$SANDBOX/welcome-once" NO_COLOR=1 UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 # …and the startup hook stays SILENT without an interactive tty (captured/piped/CI):
 # sourcing update.zsh prints no greet and writes no sentinel, so it never spams logs.
 ucheck "update: welcome stays silent (no greet, no sentinel) without a tty" \
-  "o=\$(source '$UPD'); [[ \$o != *core-help* && ! -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]]" \
+  "o=\$(source '$UPD'); [[ \$o != *'dotfiles Core loaded'* && ! -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]]" \
   XDG_STATE_HOME="$SANDBOX/welcome-notty" NO_COLOR=1 UPDATE_CHECK_ENABLED=0 CORE_WELCOME=1
 
 # completions (U3 / DERIVED regression gate): every first-party PUBLIC verb must have a
@@ -979,6 +998,24 @@ done < <(grep -rhoE '^(function[[:space:]]+)?[A-Za-z][A-Za-z0-9_-]*\(\)|^functio
 COMP_VERBS+=(cheat)
 ucheck "completions: every first-party verb has a compinit-resolved completion (derived)" \
   "fpath=('$HERE/zsh/completions' \$fpath); autoload -Uz compinit && compinit -u -d '$SANDBOX/zcd-comp' >/dev/null 2>&1; for c in ${COMP_VERBS[*]}; do [[ -n \${_comps[\$c]:-} ]] || { print \"no completion registered for: \$c\"; exit 1; }; done"
+
+# core-help coverage (B2): the cheat sheet is a HAND-MAINTAINED rows=() array — so a new
+# verb is trivially forgotten and the one discoverability surface silently drifts from
+# reality, with nothing to catch it across 9 repos. Derive the public-verb set from the
+# source (same technique as the completion gate above), then assert each appears in the
+# RENDERED core-help output (rows OR the footer line, where the op/health/front-door verbs
+# live). `cheat` is the alias and `core` is the dispatcher whose own help IS the sheet —
+# both exempt. A verb shipped without a sheet entry now FAILS here. ui.zsh + functions.zsh
+# are sourced so core-help renders; NO_COLOR keeps the match on plain text.
+HELP_ALLOWLIST=" $COMP_ALLOWLIST cheat core "
+HELP_VERBS=()
+for _v in "${COMP_VERBS[@]}"; do
+  case "$HELP_ALLOWLIST" in *" $_v "*) continue ;; esac
+  HELP_VERBS+=("$_v")
+done
+ucheck "core-help lists every first-party verb (derived B2 coverage gate)" \
+  "source '$UI'; source '$FN'; sheet=\$(COLUMNS=200 core-help 2>&1); for v in ${HELP_VERBS[*]}; do [[ \" \$sheet \" == *\" \$v \"* || \$sheet == *\"\$v \"* || \$sheet == *\" \$v\"* ]] || { print \"verb missing from core-help: \$v\"; exit 1; }; done" \
+  NO_COLOR=1
 
 # completion ↔ source flag drift (B7): the coverage test above proves a completion EXISTS;
 # this proves its FLAGS still match the verb. Every long flag a flag-bearing completion

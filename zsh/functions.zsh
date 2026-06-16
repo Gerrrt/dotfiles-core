@@ -43,6 +43,41 @@ core-version() {
   fi
 }
 
+# ── core — the umbrella front door (B1) ───────────────────────────────────────
+# ONE discoverable namespace over Core's first-party verbs, so a newcomer types a
+# single command (`core`) and finds everything instead of having to already know
+# `core-help` / `core-doctor` / `up` by name. The standalone verbs still exist
+# (muscle memory + their own completions); this is an additive front door, not a
+# replacement — and it keeps the generic-sounding verbs (`up`, `serve`) reachable
+# under a namespaced form that won't be mistaken for some other tool.
+#   core                  → the cheat sheet  (U6: bare `core` is help, never an error)
+#   core help [filter]    → core-help
+#   core doctor [-v]      → core-doctor
+#   core version          → core-version
+#   core update [-y|-n]   → up
+# The subcommand list is the single source the completion (_core) and the
+# unknown-subcommand did-you-mean both read, so they can't drift.
+typeset -ga _CORE_SUBCMDS=(help doctor version update)
+core() {
+  emulate -L zsh
+  local sub="${1:-}"
+  (($#)) && shift
+  case "$sub" in
+  "" | -h | --help | help) core-help "$@" ;;
+  doctor) core-doctor "$@" ;;
+  version | -V | --version) core-version "$@" ;;
+  update) up "$@" ;;
+  *)
+    _core_err "core: unknown subcommand: ${sub}"
+    local _sug
+    _sug="$(_core_suggest "$sub" "${_CORE_SUBCMDS[@]}")"
+    [[ -n "$_sug" ]] && _core_hint "did you mean core ${_sug}?"
+    _core_usage "core <${(j:|:)_CORE_SUBCMDS}>"
+    return 1
+    ;;
+  esac
+}
+
 # core-doctor — the shell counterpart to nvim's `:checkhealth gerrrt`: a scannable
 # report of which modern-CLI tools Core detected on THIS box and which integrations are
 # live, so you can see at a glance what's degraded to a classic fallback. Probes live
@@ -502,6 +537,7 @@ _core_help_render() {
     "mkbak <file>|timestamped .bak copy before you edit"
     "fcd|fuzzy-cd into any subdirectory|fzf"
     "serve [-l] [port]|HTTP server in the CWD (-l = loopback only); prints reachable URLs|python3"
+    "please|re-run your last command with sudo (previews + confirms first)"
     "§search"
     "fif <text>|find text inside files (rg + fzf + preview)|fzf"
     "fbr|fuzzy git-branch checkout|fzf"
@@ -529,6 +565,8 @@ _core_help_render() {
     "maint-install [HH:MM]|schedule the daily safe-update job"
     "maint-run|run daily maintenance now"
     "maint-log [-f]|view (or follow) the maintenance log"
+    "maint-status|when the job next runs / is it enabled"
+    "maint-uninstall|remove the scheduled maintenance job"
   )
   local ver=""
   [[ -r "$_CORE_VERSION_FILE" ]] && ver=" v$(<"$_CORE_VERSION_FILE")"
@@ -587,6 +625,7 @@ _core_help_render() {
     return 0
   fi
   print -r -- "${dc}  1Password: opsecret · openv · optoken · opssh    health: core-doctor · version: core-version${de}"
+  print -r -- "${dc}  front door: core <help|doctor|version|update>  (run \`core\` for this sheet anytime)${de}"
 }
 alias cheat='core-help'
 
@@ -606,8 +645,9 @@ if [[ $- == *i* ]] && ((CORE_CNF_ENABLED)); then
     _core_err "command not found: ${cmd}"
     # Did-you-mean against Core's own verbs — where typos land most often.
     local -a _verbs=(
-      mkcd cdup extract mkbak fcd serve fif fbr up update-check
-      maint-install maint-run maint-log core-help core-doctor core-version
+      core mkcd cdup extract mkbak fcd serve fif fbr up update-check
+      maint-install maint-run maint-log maint-status maint-uninstall
+      core-help core-doctor core-version
       opsecret openv optoken opssh
     )
     # Also weigh this shell's defined ALIASES — the most-typed commands (the g* git set,

@@ -106,9 +106,20 @@ _core_hint() { # dim follow-up "hint:" line → stderr (the fix, after an error)
     else print -u2 -r -- "$body"; fi
   done
 }
-_core_usage() { # "usage: …" → stderr
-  if _core_color; then print -u2 -r -- "${_CORE_C_DIM}usage:${_CORE_C_RST} $*"
-  else print -u2 -r -- "usage: $*"; fi
+_core_usage() { # "usage: …" → stderr, then a dim "see: core-help <verb>" footer (U5)
+  local synopsis="$*"
+  if _core_color; then print -u2 -r -- "${_CORE_C_DIM}usage:${_CORE_C_RST} $synopsis"
+  else print -u2 -r -- "usage: $synopsis"; fi
+  # Point a usage error at the discoverability surface — every Core verb prints `usage:`
+  # on misuse but none pointed back at the cheat sheet, so a confused user had no next
+  # step. Derive the verb from the synopsis's FIRST token (every caller passes
+  # "<verb> …"), so callers need no change. `core-help <verb>` filters to that verb's
+  # row. Suppress with CORE_USAGE_HINT=0 (e.g. an OS layer that finds it noisy).
+  [[ "${CORE_USAGE_HINT:-1}" == 1 ]] || return 0
+  local verb="${synopsis%%[ 	]*}"
+  [[ -n "$verb" ]] || return 0
+  if _core_color; then print -u2 -r -- "${_CORE_C_DIM}  see: core-help ${verb}${_CORE_C_RST}"
+  else print -u2 -r -- "  see: core-help ${verb}"; fi
 }
 
 # _core_errbox <headline> [body line...]  → a multi-line error BLOCK on stderr for the

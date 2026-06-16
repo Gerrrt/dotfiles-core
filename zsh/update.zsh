@@ -206,9 +206,9 @@ _core_welcome() {
   # NO_CLOBBER; `|| return` bails (no greet) when we can't remember we did.
   mkdir -p "${stamp:h}" 2>/dev/null && : >|"$stamp" 2>/dev/null || return 0
   if [[ -z ${NO_COLOR:-} ]]; then
-    print -P "%F{$_PKGUP_ACCENT}👋 dotfiles Core loaded%f %F{$_PKGUP_MUTED}— run \`core-help\` for functions, keys & maintenance%f"
+    print -P "%F{$_PKGUP_ACCENT}👋 dotfiles Core loaded%f %F{$_PKGUP_MUTED}— run \`core\` for functions, keys & maintenance%f"
   else
-    print -r -- "👋 dotfiles Core loaded — run \`core-help\` for functions, keys & maintenance"
+    print -r -- "👋 dotfiles Core loaded — run \`core\` for functions, keys & maintenance"
   fi
 }
 # Greet only an interactive TERMINAL — a redirected/captured stdout (or the load-order
