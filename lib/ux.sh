@@ -92,7 +92,12 @@ ux_spin() {
   }
   "$@" >"$out" 2>&1 &
   local pid=$! frames="$UX_SPIN_FRAMES" i=0
-  # Forward a signal to the child, reap it, restore the cursor, then return 130.
+  # Forward a signal to the child, reap it, restore the cursor, then return 130. SAVE the
+  # caller's existing INT trap first and RESTORE it after (not a blind `trap - INT`), so a
+  # caller with its own handler (e.g. bootstrap's on_interrupt) keeps it — the spinner
+  # composes with an app-level trap instead of silently clearing it.
+  local _prev_int
+  _prev_int="$(trap -p INT)"
   trap 'kill -INT "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; printf "\e[?25h"; return 130' INT
   printf '\e[?25l' # hide cursor while spinning
   while kill -0 "$pid" 2>/dev/null; do
@@ -100,7 +105,7 @@ ux_spin() {
     sleep 0.1
   done
   printf '\e[?25h\r\033[K' # restore cursor, column 0, clear line
-  trap - INT
+  eval "${_prev_int:-trap - INT}" # restore the caller's prior INT trap (or clear if none)
   if wait "$pid"; then
     rc=0
     printf '  %s%s%s %s\n' "$UX_GRN" "$UX_OK" "$UX_RST" "$label"
