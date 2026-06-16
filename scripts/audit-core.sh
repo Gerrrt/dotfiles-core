@@ -257,7 +257,9 @@ META_ALLOWLIST=(
 # it lands here — the bin/-vs-scripts/ split is exactly what makes that unambiguous.
 # .claude/ holds the Claude-Code-on-the-web SessionStart hook (provisions the gate
 # toolchain in a remote session) — repo-meta tooling, likewise never vendored out.
-META_PREFIXES=(examples/ .github/ scripts/ .claude/)
+# .devcontainer/ is the dev-environment definition (one-command CI parity) — dev tooling
+# too, never part of the vendored Core layer.
+META_PREFIXES=(examples/ .github/ scripts/ .claude/ .devcontainer/)
 
 # ── 1. manifest <-> filesystem drift ─────────────────────────────────────────
 hdr "manifest ↔ filesystem"
