@@ -125,12 +125,12 @@ err() { fail "$@"; }
 # is the source of truth: it's the tip `subtree pull` fetches, even if the local
 # checkout is behind. Falls back to the local branch SHA when offline. (The empty
 # assignment from a failed $() does NOT trip `set -e`, so the fallback runs.)
-CORE_SHA="$(git ls-remote "$CORE_REMOTE" "$CORE_BRANCH" 2>/dev/null | awk 'NR==1{print substr($1,1,12)}')"
-[[ -n "$CORE_SHA" ]] || CORE_SHA="$(git -C "$HERE" rev-parse --short=12 "$CORE_BRANCH" 2>/dev/null || echo unknown)"
-# Full SHA too — core.lock (B1) records the FULL hash so an OS repo's verify/freshness can
-# compare it exactly against the subtree-split marker (which is a full SHA).
+# Resolve the revision with ONE network call: take the FULL SHA from ls-remote, then derive
+# the short form as its 12-char prefix (core.lock (B1) records the full hash so an OS repo's
+# verify/freshness can compare it exactly against the subtree-split marker, which is full).
 CORE_SHA_FULL="$(git ls-remote "$CORE_REMOTE" "$CORE_BRANCH" 2>/dev/null | awk 'NR==1{print $1}')"
 [[ -n "$CORE_SHA_FULL" ]] || CORE_SHA_FULL="$(git -C "$HERE" rev-parse "$CORE_BRANCH" 2>/dev/null || echo unknown)"
+if [[ "$CORE_SHA_FULL" == unknown ]]; then CORE_SHA=unknown; else CORE_SHA="${CORE_SHA_FULL:0:12}"; fi
 
 # Human-readable version stamp (core.version) — vendored into each OS repo so its
 # `core-version` verb can report which Core it carries. Surfaced here too so the
@@ -228,7 +228,18 @@ for repo in "${TARGETS[@]}"; do
         echo "core_sha=$CORE_SHA_FULL"
         echo "core_branch=$CORE_BRANCH"
       } >"$path/core.lock"
-      ok "$repo core.lock → ${CORE_SHA_FULL:0:12} (v$CORE_VERSION)"
+      # COMMIT it (as a follow-up to the subtree-pull commit) so the tree is clean for the
+      # NEXT run — otherwise the dirty-tree guard above would see the uncommitted core.lock
+      # and refuse to update this repo. Idempotent: a re-sync of the same SHA leaves
+      # core.lock byte-identical, so there's nothing staged and we skip the commit.
+      git -C "$path" add core.lock
+      if git -C "$path" diff --cached --quiet -- core.lock; then
+        ok "$repo core.lock current → ${CORE_SHA_FULL:0:12} (v$CORE_VERSION)"
+      elif git -C "$path" commit -q -m "chore(core): core.lock → ${CORE_SHA} (v$CORE_VERSION)"; then
+        ok "$repo core.lock committed → ${CORE_SHA_FULL:0:12} (v$CORE_VERSION)"
+      else
+        err "$repo core.lock commit failed — commit it manually before re-running"
+      fi
     fi
   else
     err "$repo subtree pull failed — resolve, then re-run"
