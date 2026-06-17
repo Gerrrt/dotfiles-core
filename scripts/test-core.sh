@@ -354,14 +354,24 @@ LUA
   # rendered (h.start("dotfiles-core: …") is check()'s first call, so its absence means
   # check() never ran or threw immediately). checkhealth never prompts, so headless can't hang.
   ckrep="$SANDBOX/checkhealth.txt"
+  ckerr="$SANDBOX/checkhealth.err"
   : >"$ckrep"
-  nvim --headless -u NONE -i NONE -n --cmd "set rtp^=$HERE/nvim" \
-    +"checkhealth gerrrt" +"write! $ckrep" +"qa!" >/dev/null 2>&1
+  # Pass the paths via ENV and fnameescape() them INSIDE vim (the idiom the event probe
+  # below uses), so a space in $SANDBOX/$HERE can't break the Ex `set rtp`/`write` parsing.
+  # `-c` runs post-startup in order: rtp is set before checkhealth scans it, before write.
+  # Capture stderr (not /dev/null) so a failure with an empty report is still diagnosable.
+  CORE_NVIM_DIR="$HERE/nvim" CORE_CK_REP="$ckrep" \
+    nvim --headless -u NONE -i NONE -n \
+    -c 'execute "set rtp^=" .. fnameescape($CORE_NVIM_DIR)' \
+    -c 'checkhealth gerrrt' \
+    -c 'execute "write!" fnameescape($CORE_CK_REP)' \
+    -c 'qa!' >/dev/null 2>"$ckerr"
   if grep -q "dotfiles-core" "$ckrep" 2>/dev/null; then
     pass "checkhealth gerrrt ran (health report rendered)"
   else
     fail "checkhealth gerrrt did not render its section (check() missing or threw):"
     [[ -s "$ckrep" ]] && sed 's/^/    /' "$ckrep" >&2
+    [[ -s "$ckerr" ]] && sed 's/^/    /' "$ckerr" >&2
   fi
 else
   skip "nvim config load (nvim not installed — runs in CI)"
