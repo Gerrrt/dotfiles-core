@@ -345,6 +345,24 @@ LUA
     fail "nvim config/plugin-spec/lsp load error:"
     [[ -s "$nvim_err" ]] && sed 's/^/    /' "$nvim_err" >&2
   fi
+
+  # Actually RUN :checkhealth gerrrt. The probe above only proves gerrrt.health LOADS and
+  # exposes check(); this FIRES check() in the real checkhealth context, so a runtime error
+  # in its vim.health calls (a typo'd h.warn, a bad API) is caught — nothing else exercises
+  # it. -u NONE keeps it hermetic; --cmd puts nvim/ on the runtimepath so checkhealth
+  # discovers lua/gerrrt/health.lua; we write the report buffer out and assert OUR section
+  # rendered (h.start("dotfiles-core: …") is check()'s first call, so its absence means
+  # check() never ran or threw immediately). checkhealth never prompts, so headless can't hang.
+  ckrep="$SANDBOX/checkhealth.txt"
+  : >"$ckrep"
+  nvim --headless -u NONE -i NONE -n --cmd "set rtp^=$HERE/nvim" \
+    +"checkhealth gerrrt" +"write! $ckrep" +"qa!" >/dev/null 2>&1
+  if grep -q "dotfiles-core" "$ckrep" 2>/dev/null; then
+    pass "checkhealth gerrrt ran (health report rendered)"
+  else
+    fail "checkhealth gerrrt did not render its section (check() missing or threw):"
+    [[ -s "$ckrep" ]] && sed 's/^/    /' "$ckrep" >&2
+  fi
 else
   skip "nvim config load (nvim not installed — runs in CI)"
 fi

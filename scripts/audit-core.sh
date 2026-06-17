@@ -471,7 +471,7 @@ if have python3 && python3 -c 'import tomllib' 2>/dev/null; then
     if python3 -c 'import tomllib,sys; tomllib.load(open(sys.argv[1],"rb"))' "$f" 2>/dev/null; then
       pass "toml $f"
     else fail "toml parse error: $f"; fi
-  done < <(git ls-files '*.toml' 2>/dev/null)
+  done < <(git ls-files '*.toml' '*.toml.example' 2>/dev/null)
 else
   skip "toml parse (python3 tomllib unavailable — needs python ≥3.11)"
 fi
