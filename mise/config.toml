@@ -28,7 +28,6 @@ lua    = "5.4"        # handy when hacking on the Neovim config
 auto_install = false        # explicit installs only; don't fetch on directory entry
 legacy_version_file = true  # honor .nvmrc/.ruby-version/.python-version so repos "just work"
 experimental = true         # native shims (faster than the shell wrapper)
-paranoid = false            # set true to verify checksums on every download (slower)
 quiet = false
 # B3 — hermetic tool resolution. The [tools] versions above are deliberately FLOATING
 # (lts/latest/stable) so the declarations stay readable, but that means two boxes
@@ -39,10 +38,16 @@ quiet = false
 # (or `mise lock`) writes mise.lock; commit it. Until it's committed mise resolves
 # floating as before, so this is a safe no-op until the lock lands.
 lockfile = true
-# trusted_config_paths is machine-specific (the dotfiles dir differs per OS), so
-# keep only portable roots here and add the per-box path in a local override —
-# e.g. on the Mac: ['~/code', '~/dotfiles-MacBook'].
-trusted_config_paths = ['~/code']
+
+# NB: mise's GLOBAL-ONLY settings (paranoid, trusted_config_paths, …) are intentionally
+# NOT set here. This file is symlinked to ~/.config/mise/config.toml (global), but mise
+# ALSO auto-loads it as a PROJECT config whenever you're inside a dotfiles repo (it treats
+# mise/config.toml as a project path) — and a global-only setting in a non-global config is
+# ignored with a WARN on every `cd`. (`paranoid` was just mise's default of false anyway.)
+# To trust extra config dirs, set the ENV var in your machine-local shell config — mise
+# reads it globally and it raises no warning:
+#   ~/.config/zsh/local.zsh →  export MISE_TRUSTED_CONFIG_PATHS="$HOME/code"
+# (or run `mise trust` inside a given project).
 
 [alias]
 # Custom shorthand plugin sources, e.g.:
