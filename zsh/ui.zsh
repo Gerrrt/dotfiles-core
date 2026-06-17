@@ -358,7 +358,12 @@ _core_spin() {
   shift
   (($#)) || return 0
   if [[ ! -t 2 ]]; then "$@"; return; fi
-  if _core_have gum; then
+  # gum spin runs its argument as an EXTERNAL process, so it CANNOT execute a zsh function
+  # — callers legitimately pass one (e.g. update.zsh's _pkgup_list_to), and gum would die
+  # with `exec: "<fn>": executable file not found in $PATH`. Use gum only when the command
+  # is a real binary/builtin; for a function, fall through to the hand-rolled spinner below,
+  # which runs "$@" in-shell (a backgrounded function still resolves in the subshell).
+  if _core_have gum && (( ! ${+functions[$1]} )); then
     gum spin --spinner dot --title "$title" --show-error -- "$@"
     return
   fi
