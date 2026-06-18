@@ -7,7 +7,12 @@
 # Format: one repo directory name per line. Blank lines and `#` comments ignored.
 # Order is the fan-out order. Keep it case-insensitively alphabetical after
 # dotfiles-MacBook (the reference implementation), which stays first so a smoke sync
-# hits it soonest — i.e. openSUSE sorts before Windows ('o' before 'w').
+# hits it soonest — i.e. Alpine sorts before Arch ('l' before 'r').
+#
+# DELIBERATELY ABSENT — not a Core-vendoring target (do not re-add):
+#   dotfiles-Windows — the native Windows host layer is replicated from scratch
+#     (PowerShell; not a one-to-one port of the Unix Core), so it carries no
+#     vendored core/ subtree and sync-core.sh must never fan out into it.
 # ──────────────────────────────────────────────────────────────────────────────
 dotfiles-MacBook
 dotfiles-Alpine
@@ -17,4 +22,3 @@ dotfiles-Fedora
 dotfiles-Gentoo
 dotfiles-Kali
 dotfiles-openSUSE
-dotfiles-Windows

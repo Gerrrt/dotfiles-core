@@ -24,7 +24,7 @@
 #   SYNC_JOBS         parallel prefetch jobs; 1 disables the warm-up (default: 4)
 #   SYNC_SKIP_AUDIT   set to 1 to skip the pre-fan-out audit gate (escape hatch; see below)
 #
-# FAN-OUT GATE: this is the single point where Core is vendored into all 9 repos, so a
+# FAN-OUT GATE: this is the single point where Core is vendored into the OS-repo fleet, so a
 # defect here amplifies N-way — exactly what audit-core.sh exists to prevent. The repo's
 # thesis is "gate BEFORE vendoring", but nothing mechanically enforced that AT the step
 # that vendors: it relied on the operator remembering `make audit`. So this script now
@@ -48,8 +48,10 @@ CORE_REMOTE="${CORE_REMOTE:-$(git -C "$HERE" remote get-url origin 2>/dev/null |
 # The inline list stays as a hard fallback so a missing/corrupt data file can't strand
 # the maintain button (it degrades to the last-known fleet rather than fanning out to
 # nothing). Lines are trimmed; blanks and `#` comments are dropped.
+# NB: dotfiles-Windows is intentionally NOT here — it's the native host layer (no
+# vendored core/ subtree). See the note in scripts/os-repos.txt.
 ALL_OS_REPOS=(
-  dotfiles-MacBook dotfiles-Windows dotfiles-Debian dotfiles-Kali
+  dotfiles-MacBook dotfiles-Debian dotfiles-Kali
   dotfiles-Fedora dotfiles-Arch dotfiles-openSUSE
   dotfiles-Alpine dotfiles-Gentoo
 )

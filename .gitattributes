@@ -2,11 +2,12 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # .editorconfig sets `end_of_line = lf`, but that only guides EDITORS — it does
 # not govern what git writes on checkout/commit. Core is vendored (git subtree)
-# into nine OS repos, one of which is dotfiles-Windows. If a `.sh`, `bin/clip`, or
-# `bin/clip-paste` lands on disk with CRLF, its shebang becomes `…/env bash\r` and
-# the interpreter dies with "bad interpreter: No such file or directory" — a class
-# of breakage the manifest/exec-bit/shellcheck audit cannot see (the file is valid
-# text). This makes LF a hard guarantee at the git layer, for all nine consumers.
+# into the OS repos, and may itself be edited on Windows, where git can introduce
+# CRLF. If a `.sh`, `bin/clip`, or `bin/clip-paste` lands on disk with CRLF, its
+# shebang becomes `…/env bash\r` and the interpreter dies with "bad interpreter:
+# No such file or directory" — a class of breakage the manifest/exec-bit/shellcheck
+# audit cannot see (the file is valid text). This makes LF a hard guarantee at the
+# git layer, for every consumer.
 #
 # `text=auto eol=lf`: git auto-detects text vs binary, normalizes text to LF in the
 # repo, and checks it out as LF on every OS (including Windows). The explicit blocks
@@ -19,7 +20,7 @@
 *.zsh       text eol=lf
 bin/clip    text eol=lf
 bin/clip-paste text eol=lf
-# ── Config / data that fans out to all nine repos ─────────────────────────────
+# ── Config / data that fans out to every OS repo ──────────────────────────────
 *.lua       text eol=lf
 *.toml      text eol=lf
 *.yml       text eol=lf
