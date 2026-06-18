@@ -552,6 +552,31 @@ PY
   python3 -m http.server "$port"
 }
 
+# genpw — print a random password. Portable by design: prefers openssl (present on
+# essentially every box), falls back to /dev/urandom so it still works on a bare
+# rescue shell with nothing installed. Default length 16; pass a length to override.
+#   genpw          # 16-char alnum password
+#   genpw 32       # 32-char
+genpw() {
+  emulate -L zsh
+  _core_wants_help "$1" && { _core_help "genpw [length]" "random alphanumeric password (default 16) via openssl, /dev/urandom fallback"; return 0; }
+  local len="${1:-16}"
+  # Reject a non-numeric / zero length cleanly in Core's voice rather than emitting an
+  # empty string (head -c 0) that looks like success.
+  if [[ "$len" != <-> ]] || ((len < 1)); then
+    _core_err "genpw: length must be a positive integer (got '$len')"
+    _core_usage "genpw [length]"
+    return 1
+  fi
+  if _core_have openssl; then
+    # base64 then strip to alnum, so the byte count we draw comfortably exceeds $len.
+    openssl rand -base64 $((len * 2)) | LC_ALL=C tr -dc 'A-Za-z0-9' | head -c "$len"
+  else
+    LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$len"
+  fi
+  echo
+}
+
 # core-help (alias: cheat) — a scannable cheat sheet of what Core actually gives
 # you on this box: the shell functions, the custom keybindings, and the update /
 # maintenance verbs. Static + instant — the discoverability surface for the Core
@@ -606,6 +631,7 @@ _core_help_render() {
     "mkbak <file>|timestamped .bak copy before you edit"
     "fcd|fuzzy-cd into any subdirectory|fzf"
     "serve [-l] [port]|HTTP server in the CWD (-l = loopback only); prints reachable URLs|python3"
+    "genpw [length]|random alphanumeric password (default 16; openssl, urandom fallback)"
     "please|re-run your last command with sudo (previews + confirms first)"
     "§search"
     "fif <text>|find text inside files (rg + fzf + preview)|fzf"
@@ -714,7 +740,7 @@ if [[ $- == *i* ]] && ((CORE_CNF_ENABLED)); then
     _core_err "command not found: ${cmd}"
     # Did-you-mean against Core's own verbs — where typos land most often.
     local -a _verbs=(
-      core mkcd cdup extract mkbak fcd serve fif fbr up update-check
+      core mkcd cdup extract mkbak fcd serve genpw fif fbr up update-check
       maint-install maint-run maint-log maint-status maint-uninstall
       core-help core-doctor core-version
       opsecret openv optoken opssh

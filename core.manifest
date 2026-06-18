@@ -26,7 +26,7 @@ zsh/options.zsh        # setopts + completion system (compinit, cached) + zstyle
 zsh/history.zsh        # HISTFILE/HISTSIZE/SAVEHIST + history setopts + secret-ignore
 zsh/aliases.zsh        # modern-CLI aliases, each guarded by tools.zsh detection
 zsh/git.zsh            # curated OMZ-style git aliases + git_main_branch/current_branch helpers
-zsh/functions.zsh      # cross-OS shell functions (mkcd, extract, up, serve, ...)
+zsh/functions.zsh      # cross-OS shell functions (mkcd, extract, serve, genpw, ...)
 zsh/fzf.zsh            # fzf env + zle widgets (Ctrl-F/R, Alt-Z, Ctrl-G) + fif/fbr
 zsh/bindings.zsh       # vi-mode keybindings (zvm_after_init hook)
 zsh/plugins.zsh        # lightweight plugin loader (zsh-defer, carapace, fzf-tab)
@@ -47,6 +47,7 @@ zsh/completions/_extract
 zsh/completions/_fbr
 zsh/completions/_fcd
 zsh/completions/_fif
+zsh/completions/_genpw
 zsh/completions/_maint-install
 zsh/completions/_maint-log
 zsh/completions/_maint-noargs
@@ -64,6 +65,10 @@ zsh/completions/_update-check
 # (so no STARSHIP_CONFIG needed). Not a .zsh module, so bootstrap links it
 # explicitly rather than via the core/zsh/*.zsh loop.
 starship/starship.toml
+# ── lazygit — tokyonight theme; symlinked to ~/.config/lazygit/config.yml. Not a
+#    .zsh module, so bootstrap links it explicitly (like starship above). lazygit
+#    is reached via the `lg` alias + the `prefix + g` tmux popup. ───────────────
+lazygit/config.yml
 # ── cross-OS helper scripts (called by zsh, tmux, AND nvim) ───────────────────
 bin/clip
 bin/clip-paste
