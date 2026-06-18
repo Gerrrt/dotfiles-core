@@ -15,6 +15,16 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **lazygit theme** (`lazygit/config.yml`) — a tokyonight-storm theme matching
+  `starship.toml`, the tmux bar, and `zsh/fzf.zsh`, so lazygit (reached via the `lg`
+  alias and the `prefix + g` tmux popup) reads as one palette with the rest of the
+  stack. Bootstrap symlinks it to `~/.config/lazygit/config.yml`.
+- **`genpw [length]`** — portable random-password generator (`zsh/functions.zsh`):
+  prefers `openssl`, falls back to `/dev/urandom` so it works on a bare rescue shell.
+  Ships with its completion (`zsh/completions/_genpw`) and a `core-help` entry.
+- **fzf tokyonight palette** — `FZF_DEFAULT_OPTS` (`zsh/fzf.zsh`) now sets an explicit
+  tokyonight-storm `--color` set instead of inheriting the terminal palette, keeping
+  fzf on-theme even over SSH into an unthemed box.
 - Audit **`--strict`** now fails only on gates skipped because their TOOL is absent (an
   out-of-scope skip stays intentional), so CI runs it on the Linux leg — closing the last
   "green because a linter silently failed to install" gap. CI also installs `python3-yaml`

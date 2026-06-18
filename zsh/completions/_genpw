@@ -1,0 +1,6 @@
+#compdef genpw
+# Completion for Core's `genpw` (zsh/functions.zsh): a single optional positional —
+# the password length (defaults to 16). No canonical source of "valid lengths", so
+# offer a few common choices as hints while still accepting any positive integer.
+_arguments \
+  '1:length [default 16]:(8 12 16 24 32 64)'

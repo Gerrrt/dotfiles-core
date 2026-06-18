@@ -1,0 +1,38 @@
+# core/lazygit/config.yml
+# ──────────────────────────────────────────────────────────────────────────────
+# lazygit theme — tokyonight-storm, kept in sync with starship.toml, the tmux bar,
+# and zsh/fzf.zsh so the whole stack reads as one palette. lazygit is launched via
+# the `lg` alias (zsh/aliases.zsh) and the `prefix + g` tmux popup; both pick this
+# up once an OS repo symlinks it to ~/.config/lazygit/config.yml.
+# nerdFontsVersion "3" assumes a Nerd Font — already required by starship's icons.
+# ──────────────────────────────────────────────────────────────────────────────
+gui:
+  nerdFontsVersion: "3"
+  branchColors:
+    'main': red
+    'master': red
+  theme:
+    activeBorderColor:
+      - "#ff9e64"
+      - "bold"
+    inactiveBorderColor:
+      - "#27a1b9"
+    searchingActiveBorderColor:
+      - "#ff9e64"
+      - "bold"
+    optionsTextColor:
+      - "#7aa2f7"
+    selectedLineBgColor:
+      - "#283457"
+    cherryPickedCommitFgColor:
+      - "#7aa2f7"
+    cherryPickedCommitBgColor:
+      - "#bb9af7"
+    markedBaseCommitFgColor:
+      - "#7aa2f7"
+    markedBaseCommitBgColor:
+      - "#e0af68"
+    unstagedChangesColor:
+      - "#db4b4b"
+    defaultFgColor:
+      - "#c0caf5"
