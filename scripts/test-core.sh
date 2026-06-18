@@ -508,13 +508,17 @@ export CORE_DIR="$HERE/zsh"
   printf 'print -r -- "SMOKE_OK"\n'
 } >"$SANDBOX/zdot/.zshrc"
 
-# Run one interactive zsh with the sandbox as HOME + ZDOTDIR. -i so the modules'
-# `[[ $- == *i* ]]` guards pass and the interactive paths actually execute.
+# Run one interactive zsh against the sandbox rc. We do NOT rely on zsh auto-sourcing
+# $ZDOTDIR/.zshrc: a global /etc/zshenv can force ZDOTDIR (overriding the env we pass), and
+# auto-load doesn't fire when stdout is captured (non-TTY). So -f disables rc auto-load, we
+# set ZDOTDIR INSIDE -c (after /etc/zshenv ran) and `source` the rc explicitly; -i keeps the
+# modules' `[[ $- == *i* ]]` guards live. MISE_TRUSTED_CONFIG_PATHS pre-trusts the vendored
+# mise config so `mise activate` doesn't abort under the sandbox HOME.
 smoke_out="$(
-  HOME="$SANDBOX" ZDOTDIR="$SANDBOX/zdot" \
+  HOME="$SANDBOX" CORE_DIR="$CORE_DIR" \
     XDG_CACHE_HOME="$SANDBOX/cache" XDG_STATE_HOME="$SANDBOX/state" \
-    XDG_RUNTIME_DIR="$SANDBOX/run" CORE_DIR="$CORE_DIR" \
-    zsh -i -c exit 2>"$SANDBOX/smoke.err"
+    XDG_RUNTIME_DIR="$SANDBOX/run" MISE_TRUSTED_CONFIG_PATHS="$HERE" \
+    zsh -f -i -c "ZDOTDIR='$SANDBOX/zdot'; source \"\$ZDOTDIR/.zshrc\"" 2>"$SANDBOX/smoke.err"
 )"
 # High-signal zsh runtime-error markers — what a real load-order break looks like.
 smoke_errs="$(grep -Ei \
@@ -568,10 +572,10 @@ LOCALZSH
   printf 'print -r -- "INTEG_OK"\n'
 } >"$INTEG/.zshrc"
 integ_out="$(
-  HOME="$SANDBOX" ZDOTDIR="$INTEG" \
+  HOME="$SANDBOX" CORE_DIR="$CORE_DIR" \
     XDG_CACHE_HOME="$SANDBOX/integ-cache" XDG_STATE_HOME="$SANDBOX/integ-state" \
-    XDG_RUNTIME_DIR="$SANDBOX/run" CORE_DIR="$CORE_DIR" \
-    zsh -i -c exit 2>"$INTEG/integ.err"
+    XDG_RUNTIME_DIR="$SANDBOX/run" MISE_TRUSTED_CONFIG_PATHS="$HERE" \
+    zsh -f -i -c "ZDOTDIR='$INTEG'; source \"\$ZDOTDIR/.zshrc\"" 2>"$INTEG/integ.err"
 )"
 integ_errs="$(grep -Ei \
   'command not found|parse error|: no such file or directory|not defined|missing|bad pattern|bad math expression|maximum nested' \
@@ -1249,7 +1253,7 @@ else
   # voice (rc 1) rather than silently swallow the TOTP down a broken pipe.
   _op_reset # no clip this time
   ocheck "optoken fails clearly when clip is absent (no silent TOTP loss)" \
-    'out=$(optoken Personal/GitHub 2>&1); (( $? != 0 )) && [[ $out == *"requires Core"* && $out == *clip* ]]'
+    'path=(/usr/bin /bin); out=$(optoken Personal/GitHub 2>&1); (( $? != 0 )) && [[ $out == *"requires Core"* && $out == *clip* ]]'
 fi
 
 # ── tmux status/popup scripts (U11) ───────────────────────────────────────────
