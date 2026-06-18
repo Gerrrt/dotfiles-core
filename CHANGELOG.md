@@ -13,6 +13,8 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+## [v1.0.0] - 2026-06-18
+
 ### Added
 
 - **lazygit theme** (`lazygit/config.yml`) — a tokyonight-storm theme matching
