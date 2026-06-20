@@ -7,8 +7,10 @@
 --         parsers you already install. Complements mini.pairs (which inserts) and the native
 --         showmatch/matchparen you have on.
 -- LAZY  : event = BufReadPost/BufNewFile, same trigger as treesitter itself.
--- NOTE  : Configured via vim.g.rainbow_delimiters (the plugin's documented entry point) — there is
---         no setup()/opts table, so this uses `config` rather than `opts`.
+-- NOTE  : Uses `config` rather than `opts` because the setup function lives in the
+--         `rainbow-delimiters.setup` SUBMODULE. lazy.nvim's `opts` would call
+--         `require("rainbow-delimiters").setup(opts)` (the top-level module), which has no such
+--         function — so the config table has to be passed explicitly via `config`.
 -- ================================================================================================
 return {
 	"HiPhish/rainbow-delimiters.nvim",
