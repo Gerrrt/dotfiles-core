@@ -17,6 +17,10 @@ require("gerrrt.servers.emmet_ls")(capabilities)
 require("gerrrt.servers.yamlls")(capabilities)
 require("gerrrt.servers.tailwindcss")(capabilities)
 require("gerrrt.servers.solidity_ls_nomicfoundation")(capabilities)
+require("gerrrt.servers.taplo")(capabilities) -- TOML (pyproject/Cargo/foundry/starship/mise)
+require("gerrrt.servers.marksman")(capabilities) -- Markdown cross-file intelligence
+require("gerrrt.servers.html")(capabilities) -- HTML validation (emmet only expands)
+require("gerrrt.servers.cssls")(capabilities) -- CSS/SCSS/LESS validation
 
 -- Python: ty (types) + ruff (lint/codeactions) is the Astral stack — pyright intentionally
 -- not enabled. To fall back to pyright, re-add servers/pyright.lua and list it here.
@@ -35,4 +39,8 @@ vim.lsp.enable({
 	"yamlls",
 	"tailwindcss",
 	"solidity_ls_nomicfoundation",
+	"taplo",
+	"marksman",
+	"html",
+	"cssls",
 })

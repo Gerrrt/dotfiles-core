@@ -28,6 +28,8 @@ return {
 			vue = { "eslint_d" },
 			dockerfile = { "hadolint" },
 			solidity = { "solhint" },
+			markdown = { "markdownlint-cli2" }, -- mirrors this repo's markdown gate; formatting stays prettierd (conform)
+			yaml = { "yamllint" }, -- schema validation is yamlls' job; yamllint adds style/lint rules
 			-- NOTE: no zsh entry. shellcheck only supports sh/bash/dash/ksh and emits SC1071
 			-- ("ShellCheck only supports sh/bash/dash/ksh scripts") on a zsh file — i.e. a useless
 			-- error diagnostic on every zsh buffer. Nothing reliably lints zsh, so we don't.
