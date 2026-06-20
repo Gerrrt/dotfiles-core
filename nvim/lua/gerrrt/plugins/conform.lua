@@ -48,6 +48,7 @@ return {
 			typescriptreact = { "prettierd" },
 			svelte = { "prettierd" },
 			vue = { "prettierd" },
+			toml = { "taplo" }, -- taplo formats TOML; the same binary also serves as its LSP (servers/taplo.lua)
 			-- NOTE: zsh is intentionally absent. shfmt is a POSIX/bash/mksh formatter and does
 			-- NOT understand zsh — it mangles zsh-only syntax (glob qualifiers (#qN), ${(%):-%x},
 			-- $+widgets[name-with-hyphens], &|, ...). There is no safe zsh formatter, so zsh files
@@ -58,16 +59,43 @@ return {
 	config = function(_, opts)
 		require("conform").setup(opts)
 
-		-- Mason installs the NON-Python CLI tools. ruff/ty come from uv (see header).
+		-- One Mason manifest for EVERYTHING Mason owns: LSP servers, formatters, linters.
+		-- This is the central install pass — previously only formatters/linters were listed, so the
+		-- 11 servers enabled in servers/init.lua relied on their binaries already being on PATH
+		-- (`vim.lsp.enable` fails silently when a server binary is missing). Listing the servers
+		-- here closes that gap: a fresh machine ends up with a working LSP stack after one start.
+		--
+		-- DELIBERATELY NOT here (installed by other channels — listing them would double-install):
+		--   • ruff, ty .......... uv tool install (Astral; see header + servers/ruff.lua, ty.lua)
+		--   • rust-analyzer ..... rustaceanvim / rustup (plugins/rustaceanvim.lua)
+		--   • debugpy, codelldb . mason-nvim-dap (plugins/nvim-dap-ui.lua)
+		--   • nomicfoundation-solidity-language-server — npm i -g @nomicfoundation/solidity-language-server
+		--     (not carried in the Mason registry under a stable name; servers/solidity_*.lua expects
+		--      the binary on PATH). solhint (its linter) IS mason-managed, below.
 		require("mason-tool-installer").setup({
 			ensure_installed = {
-				-- formatters (conform)
+				-- ── LSP servers (mason package names; enabled in servers/init.lua) ──────────
+				"lua-language-server",
+				"gopls",
+				"json-lsp",
+				"typescript-language-server",
+				"bash-language-server",
+				"clangd",
+				"dockerfile-language-server",
+				"emmet-ls",
+				"yaml-language-server",
+				"tailwindcss-language-server",
+				"taplo", -- TOML (also the conform formatter for toml)
+				"marksman", -- Markdown
+				"html-lsp", -- HTML validation
+				"css-lsp", -- CSS/SCSS/LESS validation
+				-- ── formatters (conform) ───────────────────────────────────────────────────
 				"stylua",
 				"shfmt",
 				"gofumpt",
 				"clang-format",
 				"prettierd",
-				-- linters (nvim-lint)
+				-- ── linters (nvim-lint) ────────────────────────────────────────────────────
 				"shellcheck",
 				"revive",
 				"eslint_d",
@@ -75,6 +103,8 @@ return {
 				"cpplint",
 				"luacheck",
 				"solhint",
+				"markdownlint-cli2", -- markdown lint (mirrors the repo's markdown gate)
+				"yamllint", -- yaml lint
 			},
 			-- Skip the startup install/update pass on engagement boxes (DOTFILES_OFFLINE=1),
 			-- which would otherwise hit the mason registry and download tools. See globals.lua.

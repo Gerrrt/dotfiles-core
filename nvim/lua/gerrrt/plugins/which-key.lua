@@ -13,8 +13,10 @@ return {
 			{ "<leader>f", group = "find (fzf)" },
 			{ "<leader>g", group = "git" },
 			{ "<leader>h", group = "harpoon" },
+			{ "<leader>q", group = "session" },
 			{ "<leader>s", group = "split / window" },
 			{ "<leader>S", group = "search & replace" },
+			{ "<leader>u", group = "ui / toggles" },
 			{ "<leader>x", group = "trouble / lists" },
 			{ "<leader><tab>", group = "tabs" },
 			-- non-leader: mini.surround moved here off `s` so flash owns `s` (see mini-nvim.lua)
