@@ -28,8 +28,11 @@ return {
 		-- PURELY ADDITIVE: mini.ai's built-in `f` (function *call*) and `a` (argument) are left as-is.
 		-- We add the objects mini.ai lacks: `c` = class, `o` = block / conditional / loop.
 		-- Prefer `f` to mean the function *definition*? add an `f = ai.gen_spec.treesitter(...)` entry.
-		-- Guarded: if gen_spec.treesitter is unavailable (e.g. queries not yet installed), fall back
-		-- to mini.ai defaults rather than breaking setup.
+		-- Guarded only against `ai.gen_spec.treesitter` itself being ABSENT (e.g. an older mini.ai):
+		-- the pcall wraps spec *construction*, which just validates the capture format and returns a
+		-- closure — it does NOT resolve queries. A missing/uninstalled parser or `textobjects` query
+		-- is handled lazily by mini.ai at textobject-use time (`ac`/`ao`), not here. On the absent
+		-- case we fall back to mini.ai defaults rather than breaking setup.
 		local custom_textobjects
 		local ok, ts = pcall(function()
 			return {
