@@ -1,0 +1,4 @@
+#compdef grf
+# Completion for Core's `grf` (zsh/git.zsh). It takes NO arguments — files are
+# chosen interactively through fzf — so there is nothing to complete.
+_message 'grf takes no arguments (it fuzzy-picks files via fzf, then restores (discards unstaged changes to) them)'

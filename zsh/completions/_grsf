@@ -1,0 +1,4 @@
+#compdef grsf
+# Completion for Core's `grsf` (zsh/git.zsh). It takes NO arguments — files are
+# chosen interactively through fzf — so there is nothing to complete.
+_message 'grsf takes no arguments (it fuzzy-picks files via fzf, then unstages them)'

@@ -35,10 +35,44 @@ return {
 			-- error diagnostic on every zsh buffer. Nothing reliably lints zsh, so we don't.
 		}
 
+		-- ADAPTIVE: eslint_d errors out (and spams a phantom diagnostic on every buffer) when a
+		-- JS/TS project has no eslint config in its tree. Mirror the SC1071/ruff guards above by
+		-- only linting the eslint family when a config is actually present upward from the buffer.
+		local eslint_fts = {
+			javascript = true,
+			javascriptreact = true,
+			typescript = true,
+			typescriptreact = true,
+			svelte = true,
+			vue = true,
+		}
+		local eslint_cfgs = {
+			".eslintrc",
+			".eslintrc.js",
+			".eslintrc.cjs",
+			".eslintrc.json",
+			".eslintrc.yaml",
+			".eslintrc.yml",
+			"eslint.config.js",
+			"eslint.config.mjs",
+			"eslint.config.cjs",
+			"eslint.config.ts",
+		}
+		local function has_eslint_config()
+			return vim.fs.find(eslint_cfgs, {
+				upward = true,
+				path = vim.fs.dirname(vim.api.nvim_buf_get_name(0)),
+				type = "file",
+			})[1] ~= nil
+		end
+
 		local grp = vim.api.nvim_create_augroup("NvimLint", { clear = true })
 		vim.api.nvim_create_autocmd({ "BufWritePost", "InsertLeave" }, {
 			group = grp,
 			callback = function()
+				if eslint_fts[vim.bo.filetype] and not has_eslint_config() then
+					return -- no eslint config in tree → skip (avoids eslint_d's hard error)
+				end
 				require("lint").try_lint()
 			end,
 		})

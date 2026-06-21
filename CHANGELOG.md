@@ -13,6 +13,25 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+### Added
+
+- **fzf-assisted git staging** (`zsh/git.zsh`) — `gaf` / `grf` / `grsf`, fuzzy
+  multi-select counterparts to `git add` / `restore` / `restore --staged`. Each
+  guards on `fzf` like the `fzf.zsh` zle widgets, depends only on git + fzf (both
+  in the Core stack), and NUL-pipes paths so filenames with spaces survive `xargs`.
+- **`vim/vimrc`** — a plugin-free, self-contained vim fallback for boxes where only
+  stock vim exists (minimal containers, rescue shells, freshly-SSH'd servers). netrw
+  as the file browser, no network, keybindings echoing the Neovim config. The OS
+  bootstrap symlinks it to `~/.vimrc`.
+
+### Changed
+
+- **Adaptive eslint linting** (`nvim/lua/gerrrt/plugins/nvim-lint.lua`) — the eslint
+  family (js/ts/jsx/tsx/svelte/vue) now lints only when an eslint config is found
+  upward from the buffer, mirroring the existing SC1071/ruff guards. Prevents
+  `eslint_d`'s hard error from surfacing as a phantom diagnostic in projects with no
+  eslint config. Non-eslint linters still run unconditionally.
+
 ## [v1.1.0] - 2026-06-19
 
 ## [v1.0.0] - 2026-06-18

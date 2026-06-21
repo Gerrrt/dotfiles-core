@@ -1,0 +1,4 @@
+#compdef gaf
+# Completion for Core's `gaf` (zsh/git.zsh). It takes NO arguments — files are
+# chosen interactively through fzf — so there is nothing to complete.
+_message 'gaf takes no arguments (it fuzzy-picks files via fzf, then stages them)'

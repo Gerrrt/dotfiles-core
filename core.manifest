@@ -47,7 +47,10 @@ zsh/completions/_extract
 zsh/completions/_fbr
 zsh/completions/_fcd
 zsh/completions/_fif
+zsh/completions/_gaf
 zsh/completions/_genpw
+zsh/completions/_grf
+zsh/completions/_grsf
 zsh/completions/_maint-install
 zsh/completions/_maint-log
 zsh/completions/_maint-noargs
@@ -97,6 +100,8 @@ maint/dotfiles-maint.sh
 # ── git — portable config; credential/identity split to OS+local ──────────────
 git/gitconfig
 git/local.gitconfig.example
+# ── vim — zero-dependency fallback for boxes with only stock vim (no nvim) ─────
+vim/vimrc
 # ── nvim — entire lazy.nvim tree; portable, clipboard via `clip` ──────────────
 # whole directory: lua/gerrrt/{config,plugins,servers,utils}. Kept DIRECTORY-granular on
 # purpose (unlike completions/ + tmux/scripts/ above): this is a vendored lazy.nvim tree

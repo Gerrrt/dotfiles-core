@@ -644,6 +644,7 @@ _core_help_render() {
     "gco / gcb <branch>|checkout / checkout -b"
     "gp / gl|push / pull"
     "gpf|push --force-with-lease (safe force)"
+    "gaf / grf / grsf|fuzzy stage / restore / unstage (multi-select)|fzf"
     "gd / gds|diff / diff --staged"
     "glog|graph log (oneline, decorated)"
     "grbm|rebase onto the trunk branch"
