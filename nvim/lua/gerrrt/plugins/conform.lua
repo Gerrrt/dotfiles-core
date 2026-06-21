@@ -89,6 +89,7 @@ return {
 				"marksman", -- Markdown
 				"html-lsp", -- HTML validation
 				"css-lsp", -- CSS/SCSS/LESS validation
+				"svelte-language-server", -- Svelte component LSP (you already format/lint svelte)
 				-- ── formatters (conform) ───────────────────────────────────────────────────
 				"stylua",
 				"shfmt",
