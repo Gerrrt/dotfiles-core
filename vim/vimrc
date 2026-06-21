@@ -14,7 +14,11 @@ set nohlsearch              " no persistent highlight after a search
 set number relativenumber  " hybrid line numbers (matches the nvim config)
 set mouse=a
 set breakindent
-set undofile
+set undofile               " persistent undo …
+if !isdirectory($HOME . '/.vim/undo')
+  call mkdir($HOME . '/.vim/undo', 'p', 0700)
+endif
+set undodir=$HOME/.vim/undo//   " … in a dedicated dir (// = full-path names), not scattered next to each file
 set ignorecase smartcase   " case-insensitive unless the search has a capital
 set signcolumn=yes
 set updatetime=250
@@ -70,7 +74,9 @@ nnoremap <leader>b :enew<CR>
 nnoremap <leader>v  <C-w>v
 nnoremap <leader>h  <C-w>s
 nnoremap <leader>se <C-w>=
-nnoremap <leader>xs :close<CR>
+nnoremap <leader>sc :close<CR>
+"  ^ close-split is <leader>sc, NOT a <leader>x* mapping — keeping it clear of
+"    <leader>x (bdelete) avoids the timeoutlen wait that a shared prefix would add.
 nnoremap <C-k> :wincmd k<CR>
 nnoremap <C-j> :wincmd j<CR>
 nnoremap <C-h> :wincmd h<CR>

@@ -19,4 +19,11 @@
   // into GitHub's UI; they legitimately open with YAML front matter or a section
   // heading (## ...), not a top-level H1.
   "MD041": false,
+
+  // MD024 (no-duplicate-heading): SIBLINGS ONLY. The CHANGELOG follows Keep a
+  // Changelog, where every release repeats the same subsection names (### Added,
+  // ### Changed, ### Fixed). Those are NOT defects — they live under different
+  // version parents. siblings_only still catches a true duplicate (two identical
+  // headings under the SAME parent) while allowing the format's intended repetition.
+  "MD024": { "siblings_only": true },
 }

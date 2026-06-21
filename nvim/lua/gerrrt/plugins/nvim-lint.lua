@@ -57,6 +57,8 @@ return {
 			"eslint.config.mjs",
 			"eslint.config.cjs",
 			"eslint.config.ts",
+			"eslint.config.mts",
+			"eslint.config.cts",
 		}
 		local function has_eslint_config()
 			return vim.fs.find(eslint_cfgs, {
