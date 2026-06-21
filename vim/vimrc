@@ -1,0 +1,138 @@
+" vimrc — zero-dependency editor fallback for boxes where only stock vim exists.
+"
+" Core ships a full Neovim tree, but a minimal container, a rescue shell, or a
+" freshly-SSH'd server may have nothing but /usr/bin/vim. This file is plugin-free
+" and self-contained: netrw is the file browser, no package manager, no network.
+" The OS repo's bootstrap symlinks it to ~/.vimrc. Keybindings deliberately echo
+" Core's Neovim muscle memory (space leader, jk to escape, <C-hjkl> splits) so the
+" fallback feels like home. Provenance: adapted from dotfiles-hendrikmi/vim/.vimrc.
+
+" ── options ───────────────────────────────────────────────────────────────────
+set encoding=utf-8
+set nocompatible
+set nohlsearch              " no persistent highlight after a search
+set number relativenumber  " hybrid line numbers (matches the nvim config)
+set mouse=a
+set breakindent
+set undofile               " persistent undo …
+if !isdirectory($HOME . '/.vim/undo')
+  call mkdir($HOME . '/.vim/undo', 'p', 0700)
+endif
+set undodir=$HOME/.vim/undo//   " … in a dedicated dir (// = full-path names), not scattered next to each file
+set ignorecase smartcase   " case-insensitive unless the search has a capital
+set signcolumn=yes
+set updatetime=250
+set timeoutlen=300
+set nobackup nowritebackup noswapfile
+set completeopt=menuone,noselect
+set whichwrap+=<,>,[,],h,l
+set nowrap linebreak
+set scrolloff=8 sidescrolloff=8
+set numberwidth=4
+set shiftwidth=4 tabstop=4 softtabstop=4 expandtab
+set autoindent smartindent
+set splitbelow splitright
+set showtabline=2 laststatus=2
+set backspace=indent,eol,start
+set pumheight=10
+set showmatch
+set statusline=%f%=%l/%L    " path … current/total line
+
+" ── keymaps ───────────────────────────────────────────────────────────────────
+let mapleader = " "
+let maplocalleader = " "
+nnoremap <Space> <Nop>
+vnoremap <Space> <Nop>
+
+" move by display line when no count is given
+nnoremap <expr> k v:count == 0 ? 'gk' : 'k'
+nnoremap <expr> j v:count == 0 ? 'gj' : 'j'
+
+nnoremap <Esc> :noh<CR>
+nnoremap <C-s> :w<CR>
+nnoremap x "_x
+
+" scroll / search keep the cursor centered
+nnoremap <C-d> <C-d>zz
+nnoremap <C-u> <C-u>zz
+nnoremap n nzzzv
+nnoremap N Nzzzv
+
+" resize splits with arrows
+nnoremap <Up>    :resize -2<CR>
+nnoremap <Down>  :resize +2<CR>
+nnoremap <Left>  :vertical resize -2<CR>
+nnoremap <Right> :vertical resize +2<CR>
+
+" buffers
+nnoremap <Tab>   :bnext<CR>
+nnoremap <S-Tab> :bprevious<CR>
+nnoremap <leader>x :bdelete<CR>
+nnoremap <leader>b :enew<CR>
+
+" window management — mirrors the nvim splits/navigation keys
+nnoremap <leader>v  <C-w>v
+nnoremap <leader>h  <C-w>s
+nnoremap <leader>se <C-w>=
+nnoremap <leader>sc :close<CR>
+"  ^ close-split is <leader>sc, NOT a <leader>x* mapping — keeping it clear of
+"    <leader>x (bdelete) avoids the timeoutlen wait that a shared prefix would add.
+nnoremap <C-k> :wincmd k<CR>
+nnoremap <C-j> :wincmd j<CR>
+nnoremap <C-h> :wincmd h<CR>
+nnoremap <C-l> :wincmd l<CR>
+
+" tabs
+nnoremap <leader>to :tabnew<CR>
+nnoremap <leader>tx :tabclose<CR>
+nnoremap <leader>tn :tabn<CR>
+nnoremap <leader>tp :tabp<CR>
+
+nnoremap <leader>lw :set wrap!<CR>
+inoremap jk <ESC>
+inoremap kj <ESC>
+
+" keep the unnamed register when pasting over a selection; explicit system-clipboard yanks
+vnoremap p "_dP
+noremap <leader>y "+y
+noremap <leader>Y "+Y
+
+" file explorer (netrw)
+noremap <silent> <leader>e :Lex<CR>
+
+" ── appearance ────────────────────────────────────────────────────────────────
+syntax on
+set background=dark
+silent! colorscheme habamax  " ships with vim 9; silent! so older vims fall back quietly
+
+" sync the unnamed register with the OS clipboard when this vim was built with it
+if has('clipboard')
+  if has('mac')
+    set clipboard=unnamed
+  else
+    set clipboard=unnamedplus
+  endif
+endif
+
+" truecolor inside tmux/screen
+if !has('gui_running') && &term =~ '\%(screen\|tmux\)'
+  let &t_8f = "\<Esc>[38;2;%lu;%lu;%lum"
+  let &t_8b = "\<Esc>[48;2;%lu;%lu;%lum"
+endif
+if has('termguicolors')
+  set termguicolors
+endif
+
+" beam cursor in insert, block elsewhere
+let &t_SI = "\e[6 q"
+let &t_EI = "\e[2 q"
+
+" ── netrw ─────────────────────────────────────────────────────────────────────
+let g:netrw_banner = 0
+let g:netrw_liststyle = 3
+let g:netrw_browse_split = 4
+let g:netrw_altv = 1
+let g:netrw_winsize = 25
+augroup netrw_setup | au!
+  au FileType netrw nmap <buffer> l <CR>
+augroup END

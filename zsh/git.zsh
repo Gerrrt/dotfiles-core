@@ -123,3 +123,30 @@ alias gr='git remote'
 alias grv='git remote --verbose'
 alias gm='git merge'
 alias gma='git merge --abort'
+
+# ── fzf-assisted staging / restore ────────────────────────────────────────────
+# Interactive counterparts to the static aliases above: fuzzy multi-select instead
+# of typing paths. Portable (depend only on git + fzf, both in the Core stack); each
+# guards on fzf like the zle widgets in fzf.zsh, so a bare box degrades cleanly. NUL
+# piping via tr keeps paths with spaces intact through xargs.
+function gaf() {  # fuzzy `git add` — pick from modified + untracked
+  _core_have fzf || { _core_warn "gaf: needs fzf"; return 1; }
+  local files
+  files=$(command git ls-files --modified --others --exclude-standard |
+    fzf --multi --prompt='add> ' --preview 'git diff --color=always -- {} | head -200') || return
+  [[ -n $files ]] && print -r -- "$files" | tr '\n' '\0' | xargs -0 git add -- && command git status --short
+}
+function grf() {  # fuzzy `git restore` — discard unstaged changes to picked files
+  _core_have fzf || { _core_warn "grf: needs fzf"; return 1; }
+  local files
+  files=$(command git diff --name-only |
+    fzf --multi --prompt='restore> ' --preview 'git diff --color=always -- {} | head -200') || return
+  [[ -n $files ]] && print -r -- "$files" | tr '\n' '\0' | xargs -0 git restore --
+}
+function grsf() { # fuzzy `git restore --staged` — unstage picked files
+  _core_have fzf || { _core_warn "grsf: needs fzf"; return 1; }
+  local files
+  files=$(command git diff --staged --name-only |
+    fzf --multi --prompt='unstage> ' --preview 'git diff --staged --color=always -- {} | head -200') || return
+  [[ -n $files ]] && print -r -- "$files" | tr '\n' '\0' | xargs -0 git restore --staged --
+}
