@@ -53,7 +53,7 @@ To update every OS repo after a Core change, run the loop helper from this repo:
 > the gate scripts live in `scripts/`.)
 
 The OS repo's `bootstrap.sh` then symlinks `core/zsh/*.zsh`, `core/tmux/`,
-`core/nvim/`, `core/git/`, `core/starship/`, `core/mise/`, and `core/bin/` into
+`core/nvim/`, `core/git/`, `core/vim/`, `core/starship/`, `core/mise/`, and `core/bin/` into
 place alongside its own OS-native files. (`core/bin/` is just `clip`/`clip-paste`
 now — the dev scripts in `core/scripts/` are repo tooling and aren't symlinked.)
 
@@ -121,6 +121,8 @@ maint/
 git/
   gitconfig               portable git config (OS + identity layered via [include])
   local.gitconfig.example identity template — seeded by bootstrap, never tracked
+vim/
+  vimrc                   plugin-free fallback for boxes with only stock vim -> symlinked to ~/.vimrc
 nvim/                     entire lazy.nvim tree: lua/gerrrt/{config,plugins,servers,utils}
 core.manifest             the canonical list of Core files (drives sync + audits)
 core.version              human-readable Core version stamp (read by `core-version`)
