@@ -8,9 +8,10 @@
 --         Binding standalone `af`/`ac`/`aa` here would (1) make every bare `a`/`i` wait out
 --         `timeoutlen` to disambiguate — the exact latency the repo removed by moving surround off
 --         `s` — and (2) shadow mini.ai's own objects. So selection stays with mini.ai; this module
---         contributes only the cursor MOTIONS mini.ai doesn't have. To also get treesitter
---         function/class *selection* without the latency, route them through mini.ai's
---         `gen_spec.treesitter` in mini-nvim.lua (single `a`/`i` dispatcher) rather than here.
+--         contributes only the cursor MOTIONS mini.ai doesn't have. Treesitter *selection* for
+--         classes (`ac`/`ic`) and blocks/conditionals/loops (`ao`/`io`) IS wired — but through
+--         mini.ai's single `a`/`i` dispatcher (custom_textobjects in mini-nvim.lua), which adds no
+--         latency, rather than as standalone maps here.
 -- BRANCH: `main` to match your nvim-treesitter `main` spec (mixing main + master breaks queries).
 -- KEYMAPS: `]f`/`[f` (function) and `]a`/`[a` (argument) — chosen to avoid `]c`/`[c`
 --          (treesitter-context jump + diff change motions) and `]m`/`[m`.
