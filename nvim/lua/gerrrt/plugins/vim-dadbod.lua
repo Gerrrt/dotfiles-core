@@ -34,7 +34,7 @@ return {
 
 		-- Buffer-local omni completion for SQL dialects (engine-agnostic; see COMPLETION note).
 		vim.api.nvim_create_autocmd("FileType", {
-			group = vim.api.nvim_create_augroup("gerrrt_dadbod_completion", { clear = true }),
+			group = vim.api.nvim_create_augroup("DadbodCompletion", { clear = true }),
 			pattern = { "sql", "mysql", "plsql" },
 			callback = function()
 				vim.bo.omnifunc = "vim_dadbod_completion#omni"
