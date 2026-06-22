@@ -42,6 +42,9 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Fixed
 
+- **`freshness.yml` opens its pin-bump PRs against the default branch**, not the
+  dispatched ref (`GITHUB_REF_NAME`), and uses a ref-independent concurrency group —
+  so a manual run from a feature branch can't target the wrong base or race the cron.
 - **`aliases.md`** — corrected the `myip` expansion (it redirects stderr:
   `curl -fsS https://ifconfig.me 2>/dev/null && echo`) and repo-qualified the
   cross-repo source paths in the header so they don't read as broken local links.
