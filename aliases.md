@@ -99,14 +99,14 @@ Source: `core/zsh/aliases.zsh`
 
 ## Core — Editor & QoL
 
-Source: `core/zsh/aliases.zsh`
+Source: `core/zsh/aliases.zsh` (plus `cheat`, from `core/zsh/functions.zsh`)
 
 | Alias | Expands to | Notes |
 | ------- | ------------ | ------- |
 | `vim` | `nvim` | Always active (bootstrap ensures nvim) |
 | `lg` | `lazygit` | Always active |
 | `notes` | `cd "$NOTES_DIR" && nvim .` | Opens `$NOTES_DIR` (default: `~/Notes`) |
-| `cheat` | `core-help` | Alias to the Core cheat sheet function |
+| `cheat` | `core-help` | Alias to the Core cheat sheet function (defined in `functions.zsh`) |
 
 ---
 
