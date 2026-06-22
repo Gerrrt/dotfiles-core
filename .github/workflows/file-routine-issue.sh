@@ -24,7 +24,7 @@ body="${RUNNER_TEMP:-/tmp}/routine-issue-body.md"
 {
   printf '## %s — %s\n\n' "$title" "$(date -u +%Y-%m-%d)"
   cat "$report"
-  printf '\n_Filed by the `claude-routines` workflow. Report-first: review and act — nothing was changed._\n'
+  printf '\n_Filed by the claude-routines workflow. Report-first: review and act — nothing was changed._\n'
 } >"$body"
 
 # gh search is fuzzy, so re-check the title exactly before deciding to dedup.
