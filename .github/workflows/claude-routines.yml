@@ -13,7 +13,7 @@ name: claude-routines
 #
 # INERT BY DEFAULT: with no CLAUDE_CODE_OAUTH_TOKEN secret the jobs no-op with a warning (so a
 # fork — or this repo before you opt in — never gets a red X). Add the secret to enable.
-# Scheduled runs cost API tokens; the weekly cadence keeps that predictable.
+# Scheduled runs draw on the subscription's usage; the weekly cadence keeps that predictable.
 
 on:
   schedule:
@@ -34,7 +34,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Gate: is the API key configured? Secrets can't be read in job-level `if`, so a tiny
+  # Gate: is the auth token configured? Secrets can't be read in job-level `if`, so a tiny
   # job exposes presence as an output the real jobs depend on. Absent → warn and skip.
   preflight:
     runs-on: ubuntu-latest
