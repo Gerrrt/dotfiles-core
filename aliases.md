@@ -25,6 +25,7 @@ installed; the classic command is the transparent fallback on a bare box.
 - [Kali — Offensive Layer](#kali--offensive-layer)
 - [Windows — PowerShell](#windows--powershell)
 - [Cross-platform Intentional Differences](#cross-platform-intentional-differences)
+- [Issues & Notes](#issues--notes)
 
 ---
 
@@ -75,7 +76,7 @@ Source: `core/zsh/aliases.zsh`
 | Alias | Expands to | Notes |
 |-------|------------|-------|
 | `du` | `dust` | ⚠ guarded: `dust` — visual disk-usage tree |
-| `ps` | `procs` | ⚠ guarded: `procs` — colorized, searchable process viewer |
+| `ps` | `procs` | ⚠ guarded: `procs` — colourised, searchable process viewer |
 | `top` / `htop` | `btop` | ⚠ guarded: `btop` |
 | `watch` | `viddy` | ⚠ guarded: `viddy` — modern watch |
 | `df` | `duf` | ⚠ guarded: `duf` — mountpoint-aware df; fallback `df -h` |
@@ -390,7 +391,7 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 | `du` | `dust` | ⚠ guarded: `dust` |
 | `pss` | `procs` | ⚠ guarded: `procs` — **`pss` not `ps`** (avoids shadowing `Get-Process`) |
 | `watch` | `viddy` | ⚠ guarded: `viddy` |
-| `hex` | `hexyl` | ⚠ guarded: `hexyl` — colored hex viewer (no zsh equivalent) |
+| `hex` | `hexyl` | ⚠ guarded: `hexyl` — coloured hex viewer (no zsh equivalent) |
 | `loc` | `tokei` | ⚠ guarded: `tokei` — lines-of-code counter (no zsh equivalent) |
 | `vim` | `nvim` (Set-Alias) | ⚠ guarded: `nvim` |
 | `lg` | `lazygit` | ⚠ guarded: `lazygit` |
