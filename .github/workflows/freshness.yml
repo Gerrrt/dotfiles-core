@@ -30,7 +30,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: freshness-${{ github.ref }}
+  # Ref-independent: the bot force-updates fixed automation branches, so runs must
+  # never overlap regardless of which ref launched them.
+  group: freshness
   cancel-in-progress: true
 
 jobs:
@@ -45,6 +47,7 @@ jobs:
       MODE: ${{ github.event.inputs.mode || 'pr' }}
       BRANCH: automation/freshness-zsh-plugins
       GH_TOKEN: ${{ github.token }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       # check-only path (on demand): --check just git-ls-remotes each pinned upstream.
@@ -76,7 +79,7 @@ jobs:
           git push -f -u origin "$BRANCH"
           # Idempotent: update the existing PR if one is already open for this branch.
           if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
-            gh pr create --head "$BRANCH" --base "${GITHUB_REF_NAME}" \
+            gh pr create --head "$BRANCH" --base "$DEFAULT_BRANCH" \
               --title "chore(deps): roll zsh plugin pins forward" \
               --body "Automated by the freshness bot. Pinned zsh-plugin SHAs in \`zsh/plugins.zsh\` were behind upstream; this rolls them to current HEAD. Review the diff, let CI run, then merge."
           fi
@@ -92,6 +95,7 @@ jobs:
       MODE: ${{ github.event.inputs.mode || 'pr' }}
       BRANCH: automation/freshness-nvim-plugins
       GH_TOKEN: ${{ github.token }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Load pinned tool versions
@@ -126,7 +130,7 @@ jobs:
           git commit -m "chore(deps): refresh nvim plugin lock (freshness bot)"
           git push -f -u origin "$BRANCH"
           if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
-            gh pr create --head "$BRANCH" --base "${GITHUB_REF_NAME}" \
+            gh pr create --head "$BRANCH" --base "$DEFAULT_BRANCH" \
               --title "chore(deps): refresh nvim plugin lock" \
               --body "Automated by the freshness bot. \`nvim/lazy-lock.json\` was behind upstream; this refreshes it to current. Review the diff, let CI run, then merge."
           fi
