@@ -184,8 +184,8 @@ OMZ: `gpf` uses `--force-with-lease` (not raw `--force`); `gcm` is `commit --mes
 | `gcm` | `git commit --message` | |
 | `gca` | `git commit --verbose --all` | |
 | `gcam` | `git commit --all --message` | |
-| `` gc! `` | `git commit --verbose --amend` | |
-| `` gcn! `` | `git commit --verbose --no-edit --amend` | Keep existing message |
+| `gc!` | `git commit --verbose --amend` | |
+| `gcn!` | `git commit --verbose --no-edit --amend` | Keep existing message |
 
 ### Branching & Switching
 
@@ -226,7 +226,7 @@ OMZ: `gpf` uses `--force-with-lease` (not raw `--force`); `gcm` is `commit --mes
 | `gp` | `git push` | |
 | `gpu` | `git push --set-upstream origin <branch>` | |
 | `gpf` | `git push --force-with-lease` | **Safe force** — refuses to clobber unseen commits |
-| `` gpf! `` | `git push --force` | Raw force, explicit opt-in |
+| `gpf!` | `git push --force` | Raw force, explicit opt-in |
 
 ### Stash
 
@@ -341,8 +341,8 @@ Source: `dotfiles-Kali/offensive/offensive.zsh`
 
 | Function | Description |
 |----------|-------------|
-| `nmapsweep <target|CIDR>` | Conservative nmap `-sCV -T4` sweep; writes all formats into `./nmap/<target>.{nmap,gnmap,xml}` |
-| `bhce <dc-ip> <user> <pass|:hash> [domain]` | BloodHound CE collection via NetExec; drops zip into `$ENGAGEMENT/loot/bloodhound/` |
+| `nmapsweep <target/CIDR>` | Conservative nmap `-sCV -T4` sweep; writes all formats into `./nmap/<target>.{nmap,gnmap,xml}` |
+| `bhce <dc-ip> <user> <pass/:hash> [domain]` | BloodHound CE collection via NetExec; drops zip into `$ENGAGEMENT/loot/bloodhound/` |
 | `mkengagement <name>` | Create dated engagement workspace (`$ENGAGEMENTS_DIR/YYYYMMDD-<name>`), set `$ENGAGEMENT`, open `scope.txt` first |
 | `eng` | fzf-jump between existing engagement directories; sets `$ENGAGEMENT` |
 | `logshell` | Record a full shell session (typescript + timing) into `$ENGAGEMENT/notes/` for audit trail |
@@ -448,7 +448,7 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 | Extra git status | *(none)* | `gs` = `git status -sb` | Windows-kept muscle memory |
 | `rm` behavior | `rm -i` (Core); `trash` (macOS) | *(no override)* | macOS prefers recoverable Trash |
 | `gap` (patch stage) | `git add --patch` | *(not present)* | Not yet ported to PowerShell |
-| tmux auto-start | macOS: `exec tmux new-session -A -s main` | N/A | macOS uses `exec` so detach exits cleanly; Kali uses `attach || new-session` (leaves a parent shell on detach) |
+| tmux auto-start | macOS: `exec tmux new-session -A -s main` | N/A | macOS uses `exec` so detach exits cleanly; Kali omits `exec` and leaves a parent shell on detach |
 
 ---
 
@@ -471,4 +471,4 @@ The following inconsistencies were identified during this audit:
 
 ---
 
-*Generated 2026-06-22 by `claude/alias-sync`.*
+Generated 2026-06-22 by `claude/alias-sync`.
