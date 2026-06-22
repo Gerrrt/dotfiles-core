@@ -155,3 +155,41 @@ this is now just the procedure for the occasional **new** Core file:
 4. Add the path to `core.manifest` — that's the contract the audits read.
 5. Wire the symlink into each OS repo's `bootstrap.sh` if the file needs one.
 6. `./scripts/sync-core.sh` to push it into every OS repo's vendored `core/`.
+
+## Maintaining Core (the automated workflow)
+
+Day-to-day this is the whole loop — author, gate, fan out:
+
+1. **Pick the layer.** Core only if identical everywhere **and** not OS-specific
+   **and** not offensive. Otherwise it belongs in the OS repo (or `dotfiles-Kali`).
+2. **Edit here**, add a `[Unreleased]` `CHANGELOG.md` bullet in the _same_ commit
+   (Conventional Commits message).
+3. **`make audit-changed`** (fast loop) → **`make audit`** (the full gate).
+4. **`make sync`** — fan Core out to every OS repo (only after a green audit).
+
+Scheduled bots now cover the chores you used to have to _remember to check_. They
+**report first** (PR or deduped issue) and never vendor anything out on their own —
+your job is to glance at what they open and merge or act:
+
+| Bot (workflow) | Repo | Cadence | Opens |
+| --- | --- | --- | --- |
+| `/doc-audit` + `/tool-scout` (`claude-routines.yml`) | core | weekly + on demand | findings **issue** |
+| pin freshness (`freshness.yml`) | core | weekly | freshness signal |
+| `fleet-sync.yml` | web | weekly | **PR** (regenerated site data) |
+| `nvim-sync.yml` | Windows | weekly | **PR** when `nvim/` drifts |
+| `package-freshness.yml` | Windows | weekly | scoop/winget **issue** |
+
+A quiet week (no bot PR/issue) means nothing needs doing. Every bot is
+`workflow_dispatch`-able to run on demand.
+
+> **One wiring step:** `claude-routines.yml` is inert until the
+> `CLAUDE_CODE_OAUTH_TOKEN` secret is set on this repo (`claude setup-token`) — until
+> then the doc-audit / tool-scout issues won't appear.
+
+### Cutting a release
+
+1. `make release VERSION=X.Y.Z` — promotes `CHANGELOG.md`'s hand-written
+   `[Unreleased]` to a dated `## [vX.Y.Z]` heading, bumps `core.version`, runs the
+   audit.
+2. Commit it, then — if you publish a GitHub Release — `make release-notes` drafts
+   the release body from Conventional Commits (it does **not** touch `CHANGELOG.md`).
