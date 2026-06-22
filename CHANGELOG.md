@@ -45,8 +45,8 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 - **`audit-core.sh`** — clarified the META-allowlist comments: those files are "not
   shipped Core" (absent from `core.manifest`), not "never vendored" (the subtree copy
   carries them physically).
-- **Doc drift caught by `/doc-audit`** — corrected "vendored into/fans out to *nine*
-  OS repos" → *eight* (Windows vendors no `core/`) in `CHANGELOG.md` + `CONTRIBUTING.md`;
+- **Doc drift caught by `/doc-audit`** — corrected "vendored into/fans out to _nine_
+  OS repos" → _eight_ (Windows vendors no `core/`) in `CHANGELOG.md` + `CONTRIBUTING.md`;
   added the manifest-listed `zsh/loader.zsh` and `lazygit/config.yml` to the README
   Layout tree; completed the README tmux-scripts list (added `tmux-battery`/`tmux-cheat`);
   and attributed the `cheat` alias to `functions.zsh` (not `aliases.zsh`) in `aliases.md`.
