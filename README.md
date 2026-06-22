@@ -92,7 +92,7 @@ scripts/                  DEV TOOLING — runs the gate HERE, never vendored out
   sync-core.sh            loop git-subtree pull across all OS repos (the maintain button)
   update-plugins.sh       roll the pinned zsh-plugin SHAs (zsh/plugins.zsh) to upstream HEAD
 zsh/                      sourced by each OS repo's .zshrc loader, IN THIS ORDER:
-  loader.zsh              canonical byte-compile + source loop (vendored; OS .zshrc sources THIS)
+  loader.zsh              canonical byte-compile + source loop (vendored so each OS .zshrc can source THIS instead of duplicating it)
   tools.zsh               detection + single init point (zoxide/starship/atuin/mise) — load FIRST
   ui.zsh                  terminal-UX primitives (_core_err/warn/ok/hint/confirm/spin) — gum-aware
   options.zsh             setopts + completion system (compinit, cached) + zstyles

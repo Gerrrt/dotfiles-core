@@ -99,7 +99,7 @@ Source: `core/zsh/aliases.zsh`
 
 ## Core — Editor & QoL
 
-Source: `core/zsh/aliases.zsh`
+Source: `core/zsh/aliases.zsh` (plus `cheat`, from `core/zsh/functions.zsh`)
 
 | Alias | Expands to | Notes |
 | ------- | ------------ | ------- |
