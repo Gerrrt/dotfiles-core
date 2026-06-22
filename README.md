@@ -174,7 +174,7 @@ your job is to glance at what they open and merge or act:
 | Bot (workflow) | Repo | Cadence | Opens |
 | --- | --- | --- | --- |
 | `/doc-audit` + `/tool-scout` (`claude-routines.yml`) | core | weekly + on demand | findings **issue** |
-| pin freshness (`freshness.yml`) | core | weekly | freshness signal |
+| pin freshness (`freshness.yml`) | core | weekly | **PR** (rolls zsh-plugin + nvim pins forward) |
 | `fleet-sync.yml` | web | weekly | **PR** (regenerated site data) |
 | `nvim-sync.yml` | Windows | weekly | **PR** when `nvim/` drifts |
 | `package-freshness.yml` | Windows | weekly | scoop/winget **issue** |
