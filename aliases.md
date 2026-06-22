@@ -106,7 +106,7 @@ Source: `core/zsh/aliases.zsh`
 | `vim` | `nvim` | Always active (bootstrap ensures nvim) |
 | `lg` | `lazygit` | Always active |
 | `notes` | `cd "$NOTES_DIR" && nvim .` | Opens `$NOTES_DIR` (default: `~/Notes`) |
-| `cheat` | `core-help` | Alias to the Core cheat sheet function |
+| `cheat` | `core-help` | Alias to the Core cheat sheet function (defined in `functions.zsh`) |
 
 ---
 

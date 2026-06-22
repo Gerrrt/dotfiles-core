@@ -92,6 +92,7 @@ scripts/                  DEV TOOLING — runs the gate HERE, never vendored out
   sync-core.sh            loop git-subtree pull across all OS repos (the maintain button)
   update-plugins.sh       roll the pinned zsh-plugin SHAs (zsh/plugins.zsh) to upstream HEAD
 zsh/                      sourced by each OS repo's .zshrc loader, IN THIS ORDER:
+  loader.zsh              canonical byte-compile + source loop (vendored; OS .zshrc sources THIS)
   tools.zsh               detection + single init point (zoxide/starship/atuin/mise) — load FIRST
   ui.zsh                  terminal-UX primitives (_core_err/warn/ok/hint/confirm/spin) — gum-aware
   options.zsh             setopts + completion system (compinit, cached) + zstyles
@@ -115,12 +116,14 @@ sesh/
 tmux/
   tmux.conf               portable base config (OS bits -> os/<os>.conf)
   tmux.reset.conf         the keybinding layer (prefix C-a lives here)
-  scripts/                popup scripts: tmux-menu / tmux-scratch / tmux-sesh / tmux-netinfo
+  scripts/                popup scripts: tmux-battery / tmux-cheat / tmux-menu / tmux-netinfo / tmux-scratch / tmux-sesh
 maint/
   dotfiles-maint.sh       the daily "update everything (that's safe)" runner
 git/
   gitconfig               portable git config (OS + identity layered via [include])
   local.gitconfig.example identity template — seeded by bootstrap, never tracked
+lazygit/
+  config.yml              tokyonight theme -> symlinked to ~/.config/lazygit/config.yml
 vim/
   vimrc                   plugin-free fallback for boxes with only stock vim -> symlinked to ~/.vimrc
 nvim/                     entire lazy.nvim tree: lua/gerrrt/{config,plugins,servers,utils}

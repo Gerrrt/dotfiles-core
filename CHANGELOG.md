@@ -3,7 +3,7 @@
 All notable changes to **dotfiles-core** are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-Core is the single source of truth vendored into nine OS repos via
+Core is the single source of truth vendored into eight OS repos via
 `git subtree pull --prefix=core <core-remote> main --squash` (see `scripts/sync-core.sh`).
 Every entry below is therefore a change those repos receive on their next sync —
 this file is the human-readable record of _what_ a sync will bring, complementing
@@ -45,6 +45,11 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 - **`audit-core.sh`** — clarified the META-allowlist comments: those files are "not
   shipped Core" (absent from `core.manifest`), not "never vendored" (the subtree copy
   carries them physically).
+- **Doc drift caught by `/doc-audit`** — corrected "vendored into/fans out to *nine*
+  OS repos" → *eight* (Windows vendors no `core/`) in `CHANGELOG.md` + `CONTRIBUTING.md`;
+  added the manifest-listed `zsh/loader.zsh` and `lazygit/config.yml` to the README
+  Layout tree; completed the README tmux-scripts list (added `tmux-battery`/`tmux-cheat`);
+  and attributed the `cheat` alias to `functions.zsh` (not `aliases.zsh`) in `aliases.md`.
 
 ## [v1.2.0] - 2026-06-21
 
@@ -250,7 +255,7 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 - Pinned the seven runtime zsh plugins to commit SHAs (`ZPLUGIN_PINS` in
   `zsh/plugins.zsh`) — the last unpinned link in a toolchain that already pins CI
   linters, pre-commit hooks, and GitHub Actions. An unpinned `master` clone fanned an
-  upstream breaking change — or a compromised tag — out to all nine machines on the
+  upstream breaking change — or a compromised tag — out to all eight machines on the
   next install; installs now fetch exactly the pinned commit.
 
 ### Fixed
@@ -284,6 +289,6 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 - Restored non-executable mode (`100644`) on the twelve `zsh/*.zsh` modules. They
   are sourced, not executed, and had regressed to `100755`, failing the audit's
   exec-bit invariant — the exact bug class the audit exists to catch, fanning out
-  to all nine OS repos.
+  to all eight OS repos.
 - Registered `CODEOWNERS`, `dependabot.yml`, and `pull_request_template.md` in the
   audit's `META_ALLOWLIST` so the manifest reverse-drift scan accounts for them.
