@@ -13,6 +13,19 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+### Added
+
+- **Claude Code project memory + maintenance routines** (`CLAUDE.md`, `.claude/`) —
+  a root `CLAUDE.md` encoding the three-layer model, the "is it Core?" test, the
+  manifest contract, and the load order so every Claude session reasons from the
+  real rules. Three on-demand slash commands automate the judgment-heavy chores the
+  audit can't: `/doc-audit` (prose-vs-reality drift across the fleet, via the
+  `doc-consistency` subagent), `/tool-scout` (research the modern-CLI stack for
+  tools worth adopting, via the `tool-scout` subagent), and `/freshness-triage`
+  (review dependency-bump PRs against upstream changelogs). All report-first; none
+  vendor out without a green `make audit`. `CLAUDE.md` added to the audit's
+  repo-meta allowlist (`.claude/` was already a prefix).
+
 ## [v1.2.0] - 2026-06-21
 
 ### Added
