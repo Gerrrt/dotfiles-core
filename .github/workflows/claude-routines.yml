@@ -73,7 +73,8 @@ jobs:
       - name: Load pinned tool versions
         run: grep -E '^[A-Z0-9_]+=' scripts/tool-versions.env >>"$GITHUB_ENV"
       - name: Install Claude Code CLI (pinned)
-        run: npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION:-latest}"
+        # Fail fast if the pin didn't load — never silently fall back to a floating `latest`.
+        run: npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION:?not loaded from scripts/tool-versions.env}"
       - name: Run /tool-scout
         run: |
           claude -p "/tool-scout" \
@@ -119,7 +120,8 @@ jobs:
         working-directory: dotfiles-core
         run: grep -E '^[A-Z0-9_]+=' scripts/tool-versions.env >>"$GITHUB_ENV"
       - name: Install Claude Code CLI (pinned)
-        run: npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION:-latest}"
+        # Fail fast if the pin didn't load — never silently fall back to a floating `latest`.
+        run: npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION:?not loaded from scripts/tool-versions.env}"
       - name: Run /doc-audit across the fleet
         working-directory: dotfiles-core
         run: |

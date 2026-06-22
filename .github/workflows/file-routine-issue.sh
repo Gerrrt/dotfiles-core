@@ -28,7 +28,7 @@ body="${RUNNER_TEMP:-/tmp}/routine-issue-body.md"
 } >"$body"
 
 # gh search is fuzzy, so re-check the title exactly before deciding to dedup.
-existing="$(gh issue list --state open --search "$title in:title" --json number,title \
+existing="$(gh issue list --state open --limit 200 --search "$title in:title" --json number,title \
   --jq '.[] | [.number, .title] | @tsv' | awk -F'\t' -v t="$title" '$2 == t {print $1; exit}')"
 
 if [ -n "$existing" ]; then
