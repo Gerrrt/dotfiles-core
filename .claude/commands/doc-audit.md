@@ -1,7 +1,7 @@
 ---
 description: Cross-check docs against reality across the dotfiles fleet
 argument-hint: "[repo-or-area, optional — defaults to full sweep]"
-allowed-tools: Task, Read, Grep, Glob, Bash(git status:*), Bash(git diff:*), Bash(git ls-files:*), Bash(git log:*), Bash(cat core.lock), Bash(ls:*)
+allowed-tools: Task, Read, Grep, Glob, Bash(git status:*), Bash(git diff:*), Bash(git ls-files:*), Bash(git log:*), Bash(ls:*)
 ---
 
 # /doc-audit

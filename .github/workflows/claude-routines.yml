@@ -1,0 +1,134 @@
+name: claude-routines
+
+# Scheduled "judgment-work" bots: run the on-demand Claude Code maintenance routines
+# (.claude/commands) HEADLESS on a weekly cron and file their findings as a deduplicated
+# GitHub issue — so the doc-drift sweep and the modern-CLI scout happen on their own
+# instead of waiting for a human to run them. Complements freshness.yml, which already
+# automates the MECHANICAL pin bumps; this covers the chores that need judgment.
+#
+# First-party only (same principle as freshness.yml): the Claude Code CLI is installed
+# from npm at a pinned version (CLAUDE_CODE_VERSION in scripts/tool-versions.env) — NO
+# third-party marketplace action to trust. Auth is the ANTHROPIC_API_KEY repo secret.
+#
+# INERT BY DEFAULT: with no ANTHROPIC_API_KEY secret the jobs no-op with a warning (so a
+# fork — or this repo before you opt in — never gets a red X). Add the secret to enable.
+# Scheduled runs cost API tokens; the weekly cadence keeps that predictable.
+
+on:
+  schedule:
+    - cron: "0 7 * * 2" # Tuesdays 07:00 UTC (freshness.yml runs Mondays)
+  workflow_dispatch:
+    inputs:
+      routine:
+        description: "which routine to run"
+        type: choice
+        default: both
+        options: [both, doc-audit, tool-scout]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-routines-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Gate: is the API key configured? Secrets can't be read in job-level `if`, so a tiny
+  # job exposes presence as an output the real jobs depend on. Absent → warn and skip.
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      has_key: ${{ steps.k.outputs.has_key }}
+    steps:
+      - id: k
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "has_key=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >>"$GITHUB_OUTPUT"
+            echo "::warning::ANTHROPIC_API_KEY secret not set — Claude routines are scaffolded but inactive. Add the secret to enable them."
+          fi
+
+  tool-scout:
+    needs: preflight
+    if: >-
+      needs.preflight.outputs.has_key == 'true' &&
+      (github.event_name == 'schedule' ||
+       github.event.inputs.routine == 'both' ||
+       github.event.inputs.routine == 'tool-scout')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_TITLE: "tool-scout: weekly modern-CLI scan"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Load pinned tool versions
+        run: grep -E '^[A-Z0-9_]+=' scripts/tool-versions.env >>"$GITHUB_ENV"
+      - name: Install Claude Code CLI (pinned)
+        run: npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION:-latest}"
+      - name: Run /tool-scout
+        run: |
+          claude -p "/tool-scout" \
+            --model opus \
+            --permission-mode acceptEdits \
+            --allowedTools "Task,Read,Grep,Glob,Bash,WebSearch,WebFetch" \
+            --output-format text | tee "$RUNNER_TEMP/tool-scout.md"
+      - name: File the report as an issue
+        run: bash .github/workflows/file-routine-issue.sh "$ISSUE_TITLE" "$RUNNER_TEMP/tool-scout.md"
+
+  doc-audit:
+    needs: preflight
+    if: >-
+      needs.preflight.outputs.has_key == 'true' &&
+      (github.event_name == 'schedule' ||
+       github.event.inputs.routine == 'both' ||
+       github.event.inputs.routine == 'doc-audit')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      issues: write
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GH_TOKEN: ${{ github.token }}
+      OWNER: ${{ github.repository_owner }}
+      ISSUE_TITLE: "doc-audit: weekly fleet consistency sweep"
+    steps:
+      # Check dotfiles-core into a subdir so the rest of the fleet can sit beside it as
+      # siblings — the layout the doc-consistency subagent (and sync-core.sh) expect.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          path: dotfiles-core
+      - name: Clone the rest of the fleet (read-only, shallow)
+        run: |
+          for r in dotfiles-MacBook dotfiles-Alpine dotfiles-Arch dotfiles-Debian \
+                   dotfiles-Fedora dotfiles-Gentoo dotfiles-Kali dotfiles-openSUSE \
+                   dotfiles-Windows dotfiles-web; do
+            git clone --depth 1 "https://github.com/${OWNER}/${r}.git" "$r" 2>/dev/null \
+              || echo "::warning::could not clone $r (skipping it in the sweep)"
+          done
+      - name: Load pinned tool versions
+        working-directory: dotfiles-core
+        run: grep -E '^[A-Z0-9_]+=' scripts/tool-versions.env >>"$GITHUB_ENV"
+      - name: Install Claude Code CLI (pinned)
+        run: npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION:-latest}"
+      - name: Run /doc-audit across the fleet
+        working-directory: dotfiles-core
+        run: |
+          claude -p "/doc-audit" \
+            --add-dir "$GITHUB_WORKSPACE" \
+            --model opus \
+            --permission-mode acceptEdits \
+            --allowedTools "Task,Read,Grep,Glob,Bash" \
+            --output-format text | tee "$RUNNER_TEMP/doc-audit.md"
+      - name: File the report as an issue
+        working-directory: dotfiles-core
+        run: bash .github/workflows/file-routine-issue.sh "$ISSUE_TITLE" "$RUNNER_TEMP/doc-audit.md"
