@@ -340,8 +340,8 @@ Source: `dotfiles-Kali/offensive/offensive.zsh`
 
 | Function | Description |
 |----------|-------------|
-| `nmapsweep <target\|CIDR>` | Conservative nmap `-sCV -T4` sweep; writes all formats into `./nmap/<target>.{nmap,gnmap,xml}` |
-| `bhce <dc-ip> <user> <pass\|:hash> [domain]` | BloodHound CE collection via NetExec; drops zip into `$ENGAGEMENT/loot/bloodhound/` |
+| `nmapsweep <target|CIDR>` | Conservative nmap `-sCV -T4` sweep; writes all formats into `./nmap/<target>.{nmap,gnmap,xml}` |
+| `bhce <dc-ip> <user> <pass|:hash> [domain]` | BloodHound CE collection via NetExec; drops zip into `$ENGAGEMENT/loot/bloodhound/` |
 | `mkengagement <name>` | Create dated engagement workspace (`$ENGAGEMENTS_DIR/YYYYMMDD-<name>`), set `$ENGAGEMENT`, open `scope.txt` first |
 | `eng` | fzf-jump between existing engagement directories; sets `$ENGAGEMENT` |
 | `logshell` | Record a full shell session (typescript + timing) into `$ENGAGEMENT/notes/` for audit trail |
@@ -447,7 +447,7 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 | Extra git status | *(none)* | `gs` = `git status -sb` | Windows-kept muscle memory |
 | `rm` behavior | `rm -i` (Core); `trash` (macOS) | *(no override)* | macOS prefers recoverable Trash |
 | `gap` (patch stage) | `git add --patch` | *(not present)* | Not yet ported to PowerShell |
-| tmux auto-start | macOS: `exec tmux new-session -A -s main` | N/A | macOS uses `exec` so detach exits cleanly; Kali uses `attach \|\| new-session` (leaves a parent shell on detach) |
+| tmux auto-start | macOS: `exec tmux new-session -A -s main` | N/A | macOS uses `exec` so detach exits cleanly; Kali uses `attach || new-session` (leaves a parent shell on detach) |
 
 ---
 
