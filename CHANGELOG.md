@@ -25,6 +25,25 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   (review dependency-bump PRs against upstream changelogs). All report-first; none
   vendor out without a green `make audit`. `CLAUDE.md` added to the audit's
   repo-meta allowlist (`.claude/` was already a prefix).
+- **Scheduled maintenance bots** (`.github/workflows/claude-routines.yml`) — run the
+  `/doc-audit` and `/tool-scout` routines headless on a weekly cron (and on demand),
+  filing findings as a deduplicated GitHub issue. The Claude Code CLI is installed
+  from npm (pinned via `CLAUDE_CODE_VERSION` in `scripts/tool-versions.env`) — no
+  third-party action, mirroring `freshness.yml`. Inert until the `ANTHROPIC_API_KEY`
+  secret is set (the workflow no-ops with a warning otherwise).
+- **`aliases.md`** is now surfaced in the changelog — the cross-fleet aliases cheat
+  sheet (Core + per-OS + offensive layers), previously shipped without an entry.
+
+### Fixed
+
+- **`aliases.md`** — corrected the `myip` expansion (it redirects stderr:
+  `curl -fsS https://ifconfig.me 2>/dev/null && echo`) and repo-qualified the
+  cross-repo source paths in the header so they don't read as broken local links.
+- **`doc-consistency` subagent** — aligned its system description with the canonical
+  nine-repo, three-layer (Core → OS-native → Role) wording.
+- **`audit-core.sh`** — clarified the META-allowlist comments: those files are "not
+  shipped Core" (absent from `core.manifest`), not "never vendored" (the subtree copy
+  carries them physically).
 
 ## [v1.2.0] - 2026-06-21
 

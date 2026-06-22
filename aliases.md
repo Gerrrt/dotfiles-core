@@ -1,8 +1,9 @@
 # Aliases Cheat Sheet
 
 > Last updated: 2026-06-22.
-> Sources: `core/zsh/aliases.zsh` · `core/zsh/git.zsh` · `os/macos.zsh` ·
-> `os/kali.zsh` · `offensive/offensive.zsh` · `powershell/core/00-aliases.ps1`
+> Sources (repo-qualified — most live in sibling repos, not here): `core/zsh/aliases.zsh` ·
+> `core/zsh/git.zsh` · `dotfiles-MacBook/os/macos.zsh` · `dotfiles-Kali/os/kali.zsh` ·
+> `dotfiles-Kali/offensive/offensive.zsh` · `dotfiles-Windows/powershell/core/00-aliases.ps1`
 
 Aliases marked **⚠ guarded** are only active when the backing tool is
 installed; the classic command is the transparent fallback on a bare box.
@@ -90,7 +91,7 @@ Source: `core/zsh/aliases.zsh`
 
 | Alias | Expands to | Notes |
 | ------- | ------------ | ------- |
-| `myip` | `curl -fsS https://ifconfig.me && echo` | Public IP lookup |
+| `myip` | `curl -fsS https://ifconfig.me 2>/dev/null && echo` | Public IP lookup |
 | `ports` | `ss -tulpn` or `netstat -tulpn` | Show all listening ports |
 | `ping` | `gping` | ⚠ guarded: `gping` — graphical ping with live graph |
 
