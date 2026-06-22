@@ -7,7 +7,7 @@
 # pre-commit call the same scripts/audit-core.sh, so `make audit` == green CI.
 # ──────────────────────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help setup doctor audit audit-changed test bench profile lint sync sync-dry hooks update-hooks update-plugins update-nvim-plugins check-pins release
+.PHONY: help setup doctor audit audit-changed test bench profile lint sync sync-dry hooks update-hooks update-plugins update-nvim-plugins check-pins release release-notes
 
 help: ## Show this help
 	@echo "dotfiles-core — make targets:"
@@ -62,3 +62,8 @@ check-pins: ## Report whether the zsh-plugin + nvim pins are behind upstream (th
 
 release: ## Cut a release: bump core.version + CHANGELOG, run the audit (usage: make release VERSION=X.Y.Z)
 	@./scripts/release.sh $(VERSION)
+
+release-notes: ## Draft a GitHub Release body from Conventional Commits since the last release (needs git-cliff)
+	@command -v git-cliff >/dev/null 2>&1 || { echo "git-cliff not found: cargo install git-cliff (or scoop/pkg). Config: cliff.toml"; exit 1; }
+	@_from=$$(git log --grep='^release v' --format=%H -1); \
+	  if [ -n "$$_from" ]; then git-cliff "$$_from..HEAD"; else git-cliff; fi

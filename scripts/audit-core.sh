@@ -246,7 +246,7 @@ trap 'exit 143' TERM
 META_ALLOWLIST=(
   README.md PORTING-MATRIX.md CONTRIBUTING.md CHANGELOG.md LICENSE SECURITY.md aliases.md CLAUDE.md
   core.manifest .gitignore .gitattributes .editorconfig .pre-commit-config.yaml .markdownlint.jsonc .shellcheckrc
-  Makefile
+  Makefile cliff.toml
   nvim/.luacheckrc
   CODEOWNERS pull_request_template.md
 )

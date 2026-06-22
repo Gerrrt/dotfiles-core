@@ -32,6 +32,11 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   third-party action, mirroring `freshness.yml`. Auth is a Claude subscription token
   (`CLAUDE_CODE_OAUTH_TOKEN`, from `claude setup-token`); inert until that secret is
   set (the workflow no-ops with a warning otherwise).
+- **`make release-notes` + `cliff.toml`** — git-cliff config + a Makefile target that
+  drafts a GitHub Release body from Conventional Commits since the last release commit.
+  Scoped dev-tooling (audit allowlist, not `core.manifest`, zero runtime cost); it does
+  **not** generate `CHANGELOG.md` (that stays hand-curated and is promoted by
+  `scripts/release.sh`). Surfaced by `/tool-scout` (issue #44).
 - **`aliases.md`** is now surfaced in the changelog — the cross-fleet aliases cheat
   sheet (Core + per-OS + offensive layers), previously shipped without an entry.
 
