@@ -29,8 +29,9 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   `/doc-audit` and `/tool-scout` routines headless on a weekly cron (and on demand),
   filing findings as a deduplicated GitHub issue. The Claude Code CLI is installed
   from npm (pinned via `CLAUDE_CODE_VERSION` in `scripts/tool-versions.env`) — no
-  third-party action, mirroring `freshness.yml`. Inert until the `ANTHROPIC_API_KEY`
-  secret is set (the workflow no-ops with a warning otherwise).
+  third-party action, mirroring `freshness.yml`. Auth is a Claude subscription token
+  (`CLAUDE_CODE_OAUTH_TOKEN`, from `claude setup-token`); inert until that secret is
+  set (the workflow no-ops with a warning otherwise).
 - **`aliases.md`** is now surfaced in the changelog — the cross-fleet aliases cheat
   sheet (Core + per-OS + offensive layers), previously shipped without an entry.
 

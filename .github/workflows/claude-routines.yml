@@ -8,9 +8,10 @@ name: claude-routines
 #
 # First-party only (same principle as freshness.yml): the Claude Code CLI is installed
 # from npm at a pinned version (CLAUDE_CODE_VERSION in scripts/tool-versions.env) — NO
-# third-party marketplace action to trust. Auth is the ANTHROPIC_API_KEY repo secret.
+# third-party marketplace action to trust. Auth is the CLAUDE_CODE_OAUTH_TOKEN repo secret
+# (a Claude subscription token minted locally with `claude setup-token`).
 #
-# INERT BY DEFAULT: with no ANTHROPIC_API_KEY secret the jobs no-op with a warning (so a
+# INERT BY DEFAULT: with no CLAUDE_CODE_OAUTH_TOKEN secret the jobs no-op with a warning (so a
 # fork — or this repo before you opt in — never gets a red X). Add the secret to enable.
 # Scheduled runs cost API tokens; the weekly cadence keeps that predictable.
 
@@ -43,13 +44,13 @@ jobs:
     steps:
       - id: k
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
-          if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+          if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
             echo "has_key=true" >>"$GITHUB_OUTPUT"
           else
             echo "has_key=false" >>"$GITHUB_OUTPUT"
-            echo "::warning::ANTHROPIC_API_KEY secret not set — Claude routines are scaffolded but inactive. Add the secret to enable them."
+            echo "::warning::CLAUDE_CODE_OAUTH_TOKEN secret not set — Claude routines are scaffolded but inactive. Add the secret to enable them."
           fi
 
   tool-scout:
@@ -65,7 +66,7 @@ jobs:
       contents: read
       issues: write
     env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       GH_TOKEN: ${{ github.token }}
       ISSUE_TITLE: "tool-scout: weekly modern-CLI scan"
     steps:
@@ -98,7 +99,7 @@ jobs:
       contents: read
       issues: write
     env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       GH_TOKEN: ${{ github.token }}
       OWNER: ${{ github.repository_owner }}
       ISSUE_TITLE: "doc-audit: weekly fleet consistency sweep"
