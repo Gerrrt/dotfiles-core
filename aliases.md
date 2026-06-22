@@ -35,7 +35,7 @@ Available on all platforms (macOS, Kali/Linux, Windows WSL).
 Source: `core/zsh/aliases.zsh`
 
 | Alias | Expands to | Notes |
-|-------|------------|-------|
+| ------- | ------------ | ------- |
 | `ls` | `eza --group-directories-first --icons=auto` | ⚠ guarded: `eza` |
 | `ll` | `eza -lah --group-directories-first --icons=auto --git` | ⚠ guarded: `eza`; fallback `ls -lah` |
 | `la` | `eza -a --group-directories-first --icons=auto` | ⚠ guarded: `eza`; fallback `ls -A` |
@@ -56,7 +56,7 @@ Source: `core/zsh/aliases.zsh`
 Source: `core/zsh/aliases.zsh`
 
 | Alias | Expands to | Notes |
-|-------|------------|-------|
+| ------- | ------------ | ------- |
 | `cat` | `bat --paging=never` | ⚠ guarded: `bat` / `batcat` (Debian) |
 | `catp` | `bat` | ⚠ guarded: `bat` / `batcat` — paged view |
 | `fd` | `fd` / `fdfind` | ⚠ guarded: resolves `fd` on most distros, `fdfind` on Debian/Ubuntu |
@@ -74,7 +74,7 @@ Source: `core/zsh/aliases.zsh`
 Source: `core/zsh/aliases.zsh`
 
 | Alias | Expands to | Notes |
-|-------|------------|-------|
+| ------- | ------------ | ------- |
 | `du` | `dust` | ⚠ guarded: `dust` — visual disk-usage tree |
 | `ps` | `procs` | ⚠ guarded: `procs` — colourised, searchable process viewer |
 | `top` / `htop` | `btop` | ⚠ guarded: `btop` |
@@ -89,7 +89,7 @@ Source: `core/zsh/aliases.zsh`
 Source: `core/zsh/aliases.zsh`
 
 | Alias | Expands to | Notes |
-|-------|------------|-------|
+| ------- | ------------ | ------- |
 | `myip` | `curl -fsS https://ifconfig.me && echo` | Public IP lookup |
 | `ports` | `ss -tulpn` or `netstat -tulpn` | Show all listening ports |
 | `ping` | `gping` | ⚠ guarded: `gping` — graphical ping with live graph |
@@ -101,7 +101,7 @@ Source: `core/zsh/aliases.zsh`
 Source: `core/zsh/aliases.zsh`
 
 | Alias | Expands to | Notes |
-|-------|------------|-------|
+| ------- | ------------ | ------- |
 | `vim` | `nvim` | Always active (bootstrap ensures nvim) |
 | `lg` | `lazygit` | Always active |
 | `notes` | `cd "$NOTES_DIR" && nvim .` | Opens `$NOTES_DIR` (default: `~/Notes`) |
@@ -116,7 +116,7 @@ Source: `core/zsh/aliases.zsh`
 These use POSIX flags and are intentionally NOT replaced with modern tools.
 
 | Alias | Expands to | Notes |
-|-------|------------|-------|
+| ------- | ------------ | ------- |
 | `rm` | `rm -i` | Prompt before delete (overridden to `trash` on macOS when available) |
 | `cp` | `cp -i` | Prompt before overwrite |
 | `mv` | `mv -i` | Prompt before overwrite |
@@ -129,7 +129,7 @@ Shell functions, not aliases, but are the primary user-facing Core commands.
 Source: `core/zsh/functions.zsh` · `core/zsh/maint.zsh` · `core/zsh/update.zsh`
 
 | Command | Description |
-|---------|-------------|
+| --------- | ------------- |
 | `mkcd <dir>` | Create directory (with parents) and `cd` into it |
 | `cdup [n]` | Climb `n` directories (default 1); validates input |
 | `extract <archive>` | Unpack any archive with tarbomb + clobber guards |
@@ -162,7 +162,7 @@ OMZ: `gpf` uses `--force-with-lease` (not raw `--force`); `gcm` is `commit --mes
 ### Status / Inspection
 
 | Alias | Expands to |
-|-------|------------|
+| ------- | ------------ |
 | `g` | `git` |
 | `gst` | `git status` |
 | `gss` | `git status --short` |
@@ -171,7 +171,7 @@ OMZ: `gpf` uses `--force-with-lease` (not raw `--force`); `gcm` is `commit --mes
 ### Staging
 
 | Alias | Expands to |
-|-------|------------|
+| ------- | ------------ |
 | `ga` | `git add` |
 | `gaa` | `git add --all` |
 | `gap` | `git add --patch` |
@@ -179,7 +179,7 @@ OMZ: `gpf` uses `--force-with-lease` (not raw `--force`); `gcm` is `commit --mes
 ### Committing
 
 | Alias | Expands to | Notes |
-|-------|------------|-------|
+| ------- | ------------ | ------- |
 | `gc` | `git commit --verbose` | |
 | `gcm` | `git commit --message` | |
 | `gca` | `git commit --verbose --all` | |
@@ -190,7 +190,7 @@ OMZ: `gpf` uses `--force-with-lease` (not raw `--force`); `gcm` is `commit --mes
 ### Branching & Switching
 
 | Alias | Expands to |
-|-------|------------|
+| ------- | ------------ |
 | `gb` | `git branch` |
 | `gba` | `git branch --all` |
 | `gbd` | `git branch --delete` |
@@ -206,7 +206,7 @@ OMZ: `gpf` uses `--force-with-lease` (not raw `--force`); `gcm` is `commit --mes
 ### Diff & Log
 
 | Alias | Expands to |
-|-------|------------|
+| ------- | ------------ |
 | `gd` | `git diff` |
 | `gds` | `git diff --staged` |
 | `gdw` | `git diff --word-diff` |
@@ -218,7 +218,7 @@ OMZ: `gpf` uses `--force-with-lease` (not raw `--force`); `gcm` is `commit --mes
 ### Fetch / Push / Pull
 
 | Alias | Expands to | Notes |
-|-------|------------|-------|
+| ------- | ------------ | ------- |
 | `gf` | `git fetch` | |
 | `gfa` | `git fetch --all --prune --tags` | |
 | `gl` | `git pull` | |
@@ -231,7 +231,7 @@ OMZ: `gpf` uses `--force-with-lease` (not raw `--force`); `gcm` is `commit --mes
 ### Stash
 
 | Alias | Expands to |
-|-------|------------|
+| ------- | ------------ |
 | `gsta` | `git stash push` |
 | `gstaa` | `git stash push --include-untracked` |
 | `gstp` | `git stash pop` |
@@ -241,7 +241,7 @@ OMZ: `gpf` uses `--force-with-lease` (not raw `--force`); `gcm` is `commit --mes
 ### Rebase
 
 | Alias | Expands to |
-|-------|------------|
+| ------- | ------------ |
 | `grb` | `git rebase` |
 | `grbi` | `git rebase --interactive` |
 | `grbm` | `git rebase <main-branch>` |
@@ -251,7 +251,7 @@ OMZ: `gpf` uses `--force-with-lease` (not raw `--force`); `gcm` is `commit --mes
 ### Reset / Restore / Remote / Merge
 
 | Alias | Expands to |
-|-------|------------|
+| ------- | ------------ |
 | `grh` | `git reset` |
 | `grhh` | `git reset --hard` |
 | `grs` | `git restore` |
@@ -268,7 +268,7 @@ OMZ: `gpf` uses `--force-with-lease` (not raw `--force`); `gcm` is `commit --mes
 Functions defined in `core/zsh/git.zsh`. Require `fzf`; degrade cleanly on bare boxes.
 
 | Function | Description |
-|----------|-------------|
+| ---------- | ------------- |
 | `gaf` | Fuzzy `git add` — multi-select from modified + untracked; preview shows diff |
 | `grf` | Fuzzy `git restore` — discard unstaged changes; multi-select |
 | `grsf` | Fuzzy `git restore --staged` — unstage files; multi-select |
@@ -280,7 +280,7 @@ Functions defined in `core/zsh/git.zsh`. Require `fzf`; degrade cleanly on bare 
 Source: `dotfiles-MacBook/os/macos.zsh`
 
 | Alias | Expands to | Notes |
-|-------|------------|-------|
+| ------- | ------------ | ------- |
 | `localip` | `ipconfig getifaddr en0` | LAN IP on the primary interface |
 | `flushdns` | `sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder` | Flush DNS cache |
 | `showfiles` | `defaults write com.apple.finder AppleShowAllFiles -bool true && killall Finder` | Show hidden files in Finder |
@@ -300,7 +300,7 @@ Source: `dotfiles-MacBook/os/macos.zsh`
 Source: `dotfiles-Kali/os/kali.zsh`
 
 | Alias | Expands to | Notes |
-|-------|------------|-------|
+| ------- | ------------ | ------- |
 | `pbcopy` | `clip` | ⚠ guarded: Core's `clip` script (WSL: calls `clip.exe`) |
 | `pbpaste` | `clip-paste` | ⚠ guarded: Core's `clip-paste` script |
 | `localip` | `ip -brief -4 addr show scope global` | LAN IP (Linux / WSL) |
@@ -328,7 +328,7 @@ Source: `dotfiles-Kali/offensive/offensive.zsh`
 ### Tool Aliases
 
 | Alias | Expands to | Notes |
-|-------|------------|-------|
+| ------- | ------------ | ------- |
 | `smb` | `nxc smb` | ⚠ guarded: `nxc` (NetExec — CrackMapExec successor) |
 | `ldap` | `nxc ldap` | ⚠ guarded: `nxc` |
 | `winrm` | `nxc winrm` | ⚠ guarded: `nxc` |
@@ -340,7 +340,7 @@ Source: `dotfiles-Kali/offensive/offensive.zsh`
 ### Key Functions
 
 | Function | Description |
-|----------|-------------|
+| ---------- | ------------- |
 | `nmapsweep <target/CIDR>` | Conservative nmap `-sCV -T4` sweep; writes all formats into `./nmap/<target>.{nmap,gnmap,xml}` |
 | `bhce <dc-ip> <user> <pass/:hash> [domain]` | BloodHound CE collection via NetExec; drops zip into `$ENGAGEMENT/loot/bloodhound/` |
 | `mkengagement <name>` | Create dated engagement workspace (`$ENGAGEMENTS_DIR/YYYYMMDD-<name>`), set `$ENGAGEMENT`, open `scope.txt` first |
@@ -350,7 +350,7 @@ Source: `dotfiles-Kali/offensive/offensive.zsh`
 ### Key Environment Variables
 
 | Variable | Default | Purpose |
-|----------|---------|---------|
+| ---------- | --------- | --------- |
 | `$ENGAGEMENTS_DIR` | `~/engagements` | Root for all engagement workspaces |
 | `$SECLISTS_DIR` | `/usr/share/seclists` | SecLists wordlists tree |
 | `$WORDLISTS_DIR` | `/usr/share/wordlists` | General wordlists (rockyou, etc.) |
@@ -369,7 +369,7 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 ### File Listing
 
 | Function | Expands to | Notes |
-|----------|------------|-------|
+| ---------- | ------------ | ------- |
 | `ls` | `eza --icons --group-directories-first` | ⚠ guarded: `eza`; fallback → `lsd` → `Get-ChildItem` |
 | `l` | `eza --icons --group-directories-first -1` | ⚠ guarded: `eza` (no zsh equivalent) |
 | `ll` | `eza --icons --group-directories-first -lh --git` | ⚠ guarded: `eza` |
@@ -380,7 +380,7 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 ### Modern CLI Tools
 
 | Function | Expands to | Notes |
-|----------|------------|-------|
+| ---------- | ------------ | ------- |
 | `cat` | `bat --paging=never` | ⚠ guarded: `bat` |
 | `catp` | `bat` | ⚠ guarded: `bat` — paged view |
 | `grep` | `rg --smart-case` | ⚠ guarded: `rg` |
@@ -399,7 +399,7 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 ### Git (parity with `core/zsh/git.zsh`)
 
 | Function | Expands to | Notes |
-|----------|------------|-------|
+| ---------- | ------------ | ------- |
 | `g` | `git` | |
 | `gs` | `git status -sb` | Windows-only extra (same output as `gsb`) |
 | `gst` | `git status` | |
@@ -419,7 +419,7 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 ### Navigation
 
 | Function | Expands to |
-|----------|------------|
+| ---------- | ------------ |
 | `..` | `Set-Location ..` |
 | `...` | `Set-Location ..\..` |
 | `....` | `Set-Location ..\..\..` |
@@ -429,7 +429,7 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 ### Utilities
 
 | Function | Description |
-|----------|-------------|
+| ---------- | ------------- |
 | `which <name>` | Enhanced `Get-Command`; resolves external paths + shows kind for functions/aliases |
 | `reload` | Re-dot-source `$PROFILE`; prints confirmation |
 | `dotfiles` | `Set-Location $global:DOTFILES` (the repo root set by `install.ps1`) |
@@ -439,7 +439,7 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 ## Cross-platform Intentional Differences
 
 | Feature | zsh (Core / macOS / Kali) | PowerShell (Windows) | Reason |
-|---------|--------------------------|-----------------------|--------|
+| --------- | -------------------------- | ----------------------- | -------- |
 | Markdown render | `md` → `glow --pager` | `gmd` → `glow` | `md` = `mkdir` alias on PS |
 | Process viewer | `ps` → `procs` | `pss` → `procs` | `ps` = `Get-Process` on PS |
 | Hex viewer | *(none)* | `hex` → `hexyl` | Windows addition |
