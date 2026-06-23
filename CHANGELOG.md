@@ -15,6 +15,14 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **`dotfiles-Defense-PLAN.md`** — a forward-looking architecture note plus a
+  complete, ready-to-instantiate skeleton for a future `dotfiles-Defense` repo
+  (the defensive/blue Role layer that mirrors `dotfiles-Kali`). Records the
+  red/blue split decision, the trigger for standing the repo up, the layer-table
+  identity, and every scaffold file verbatim (README, CLAUDE.md, bootstrap,
+  `defense.zsh`, methodology, gitignore, compose stub, templates) so the repo can
+  be `git init`-ed when the trigger is met. Added to the audit's repo-meta
+  allowlist; it is planning, not shipped Core.
 - **Claude Code project memory + maintenance routines** (`CLAUDE.md`, `.claude/`) —
   a root `CLAUDE.md` encoding the three-layer model, the "is it Core?" test, the
   manifest contract, and the load order so every Claude session reasons from the
