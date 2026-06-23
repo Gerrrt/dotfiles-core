@@ -51,7 +51,7 @@ CORE_REMOTE="${CORE_REMOTE:-$(git -C "$HERE" remote get-url origin 2>/dev/null |
 # NB: dotfiles-Windows is intentionally NOT here — it's the native host layer (no
 # vendored core/ subtree). See the note in scripts/os-repos.txt.
 ALL_OS_REPOS=(
-  dotfiles-MacBook dotfiles-Debian dotfiles-Kali
+  dotfiles-MacBook dotfiles-Kali
   dotfiles-Fedora dotfiles-Arch dotfiles-openSUSE
   dotfiles-Alpine dotfiles-Gentoo
 )

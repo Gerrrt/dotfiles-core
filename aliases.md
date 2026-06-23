@@ -667,7 +667,7 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 
 ## Cross-platform Intentional Differences
 
-| Feature | zsh (Core / macOS / Kali) | PowerShell (Windows) | Reason |
+| Feature | zsh (Core / macOS / Linux) | PowerShell (Windows) | Reason |
 | --------- | -------------------------- | ----------------------- | -------- |
 | Markdown render | `md` → `glow --pager` | `gmd` → `glow` | `md` = `mkdir` alias on PS |
 | Process viewer | `ps` → `procs` | `pss` → `procs` | `ps` = `Get-Process` on PS |
