@@ -499,7 +499,7 @@ Source: `dotfiles-Alpine/os/alpine.zsh`
 
 ### apk Package Manager
 
-The privilege prefix (`doas ` / `sudo ` / empty for root) is resolved once at shell
+The privilege prefix (`doas`/`sudo`/empty-for-root) is resolved once at shell
 start into `$_ASU` and baked into the alias definitions.
 
 | Alias | Expands to | Notes |
