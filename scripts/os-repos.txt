@@ -17,7 +17,7 @@
 dotfiles-MacBook
 dotfiles-Alpine
 dotfiles-Arch
-dotfiles-Debian
+# dotfiles-Debian — planned, not yet created; do not re-add until the repo exists
 dotfiles-Fedora
 dotfiles-Gentoo
 dotfiles-Kali

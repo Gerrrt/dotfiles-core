@@ -1,9 +1,12 @@
 # Aliases Cheat Sheet
 
-> Last updated: 2026-06-22.
+> Last updated: 2026-06-23.
 > Sources (repo-qualified — most live in sibling repos, not here): `core/zsh/aliases.zsh` ·
 > `core/zsh/git.zsh` · `dotfiles-MacBook/os/macos.zsh` · `dotfiles-Kali/os/kali.zsh` ·
-> `dotfiles-Kali/offensive/offensive.zsh` · `dotfiles-Windows/powershell/core/00-aliases.ps1`
+> `dotfiles-Kali/offensive/offensive.zsh` · `dotfiles-Fedora/os/fedora.zsh` ·
+> `dotfiles-Arch/os/arch.zsh` · `dotfiles-Alpine/os/alpine.zsh` ·
+> `dotfiles-Gentoo/os/gentoo.zsh` · `dotfiles-openSUSE/os/opensuse.zsh` ·
+> `dotfiles-Windows/powershell/core/00-aliases.ps1`
 
 Aliases marked **⚠ guarded** are only active when the backing tool is
 installed; the classic command is the transparent fallback on a bare box.
@@ -24,6 +27,12 @@ installed; the classic command is the transparent fallback on a bare box.
 - [macOS — Specific](#macos--specific)
 - [Kali — OS Layer](#kali--os-layer)
 - [Kali — Offensive Layer](#kali--offensive-layer)
+- [Linux OS — Common (all distros)](#linux-os--common-all-distros)
+- [Fedora — dnf & SELinux](#fedora--dnf--selinux)
+- [Arch — pacman & AUR](#arch--pacman--aur)
+- [Alpine — apk & doas](#alpine--apk--doas)
+- [Gentoo — emerge & Portage](#gentoo--emerge--portage)
+- [openSUSE — zypper & AppArmor](#opensuse--zypper--apparmor)
 - [Windows — PowerShell](#windows--powershell)
 - [Cross-platform Intentional Differences](#cross-platform-intentional-differences)
 - [Issues & Notes](#issues--notes)
@@ -359,6 +368,225 @@ Source: `dotfiles-Kali/offensive/offensive.zsh`
 
 ---
 
+## Linux OS — Common (all distros)
+
+The following aliases are present in **every** Linux OS repo (Kali, Fedora, Arch,
+Alpine, Gentoo, openSUSE). They're documented per-distro above/below but share
+identical definitions. Source: each distro's `os/<distro>.zsh`.
+
+| Alias | Expands to | Notes |
+| ------- | ------------ | ------- |
+| `pbcopy` | `clip` | ⚠ guarded: Core's `clip` script; on WSL calls `clip.exe` |
+| `pbpaste` | `clip-paste` | ⚠ guarded: Core's `clip-paste` script |
+| `localip` | `ip -brief -4 addr show scope global` | LAN IP across all Linux distros |
+| `dotsync` | `cd "$HOME/dotfiles-<Distro>"` | Jump to this machine's dotfiles repo (distro-specific path) |
+| `opsignin` | `eval "$(op signin)"` | ⚠ guarded: `op` — 1Password CLI sign-in |
+
+**WSL-only** (set on all distros when running under WSL2):
+
+| Alias | Expands to | Notes |
+| ------- | ------------ | ------- |
+| `open` | `explorer.exe` | Open a file or directory in Windows Explorer |
+| `xdg-open` | `wslview` | ⚠ guarded: `wslview` — open URIs/files with the default Windows handler |
+| `cdwin` | `cd "$WINHOME"` | Jump to Windows user home (set `WINHOME=/mnt/c/Users/<you>` in `local.zsh`) |
+
+---
+
+## Fedora — dnf & SELinux
+
+Source: `dotfiles-Fedora/os/fedora.zsh`
+
+### dnf Package Manager
+
+dnf5 is the default since Fedora 41; commands are identical to dnf4.
+
+| Alias | Expands to | Notes |
+| ------- | ------------ | ------- |
+| `dnfi` | `sudo dnf install` | Install a package |
+| `dnfs` | `dnf search` | Search available packages |
+| `dnfu` | `sudo dnf upgrade --refresh` | Sync metadata + full upgrade |
+| `dnfr` | `sudo dnf remove` | Remove a package |
+| `dnfh` | `dnf history` | Transaction history — undo-able |
+| `dnfwhat` | `dnf provides` | Which package owns a file or command |
+
+| Function | Description |
+| ---------- | ------------- |
+| `dnf-undo` | `sudo dnf history undo last` — roll back the most recent transaction |
+
+### Flatpak
+
+| Alias | Expands to |
+| ------- | ------------ |
+| `fpi` | `flatpak install flathub` |
+| `fpu` | `flatpak update` |
+| `fps` | `flatpak search` |
+| `fpl` | `flatpak list --app` |
+
+### SELinux helpers
+
+Inert on WSL kernels (enforcement disabled); active on bare-metal / VM Fedora.
+
+| Alias / Function | Description |
+| ------- | ------------ |
+| `se-status` | `sestatus` — show SELinux mode (with WSL fallback message) |
+| `se-denials` | `sudo ausearch -m AVC,USER_AVC -ts recent` — recent AVC denials |
+| `se-why` | `sudo journalctl -t setroubleshoot --since "10 min ago"` — human-readable denial explanations |
+| `se-restore <path>` | `sudo restorecon -Rv <path>` — restore SELinux file contexts recursively |
+
+---
+
+## Arch — pacman & AUR
+
+Source: `dotfiles-Arch/os/arch.zsh`
+
+> ⚠ **Rolling release rule**: there is deliberately **no** `-Sy <pkg>` alias.
+> Refreshing the sync DB without `-u` causes partial upgrades that break shared libraries.
+> `pacu` always runs a full `-Syu`.
+
+### pacman
+
+| Alias | Expands to | Notes |
+| ------- | ------------ | ------- |
+| `pacu` | `sudo pacman -Syu` | **The only blessed upgrade** — full system update |
+| `paci` | `sudo pacman -S --needed` | Install (skip if already installed) |
+| `pacs` | `pacman -Ss` | Search remote repos |
+| `pacqs` | `pacman -Qs` | Search installed packages |
+| `pacr` | `sudo pacman -Rns` | Remove + unneeded deps + config files |
+| `pacwhat` | `pacman -Qo` | Which package owns a file or command |
+| `pacfiles` | `pacman -Ql` | List files installed by a package |
+| `pacinfo` | `pacman -Qi` | Info on an installed package |
+| `paclog` | `tail -n 50 /var/log/pacman.log` | Recent transactions |
+| `pacout` | `checkupdates` | ⚠ guarded: `pacman-contrib` — list pending updates without touching sync DB |
+| `paccacheclean` | `sudo paccache -rk2` | ⚠ guarded: `paccache` — keep last 2 cached versions per package |
+
+| Function | Description |
+| ---------- | ------------- |
+| `pacorphans` | List + interactively remove orphaned packages (`pacman -Qtdq` → `pacman -Rns`) |
+| `pacdowngrade <pkg>` | Show cached versions of `<pkg>` so you can reinstall an older one with `pacman -U /var/cache/…` |
+
+### AUR Helper
+
+| Alias | Expands to | Notes |
+| ------- | ------------ | ------- |
+| `aur` | `paru -S` or `yay -S` | ⚠ guarded: `paru` preferred; falls back to `yay` |
+| `aurs` | `paru -Ss` or `yay -Ss` | Search AUR |
+| `auru` | `paru -Sua` or `yay -Sua` | Upgrade AUR packages only |
+
+### Flatpak
+
+| Alias | Expands to |
+| ------- | ------------ |
+| `fpi` | `flatpak install flathub` |
+| `fpu` | `flatpak update` |
+| `fps` | `flatpak search` |
+| `fpl` | `flatpak list --app` |
+
+---
+
+## Alpine — apk & doas
+
+Source: `dotfiles-Alpine/os/alpine.zsh`
+
+> Alpine uses **musl libc** — glibc-linked prebuilt binaries won't run; prefer `apk` packages or musl builds.
+> Privilege tool is `doas`, not `sudo`; a compatibility shim is installed when `sudo` is absent.
+> No Flatpak on Alpine by default.
+
+### doas shim
+
+| Alias | Expands to | Notes |
+| ------- | ------------ | ------- |
+| `sudo` | `doas` | ⚠ guarded: only set when `sudo` is absent and `doas` is present |
+
+### apk Package Manager
+
+The privilege prefix (`doas ` / `sudo ` / empty for root) is resolved once at shell
+start into `$_ASU` and baked into the alias definitions.
+
+| Alias | Expands to | Notes |
+| ------- | ------------ | ------- |
+| `apku` | `apk update && apk upgrade` | Sync + full upgrade (privilege prefix included) |
+| `apki` | `apk add` | Install a package |
+| `apkr` | `apk del` | Remove a package |
+| `apks` | `apk search` | Search available packages |
+| `apkw` | `apk info --who-owns` | Which package owns a file |
+| `apkl` | `apk info -L` | List files installed by a package |
+| `apkv` | `apk version` | Show upgradable packages |
+
+> Note: `apk` has no transaction undo. Keep installs deliberate.
+
+---
+
+## Gentoo — emerge & Portage
+
+Source: `dotfiles-Gentoo/os/gentoo.zsh`
+
+> Source-based: `emerge` **compiles packages** — expect real build time and USE-flag decisions.
+> Has a `doas` shim like Alpine (only active when `sudo` is absent).
+> No Flatpak on Gentoo by default — Portage is the way.
+
+### emerge / Portage
+
+Installs default to `--ask` so you see the dep + USE plan before committing — this is the Gentoo habit.
+
+| Alias | Expands to | Notes |
+| ------- | ------------ | ------- |
+| `emi` | `sudo emerge -av` | Install — ask + verbose (shows dep/USE plan) |
+| `emu` | `sudo emerge -auvDN @world` | Update the whole `@world` set |
+| `emr` | `sudo emerge -av --depclean` | Remove + clean orphaned deps (ask before running!) |
+| `emsync` | `sudo emerge --sync` | Sync the Portage tree (slow on first run) |
+| `emsearch` | `emerge -s` or `eix` | Search; `eix` (⚠ guarded) gives fast indexed results |
+| `embelongs` | `equery belongs` | Which package owns a file (requires `gentoolkit`) |
+| `emuses` | `equery uses` | Show a package's USE flags |
+| `empreserved` | `sudo emerge @preserved-rebuild` | Rebuild packages linked against replaced libraries |
+| `emconf` | `sudo dispatch-conf` | Merge pending `/etc` config updates (run after `emu`) |
+| `gnews` | `sudo eselect news read` | Portage news — **read these**, they often contain breaking changes |
+
+---
+
+## openSUSE — zypper & AppArmor
+
+Source: `dotfiles-openSUSE/os/opensuse.zsh`
+
+> Two update commands for two flavors: `zup` (Leap — stable) vs `zdup` (Tumbleweed — rolling).
+> Using the wrong one will half-update the system.
+
+### zypper Package Manager
+
+| Alias | Expands to | Notes |
+| ------- | ------------ | ------- |
+| `zref` | `sudo zypper refresh` | Sync repository metadata |
+| `zin` | `sudo zypper install` | Install a package |
+| `zrm` | `sudo zypper remove` | Remove a package |
+| `zse` | `zypper search` | Search packages |
+| `zup` | `sudo zypper up` | **Leap** — apply stable updates |
+| `zdup` | `sudo zypper dup` | **Tumbleweed** — rolling dist-upgrade |
+| `zwhat` | `zypper search --provides` | Which package provides a file or command |
+| `zinfo` | `zypper info` | Show package information |
+| `zlr` | `zypper repos` | List configured repositories |
+| `snaps` | `sudo snapper list` | List Btrfs snapshots (zypper has no history undo — roll back via Btrfs snapshots instead) |
+
+### Flatpak
+
+| Alias | Expands to |
+| ------- | ------------ |
+| `fpi` | `flatpak install flathub` |
+| `fpu` | `flatpak update` |
+| `fps` | `flatpak search` |
+| `fpl` | `flatpak list --app` |
+
+### AppArmor helpers
+
+openSUSE uses AppArmor (not SELinux). Inert on WSL kernels; active on bare-metal / VM.
+
+| Alias / Function | Description |
+| ------- | ------------ |
+| `aa-status` | `sudo aa-status` — show AppArmor status (with WSL fallback message) |
+| `aa-unconfined` | `sudo aa-unconfined` — list network processes without an AppArmor profile |
+| `aa-complain <profile>` | Switch a profile to complain mode (log but don't enforce) |
+| `aa-enforce <profile>` | Switch a profile back to enforce mode |
+
+---
+
 ## Windows — PowerShell
 
 Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
@@ -449,7 +677,10 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 | Extra git status | *(none)* | `gs` = `git status -sb` | Windows-kept muscle memory |
 | `rm` behavior | `rm -i` (Core); `trash` (macOS) | *(no override)* | macOS prefers recoverable Trash |
 | `gap` (patch stage) | `git add --patch` | *(not present)* | Not yet ported to PowerShell |
-| tmux auto-start | macOS: `exec tmux new-session -A -s main` | N/A | macOS uses `exec` so detach exits cleanly; Kali omits `exec` and leaves a parent shell on detach |
+| tmux auto-start | macOS: `exec tmux new-session -A -s main` | N/A | macOS uses `exec` so detach exits cleanly; all Linux OS layers use `attach \|\| new-session` (no `exec`), intentionally leaving a parent shell on detach for WSL recovery |
+| Security module helpers | Fedora: SELinux (`se-*`); openSUSE: AppArmor (`aa-*`); Kali: none (offensive layer instead); Alpine/Gentoo: none | N/A | Each distro's default MAC framework |
+| AUR helper | Arch only (`aur`, `aurs`, `auru`) | N/A | Arch-specific package ecosystem |
+| Transaction undo | Fedora: `dnf-undo`; others: none | N/A | Only dnf5 has a true undo; Arch/openSUSE use cache/snapshots instead |
 
 ---
 
@@ -457,11 +688,14 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 
 The following inconsistencies were identified during this audit:
 
-1. **Kali tmux auto-start missing `exec`** (`os/kali.zsh`): The Kali tmux
-   auto-start uses `tmux attach -t main 2>/dev/null || tmux new-session -s main`
-   while macOS uses `exec tmux new-session -A -s main`. The Kali form leaves a
-   parent shell behind when you detach. Consider aligning to the macOS `exec`
-   pattern.
+1. **All Linux OS layers use `attach || new-session` (no `exec`) in tmux auto-start**
+   (`os/kali.zsh`, `os/fedora.zsh`, `os/arch.zsh`, `os/alpine.zsh`, `os/gentoo.zsh`,
+   `os/opensuse.zsh`): macOS uses `exec tmux new-session -A -s main`, which replaces
+   the login shell so detaching exits the terminal cleanly. All Linux layers use
+   `tmux attach -t main 2>/dev/null || tmux new-session -s main` without `exec`,
+   leaving a bare parent shell behind on detach. This is **intentional** for the WSL
+   context (the parent shell provides a recovery shell if WSL kills the outer process),
+   but differs from the macOS behaviour.
 
 2. **`gap` not in PowerShell** (`powershell/core/00-aliases.ps1`): `gap` =
    `git add --patch` exists in Core zsh but has no Windows equivalent. Low
@@ -470,6 +704,15 @@ The following inconsistencies were identified during this audit:
 3. **`glol`/`glola` not in PowerShell**: The coloured graph-log aliases from
    `core/zsh/git.zsh` are missing from the PowerShell side.
 
+4. **Fedora SELinux helpers inert on WSL**: `se-status`, `se-denials`, `se-restore`,
+   and `se-why` are always defined in `fedora.zsh` regardless of WSL detection. They
+   print a graceful "not active" message on WSL, so this is safe but slightly noisy.
+
+5. **openSUSE `zup` vs `zdup` footgun**: Both aliases coexist. Running `zup` on
+   Tumbleweed applies only patch-level updates (not the rolling upgrade); running `zdup`
+   on Leap performs a dist-upgrade that may be unexpected. No guard exists — relies on
+   user knowing their flavor.
+
 ---
 
-Generated 2026-06-22 by `claude/alias-sync`.
+Generated 2026-06-23 by `claude/alias-sync`.
