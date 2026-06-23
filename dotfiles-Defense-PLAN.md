@@ -139,7 +139,7 @@ the heavy stack comes up via `docker/` (`siemup` / `siemdown`).
 
 Adds one stage to the zsh loader, just before local overrides:
 `tools → … → os → defense → local`. `defense/defense.zsh` →
-`~/.config/zsh/defense.zsh` holds workflow helpers only (`mkcase`, `case`,
+`~/.config/zsh/defense.zsh` holds workflow helpers only (`mkcase`, `gocase`,
 `note`, `siemup`/`siemdown`), all `HAVE_*`-guarded.
 
 ## What the layer ships
@@ -184,7 +184,7 @@ containers.
 
 ## Where things are
 
-- `defense/defense.zsh` — role layer: `HAVE_*` detection, `mkcase`/`case`/`note`, `siemup`/`siemdown`
+- `defense/defense.zsh` — role layer: `HAVE_*` detection, `mkcase`/`gocase`/`note`, `siemup`/`siemdown`
 - `defense/templates/` — `case.md` / `hunt.md`
 - `detections/` — `sigma/`, `sysmon/`, `network/`, `siem/`
 - `docker/` — the detection-lab compose stack(s)
@@ -397,7 +397,8 @@ triage/
 *.plaso
 *.body
 *.timeline
-*.csv          # exported triage tables — commit a sample by force-add only
+# exported triage tables — force-add a sample if you ever need to commit one
+*.csv
 
 # Loot-adjacent: creds, tokens, keys
 *.key
@@ -525,8 +526,9 @@ mkcase() {
   ${EDITOR:-nvim} "$root/case.md"
 }
 
-# case — fzf-jump between existing cases (mirrors Kali's `eng` widget)
-case() {
+# gocase — fzf-jump between existing cases (mirrors Kali's `eng` widget). NOT named
+# `case`: that's a zsh reserved word, so a `case` function can be defined but never called.
+gocase() {
   [[ -d "$CASES_DIR" ]] || { echo "no $CASES_DIR yet — run mkcase"; return 1; }
   local sel
   sel=$(find "$CASES_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -r \
