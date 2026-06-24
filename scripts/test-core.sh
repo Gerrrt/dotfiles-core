@@ -676,6 +676,19 @@ check "serve --help returns 0 (not mis-read as a bad port)" \
   'out=$(serve --help); (( $? == 0 )) && [[ $out == *"usage: serve"* ]]'
 check "extract -h returns 0 (not mis-read as a missing file)" \
   'out=$(extract -h); (( $? == 0 )) && [[ $out == *"usage: extract"* ]]'
+# pullall (#git): the parent dir is configurable, so input is validated in Core's
+# voice — a non-directory and a bad PULLALL_JOBS are both REJECTED before any find/
+# xargs runs. --help is the usual STDOUT-and-return-0 contract. The repo-less-dir
+# case exercises the full find→xargs→summary pipeline hermetically (no network, no
+# .git, so the workers exit early) and asserts the summary card + a clean exit.
+check "pullall --help prints usage to stdout and returns 0" \
+  'out=$(pullall --help); (( $? == 0 )) && [[ $out == *"usage: pullall"* ]]'
+check "pullall rejects a non-directory parent" \
+  'pullall /no/such/dir 2>/dev/null; (( $? != 0 ))'
+check "pullall rejects a non-numeric PULLALL_JOBS" \
+  'PULLALL_JOBS=x pullall "$(mktemp -d)" 2>/dev/null; (( $? != 0 ))'
+check "pullall on a repo-less dir prints the summary and returns 0" \
+  'd=$(mktemp -d); mkdir "$d/a" "$d/b"; out=$(pullall "$d" 2>&1); (( $? == 0 )) && [[ $out == *"pullall summary"* && $out == *"updated:  0"* ]]'
 # core-version (#4): reports the vendored Core stamp so an OS repo can tell WHICH Core
 # it carries. $_CORE_VERSION_FILE resolves (via %x) to this repo's core.version here.
 check "core-version prints the vendored SemVer stamp" \

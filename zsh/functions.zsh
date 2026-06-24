@@ -577,6 +577,150 @@ genpw() {
   echo
 }
 
+# pullall — fast-update every git repo under a parent directory, IN PARALLEL. For
+# each repo it prunes deleted remote branches, stashes any uncommitted (tracked)
+# changes, switches to the repo's trunk (main/master/trunk/… — auto-detected, NOT
+# assumed to be "main"), fast-forwards it, then pops your stash back. A summary card
+# tallies updated / warnings / failed / pruned at the end.
+#
+#   pullall            # repos under $PULLALL_DIR (or the CWD if it's unset)
+#   pullall ~/code     # repos under an explicit directory
+#
+# The parent directory is deliberately NOT hard-coded — Core is identical on every
+# machine, but /Users/you/projects vs /home/you/code is not. Pass it as an argument,
+# or pin it once in your ~/.zshrc.local (the machine-local layer Core loads last):
+#   export PULLALL_DIR="$HOME/projects"
+# Parallelism defaults to 10 workers; override with PULLALL_JOBS.
+#
+# Heads-up: this rewrites working state across MANY repos. It is stash-safe (your
+# uncommitted tracked changes are popped back, and a pop conflict is reported, never
+# swallowed), but a repo you left on a feature branch ends up on its trunk — run it
+# where that's what you want. The pull is --ff-only, so a diverged trunk is reported
+# as a failure rather than silently merged.
+# Portability: needs `xargs -P` (parallel). Present on macOS/BSD and GNU findutils; a
+# stripped busybox/Alpine xargs without parallel support will reject -P — set
+# PULLALL_JOBS=1 there, or install findutils.
+pullall() {
+  emulate -L zsh
+  _core_wants_help "$1" && { _core_help "pullall [dir]" "pull every git repo under a dir in parallel (prunes, stashes, fast-forwards trunk)"; return 0; }
+
+  local parent="${1:-${PULLALL_DIR:-$PWD}}"
+  if [[ ! -d "$parent" ]]; then
+    _core_err "pullall: not a directory: $parent"
+    _core_hint "pass a directory, or set PULLALL_DIR (e.g. in ~/.zshrc.local)"
+    _core_usage "pullall [dir]"
+    return 1
+  fi
+  local jobs="${PULLALL_JOBS:-10}"
+  if [[ "$jobs" != <-> ]] || ((jobs < 1)); then
+    _core_err "pullall: PULLALL_JOBS must be a positive integer (got '$jobs')"
+    return 1
+  fi
+
+  # Colour is decided ONCE here (TTY- and NO_COLOR-aware) and handed to the workers
+  # as exported vars. The workers run under /bin/sh, where Core's _core_* helpers
+  # don't exist — so they print with printf and these pre-resolved escapes (real ESC
+  # bytes, or empty when colour is off). `local -x` exports to the child processes
+  # AND restores the caller's environment when pullall returns.
+  local -x G='' Y='' R='' NC=''
+  if [[ -t 1 && -z ${NO_COLOR:-} ]]; then
+    G=$'\e[32m' Y=$'\e[33m' R=$'\e[31m' NC=$'\e[0m'
+  fi
+  local bold='' rst=''
+  [[ -n "$NC" ]] && { bold=$'\e[1m' rst=$'\e[0m'; }
+
+  print -r -- "${bold}🔄 Updating git repos under ${parent} …${rst}"
+  print
+
+  # Each worker receives its repo path as $1 — passed POSITIONALLY, not interpolated
+  # into the script text — so a path with spaces, quotes, or shell metacharacters
+  # can't break the worker or inject a command. -print0/-0 keep odd names intact; -P
+  # runs $jobs workers at once. Output is captured (not streamed) so we can tally it.
+  local output
+  output=$(find "$parent" -mindepth 1 -maxdepth 1 -type d -print0 \
+    | xargs -0 -I {} -P "$jobs" sh -c '
+      repo="$1"
+      cd "$repo" 2>/dev/null || exit 0
+      [ -e .git ] || exit 0            # plain clone (dir) or worktree/submodule (file)
+      name=$(basename "$repo")
+
+      # 1. prune deleted remote branches — report only when something was actually pruned
+      prune=$(git fetch --prune 2>&1)
+      if printf "%s\n" "$prune" | grep -q "\[deleted\]"; then
+        printf "%s\n" "$prune" | grep "\[deleted\]" | while IFS= read -r line; do
+          printf "%s\n" "${Y}🧹 ${name}: ${line}${NC}"
+        done
+      fi
+
+      # 2. stash uncommitted (tracked) changes so checkout/pull cannot be blocked by them
+      stashed=0
+      if ! git diff-index --quiet HEAD -- 2>/dev/null; then
+        git stash push -m "Auto-stash by pullall" >/dev/null 2>&1 && stashed=1
+      fi
+
+      # 3. resolve THIS repos trunk — origin/HEAD if set, else the first of
+      #    main/master/trunk that exists, else fall back to the current branch.
+      trunk=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)
+      trunk=${trunk#origin/}
+      if [ -z "$trunk" ]; then
+        for b in main master trunk; do
+          if git show-ref -q --verify "refs/heads/$b"; then trunk="$b"; break; fi
+        done
+      fi
+      [ -z "$trunk" ] && trunk=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+      # 4. switch to the trunk
+      if ! git checkout "$trunk" >/dev/null 2>&1; then
+        printf "%s\n" "${R}❌ ${name}: could not switch to ${trunk}${NC}"
+        [ "$stashed" -eq 1 ] && git stash pop >/dev/null 2>&1
+        exit 0
+      fi
+
+      # 5. fast-forward the trunk
+      git pull --ff-only origin "$trunk" >/dev/null 2>&1
+      pull=$?
+
+      # 6. restore the stash (report a pop conflict instead of leaving it on the stack silently)
+      if [ "$stashed" -eq 1 ]; then
+        if ! git stash pop >/dev/null 2>&1; then
+          printf "%s\n" "${Y}⚠️  ${name}: updated ${trunk}, but a conflict blocked restoring your local changes${NC}"
+          exit 0
+        fi
+      fi
+
+      # 7. per-repo status line
+      if [ "$pull" -eq 0 ]; then
+        if [ "$stashed" -eq 1 ]; then
+          printf "%s\n" "${G}✅ ${name}: updated ${trunk} & restored your changes${NC}"
+        else
+          printf "%s\n" "${G}✅ ${name}: updated ${trunk}${NC}"
+        fi
+      else
+        printf "%s\n" "${R}❌ ${name}: network or non-fast-forward error during pull${NC}"
+      fi
+    ' _ {})
+
+  print -r -- "$output"
+
+  # Tally from the emoji markers. grep -c always prints exactly one integer (0 on no
+  # match), so these stay safe for the arithmetic below even when $output is empty.
+  local ok warn fail pruned
+  ok=$(printf '%s\n' "$output"   | grep -c '✅')
+  warn=$(printf '%s\n' "$output" | grep -c '⚠️')
+  fail=$(printf '%s\n' "$output" | grep -c '❌')
+  pruned=$(printf '%s\n' "$output" | grep -c '🧹')
+
+  print
+  print -r -- "${bold}📊 pullall summary${rst}"
+  print -r -- "  ${G}updated:${NC}  $ok"
+  ((warn > 0)) && print -r -- "  ${Y}warnings:${NC} $warn"
+  print -r -- "  ${R}failed:${NC}   $fail"
+  ((pruned > 0)) && print -r -- "  ${Y}pruned:${NC}   $pruned remote branch(es)"
+
+  # A clean run returns 0; any ❌ makes pullall non-zero so it composes in scripts.
+  return $((fail > 0))
+}
+
 # core-help (alias: cheat) — a scannable cheat sheet of what Core actually gives
 # you on this box: the shell functions, the custom keybindings, and the update /
 # maintenance verbs. Static + instant — the discoverability surface for the Core
@@ -648,6 +792,7 @@ _core_help_render() {
     "gd / gds|diff / diff --staged"
     "glog|graph log (oneline, decorated)"
     "grbm|rebase onto the trunk branch"
+    "pullall [dir]|pull every git repo under a dir in parallel (stashes, fast-forwards trunk)"
     "§keybindings"
     "Ctrl-F|file picker → insert path at cursor|fzf"
     "Ctrl-R|history search|fzf"
