@@ -15,6 +15,16 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **`pullall [dir]` shell function** (`zsh/functions.zsh`) — fast-update every git
+  repo under a parent directory in parallel: prunes deleted remote branches,
+  stashes uncommitted tracked changes, switches to each repo's auto-detected trunk
+  (main/master/trunk/… via `origin/HEAD`, not a hard-coded `main`), fast-forwards
+  it, pops the stash back (reporting a pop conflict instead of swallowing it), then
+  prints a summary card. The parent directory is configurable (argument →
+  `$PULLALL_DIR` → CWD) so Core stays machine-agnostic; parallelism via
+  `xargs -P` (`$PULLALL_JOBS`, default 10). Colour is TTY/`NO_COLOR`-aware and
+  repo paths are passed positionally (no shell injection from odd names). Ships
+  with a `_pullall` completion, a `core-help` row, and behavioural tests.
 - **`dotfiles-Defense-PLAN.md`** — a forward-looking architecture note plus a
   complete, ready-to-instantiate skeleton for a future `dotfiles-Defense` repo
   (the defensive/blue Role layer that mirrors `dotfiles-Kali`). Records the

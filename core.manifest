@@ -61,6 +61,7 @@ zsh/completions/_opsecret
 zsh/completions/_opssh
 zsh/completions/_optoken
 zsh/completions/_please
+zsh/completions/_pullall
 zsh/completions/_serve
 zsh/completions/_up
 zsh/completions/_update-check

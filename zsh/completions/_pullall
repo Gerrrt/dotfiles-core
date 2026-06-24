@@ -1,0 +1,5 @@
+#compdef pullall
+# Completion for Core's `pullall` (zsh/functions.zsh): a single optional argument —
+# the parent directory whose immediate git sub-repos get pulled (defaults to
+# $PULLALL_DIR, else the CWD).
+_arguments '1:parent directory:_directories'
