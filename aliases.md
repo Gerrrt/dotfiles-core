@@ -1,6 +1,6 @@
 # Aliases Cheat Sheet
 
-> Last updated: 2026-06-23.
+> Last updated: 2026-06-24.
 > Sources (repo-qualified — most live in sibling repos, not here): `core/zsh/aliases.zsh` ·
 > `core/zsh/git.zsh` · `dotfiles-MacBook/os/macos.zsh` · `dotfiles-Kali/os/kali.zsh` ·
 > `dotfiles-Kali/offensive/offensive.zsh` · `dotfiles-Fedora/os/fedora.zsh` ·
@@ -346,6 +346,9 @@ Source: `dotfiles-Kali/offensive/offensive.zsh`
 | `sliver` | `sliver-client` | ⚠ guarded: `sliver-client` |
 | `hethttp` | `echo "serving …"; python3 -m http.server 8000` | Quick delivery web server on port 8000 in the current directory |
 | `seclists` | `cd "$SECLISTS_DIR"` | Jump to `/usr/share/seclists` (guarded: dir must exist) |
+| `htp` | `${EDITOR:-nvim} "$HOME/hacktheplanet"` | ⚠ guarded: symlink must exist — CTF/HTB command cheatsheet (fold with `za`) |
+| `xdev` | `${EDITOR:-nvim} "$HOME/exploitdev"` | ⚠ guarded: symlink must exist — binary exploitation companion (stack/SEH/shellcode) |
+| `evade` | `${EDITOR:-nvim} "$HOME/evasion"` | ⚠ guarded: symlink must exist — defense-evasion companion (AV/AMSI/C2/AD) |
 
 ### Key Functions
 
