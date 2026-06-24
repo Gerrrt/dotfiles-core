@@ -689,6 +689,41 @@ check "pullall rejects a non-numeric PULLALL_JOBS" \
   'PULLALL_JOBS=x pullall "$(mktemp -d)" 2>/dev/null; (( $? != 0 ))'
 check "pullall on a repo-less dir prints the summary and returns 0" \
   'd=$(mktemp -d); mkdir "$d/a" "$d/b"; out=$(pullall "$d" 2>&1); (( $? == 0 )) && [[ $out == *"pullall summary"* && $out == *"updated:  0"* ]]'
+# Integration (the bulk of the logic the validation tests above don't reach): build a
+# bare remote + a behind clone hermetically (mirrors the gcheck git_* tests below — a
+# throwaway $GIT_AUTHOR_* identity and git init in mktemp), advance the remote, then run
+# pullall and assert it fast-forwarded the clone (tally "updated: 1", a real new file on
+# disk, zero failures). This exercises trunk auto-detection, the --ff-only pull, and the
+# ✅ tally — the per-repo path that fans out to all 9 OS repos.
+check_dep "pullall fast-forwards a behind repo and tallies it (hermetic bare remote)" git \
+  'export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@e GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@e
+   w=$(mktemp -d)
+   git -c init.defaultBranch=main init -q --bare "$w/remote.git"
+   git -c init.defaultBranch=main clone -q "$w/remote.git" "$w/seed"
+   ( cd "$w/seed" && print -r -- one > a.txt && git add a.txt && git commit -q -m one && git push -q -u origin main )
+   mkdir -p "$w/parent"
+   git clone -q "$w/remote.git" "$w/parent/repoA"
+   ( cd "$w/seed" && print -r -- two > b.txt && git add b.txt && git commit -q -m two && git push -q origin main )
+   out=$(pullall "$w/parent" 2>&1)
+   [[ $out == *"updated:  1"* && $out == *"failed:   0"* && -f "$w/parent/repoA/b.txt" ]]'
+# The riskier path this PR added: a NON-fast-forward pull ($pull != 0) that ALSO hits a
+# stash-pop conflict must report ❌ "pull failed AND a conflict …" and count as a failure,
+# NOT a ⚠️ that claims the trunk was updated. Construct it hermetically: diverge the clone
+# (local main commit) and the remote (a different commit) so --ff-only fails, then sit on a
+# feature branch (forked from before the divergence) with a conflicting uncommitted change
+# so the auto-stash pop conflicts after checkout. Asserts the gate + the failure tally.
+check_dep "pullall reports a combined pull-failure + stash-pop conflict as a ❌" git \
+  'export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@e GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@e
+   w=$(mktemp -d)
+   git -c init.defaultBranch=main init -q --bare "$w/remote.git"
+   git -c init.defaultBranch=main clone -q "$w/remote.git" "$w/seed"
+   ( cd "$w/seed" && print -r -- base > x.txt && git add x.txt && git commit -q -m base && git push -q -u origin main )
+   mkdir -p "$w/parent"
+   git clone -q "$w/remote.git" "$w/parent/repoA"
+   ( cd "$w/seed" && print -r -- remotemain > x.txt && git commit -q -am remotemain && git push -q origin main )
+   ( cd "$w/parent/repoA" && print -r -- localmain > x.txt && git commit -q -am localmain && git checkout -q -b feature main~1 && print -r -- dirty > x.txt )
+   out=$(pullall "$w/parent" 2>&1)
+   [[ $out == *"failed:   1"* && $out == *"pull failed AND a conflict"* ]]'
 # core-version (#4): reports the vendored Core stamp so an OS repo can tell WHICH Core
 # it carries. $_CORE_VERSION_FILE resolves (via %x) to this repo's core.version here.
 check "core-version prints the vendored SemVer stamp" \
