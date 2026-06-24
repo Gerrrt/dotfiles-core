@@ -658,7 +658,7 @@ pullall() {
         git stash push -m "Auto-stash by pullall" >/dev/null 2>&1 && stashed=1
       fi
 
-      # 3. resolve THIS repos trunk — origin/HEAD if set, else the first of
+      # 3. resolve the trunk for THIS repo — origin/HEAD if set, else the first of
       #    main/master/trunk that exists, else fall back to the current branch.
       trunk=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)
       trunk=${trunk#origin/}
@@ -680,10 +680,16 @@ pullall() {
       git pull --ff-only origin "$trunk" >/dev/null 2>&1
       pull=$?
 
-      # 6. restore the stash (report a pop conflict instead of leaving it on the stack silently)
+      # 6. restore the stash (report a pop conflict instead of leaving it on the stack silently).
+      #    The wording is gated on $pull: if the fast-forward ALSO failed, the trunk was not
+      #    updated, so dont claim it was — that combined failure is a ❌, not a ⚠️.
       if [ "$stashed" -eq 1 ]; then
         if ! git stash pop >/dev/null 2>&1; then
-          printf "%s\n" "${Y}⚠️  ${name}: updated ${trunk}, but a conflict blocked restoring your local changes${NC}"
+          if [ "$pull" -eq 0 ]; then
+            printf "%s\n" "${Y}⚠️  ${name}: updated ${trunk}, but a conflict blocked restoring your local changes${NC}"
+          else
+            printf "%s\n" "${R}❌ ${name}: pull failed AND a conflict blocked restoring your local changes${NC}"
+          fi
           exit 0
         fi
       fi

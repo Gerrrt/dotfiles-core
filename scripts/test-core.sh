@@ -689,6 +689,23 @@ check "pullall rejects a non-numeric PULLALL_JOBS" \
   'PULLALL_JOBS=x pullall "$(mktemp -d)" 2>/dev/null; (( $? != 0 ))'
 check "pullall on a repo-less dir prints the summary and returns 0" \
   'd=$(mktemp -d); mkdir "$d/a" "$d/b"; out=$(pullall "$d" 2>&1); (( $? == 0 )) && [[ $out == *"pullall summary"* && $out == *"updated:  0"* ]]'
+# Integration (the bulk of the logic the validation tests above don't reach): build a
+# bare remote + a behind clone hermetically (mirrors the gcheck git_* tests below — a
+# throwaway $GIT_AUTHOR_* identity and git init in mktemp), advance the remote, then run
+# pullall and assert it fast-forwarded the clone (tally "updated: 1", a real new file on
+# disk, zero failures). This exercises trunk auto-detection, the --ff-only pull, and the
+# ✅ tally — the per-repo path that fans out to all 9 OS repos.
+check_dep "pullall fast-forwards a behind repo and tallies it (hermetic bare remote)" git \
+  'export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@e GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@e
+   w=$(mktemp -d)
+   git -c init.defaultBranch=main init -q --bare "$w/remote.git"
+   git -c init.defaultBranch=main clone -q "$w/remote.git" "$w/seed"
+   ( cd "$w/seed" && print -r -- one > a.txt && git add a.txt && git commit -q -m one && git push -q -u origin main )
+   mkdir -p "$w/parent"
+   git clone -q "$w/remote.git" "$w/parent/repoA"
+   ( cd "$w/seed" && print -r -- two > b.txt && git add b.txt && git commit -q -m two && git push -q origin main )
+   out=$(pullall "$w/parent" 2>&1)
+   [[ $out == *"updated:  1"* && $out == *"failed:   0"* && -f "$w/parent/repoA/b.txt" ]]'
 # core-version (#4): reports the vendored Core stamp so an OS repo can tell WHICH Core
 # it carries. $_CORE_VERSION_FILE resolves (via %x) to this repo's core.version here.
 check "core-version prints the vendored SemVer stamp" \
