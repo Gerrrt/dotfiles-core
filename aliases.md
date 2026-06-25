@@ -1,6 +1,6 @@
 # Aliases Cheat Sheet
 
-> Last updated: 2026-06-24.
+> Last updated: 2026-06-25.
 > Sources (repo-qualified — most live in sibling repos, not here): `core/zsh/aliases.zsh` ·
 > `core/zsh/git.zsh` · `dotfiles-MacBook/os/macos.zsh` · `dotfiles-Kali/os/kali.zsh` ·
 > `dotfiles-Kali/offensive/offensive.zsh` · `dotfiles-Fedora/os/fedora.zsh` ·
@@ -148,6 +148,9 @@ Source: `core/zsh/functions.zsh` · `core/zsh/maint.zsh` · `core/zsh/update.zsh
 | `serve [-l] [port]` | HTTP server in CWD (default port 8000); prints reachable URLs + QR; `-l` = loopback only |
 | `genpw [length]` | Random alphanumeric password (default 16; openssl or /dev/urandom) |
 | `please` | Re-run last command with sudo (previews + confirms first) |
+| `pullall [dir]` | Pull every git repo under a directory in parallel (auto-stash, fast-forward trunk, prune). Dir defaults to `$PULLALL_DIR` or `$PWD` |
+| `fif <text>` | Find text inside files with ripgrep + fzf + preview (needs `rg` + `fzf`). Source: `core/zsh/fzf.zsh` |
+| `fbr` | Fuzzy git-branch checkout (local + remote). Source: `core/zsh/fzf.zsh` |
 | `core` / `core-help` | Core cheat sheet (filter: `core-help git`) |
 | `core-doctor [-v]` | Health report — which tools are detected and wired |
 | `core-version` | Print the vendored Core layer version |
@@ -716,6 +719,13 @@ The following inconsistencies were identified during this audit:
    on Leap performs a dist-upgrade that may be unexpected. No guard exists — relies on
    user knowing their flavor.
 
+6. **dotfiles-Kali README documents non-existent commands**: `dotfiles-Kali/README.md`
+   references `newengagement`, `seteng`, `cde`, `note`, `lhost`, and `www` as implemented
+   workflow helpers. None of these exist in `offensive/offensive.zsh`. The actual function
+   is `mkengagement` (not `newengagement`), and the others were never implemented.
+   The workflow example at the bottom of the README uses these phantom commands.
+   **Fixed in companion PR**: dotfiles-Kali#11 updates the README to reflect the real command set.
+
 ---
 
-Generated 2026-06-23 by `claude/alias-sync`.
+Generated 2026-06-25 by `claude/alias-sync`.
