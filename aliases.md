@@ -149,8 +149,8 @@ Source: `core/zsh/functions.zsh` · `core/zsh/maint.zsh` · `core/zsh/update.zsh
 | `genpw [length]` | Random alphanumeric password (default 16; openssl or /dev/urandom) |
 | `please` | Re-run last command with sudo (previews + confirms first) |
 | `pullall [dir]` | Pull every git repo under a directory in parallel (auto-stash, fast-forward trunk, prune). Dir defaults to `$PULLALL_DIR` or `$PWD` |
-| `fif <text>` | Find text inside files with ripgrep + fzf + preview (needs `rg` + `fzf`). Source: `fzf.zsh` |
-| `fbr` | Fuzzy git-branch checkout (local + remote). Source: `fzf.zsh` |
+| `fif <text>` | Find text inside files with ripgrep + fzf + preview (needs `rg` + `fzf`). Source: `core/zsh/fzf.zsh` |
+| `fbr` | Fuzzy git-branch checkout (local + remote). Source: `core/zsh/fzf.zsh` |
 | `core` / `core-help` | Core cheat sheet (filter: `core-help git`) |
 | `core-doctor [-v]` | Health report — which tools are detected and wired |
 | `core-version` | Print the vendored Core layer version |
@@ -724,7 +724,7 @@ The following inconsistencies were identified during this audit:
    workflow helpers. None of these exist in `offensive/offensive.zsh`. The actual function
    is `mkengagement` (not `newengagement`), and the others were never implemented.
    The workflow example at the bottom of the README uses these phantom commands.
-   **Fixed in the same PR**: README updated to reflect the real command set.
+   **Fixed in companion PR**: dotfiles-Kali#11 updates the README to reflect the real command set.
 
 ---
 
