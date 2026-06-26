@@ -28,6 +28,17 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **`.github/workflows/bootstrap-test.yml`** — a _reusable_ (`workflow_call`)
+  bootstrap integration test, authored once here and called by a thin ~10-line
+  stub in each OS repo, so the OS repos gain CI without each carrying a duplicated
+  copy of the logic (the same fan-out the Core layer exists to kill). Two jobs:
+  `lint` runs `shellcheck -x` + `bash -n` + `--help` on `bootstrap.sh` (the OS
+  repos previously had no CI at all, so this is their first gate); `links-only`
+  runs `bootstrap.sh --links-only` inside the target distro's container and
+  asserts the symlink graph + the generated `~/.zshrc` (it pre-seeds the tpm dir
+  to skip the network clone, mirroring `test-core.sh`'s offline technique, and
+  leaves the actual module load — already covered hermetically by `test-core.sh` —
+  alone). Callers pass `image`/`prep`/`offensive`; Kali sets `offensive: true`.
 - **`lib/bootstrap-lib.sh`** — a vendored BASH provisioning scaffold that ends the
   per-repo bootstrap fan-out. Roughly half of each OS bootstrap.sh was the _same_
   code — `link()`, `read_pkgs()`, WSL detection, the Core-symlink loop, the `.zshrc`
