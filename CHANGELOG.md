@@ -23,7 +23,7 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   "planned" to a documented permanent absence (so it is not re-added), and dropped
   it from the `claude-routines` fleet-clone loop. This also reconciles the
   "nine-repo system" / "seven vendoring OS repos" counts, which the phantom Debian
-  entry had thrown off by one. Debian *distro-family* facts (the `bat`→`batcat` /
+  entry had thrown off by one. Debian _distro-family_ facts (the `bat`→`batcat` /
   `fd`→`fdfind` renames, Kali being Debian-family) are unaffected and retained.
 
 ### Added
