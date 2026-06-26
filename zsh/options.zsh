@@ -2,7 +2,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # Portable zsh options + the completion system. NEW in the 2026 refresh: this
 # centralizes setopts and `compinit` that previously had to live in each OS repo's
-# .zshrc loader (i.e. up to eight copies of the same portable config — exactly the
+# .zshrc loader (i.e. up to seven copies of the same portable config — exactly the
 # drift this whole Core layer exists to kill).
 #
 # LOAD ORDER: source this SECOND, right after tools.zsh. compinit must run here so

@@ -37,7 +37,7 @@ usage: new-os-repo.sh <OSName> [target-dir] [--dry-run] [--no-vendor]
 Scaffold a new OS repo that vendors Core: subtree-add core/, then write a correct
 .zshrc loader (canonical order), os/<os>.zsh, a starter bootstrap, and .gitignore.
 
-  <OSName>       e.g. Fedora, Arch, Debian  (repo defaults to ../dotfiles-<OSName>)
+  <OSName>       e.g. Fedora, Arch, Gentoo  (repo defaults to ../dotfiles-<OSName>)
   target-dir     override the destination directory
   --dry-run, -n  print every planned action; create nothing
   --no-vendor    scaffold the files but skip the `git subtree add` (do it yourself later)

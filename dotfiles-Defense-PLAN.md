@@ -51,7 +51,7 @@ SO is a SOC sensor appliance, not a dotfiles target.
 | Layer | Source | What it carries |
 | --- | --- | --- |
 | Core | vendored from `dotfiles-core` under `core/` | zsh, tmux, nvim, git, starship |
-| OS-native | your existing OS repo (Fedora/Debian/…) | package manager, clipboard, paths |
+| OS-native | your existing OS repo (Fedora/Arch/…) | package manager, clipboard, paths |
 | Defense (role) | `defense/` + `detections/` + `docker/` | hunt/triage tooling, detection content, the lab |
 
 It adds one zsh loader stage, mirroring Kali's `offensive` stage:

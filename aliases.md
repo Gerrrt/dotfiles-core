@@ -1,6 +1,6 @@
 # Aliases Cheat Sheet
 
-> Last updated: 2026-06-25.
+> Last updated: 2026-06-26.
 > Sources (repo-qualified — most live in sibling repos, not here): `core/zsh/aliases.zsh` ·
 > `core/zsh/git.zsh` · `dotfiles-MacBook/os/macos.zsh` · `dotfiles-Kali/os/kali.zsh` ·
 > `dotfiles-Kali/offensive/offensive.zsh` · `dotfiles-Fedora/os/fedora.zsh` ·
@@ -352,6 +352,7 @@ Source: `dotfiles-Kali/offensive/offensive.zsh`
 | `htp` | `${EDITOR:-nvim} "$HOME/hacktheplanet"` | ⚠ guarded: symlink must exist — CTF/HTB command cheatsheet (fold with `za`) |
 | `xdev` | `${EDITOR:-nvim} "$HOME/exploitdev"` | ⚠ guarded: symlink must exist — binary exploitation companion (stack/SEH/shellcode) |
 | `evade` | `${EDITOR:-nvim} "$HOME/evasion"` | ⚠ guarded: symlink must exist — defense-evasion companion (AV/AMSI/C2/AD) |
+| `ipp` | `${EDITOR:-nvim} "$HOME/ippsec"` | ⚠ guarded: symlink must exist — IppSec method (recon loop, shell stabilization, pseudo-shell patterns) |
 
 ### Key Functions
 
@@ -362,6 +363,11 @@ Source: `dotfiles-Kali/offensive/offensive.zsh`
 | `mkengagement <name>` | Create dated engagement workspace (`$ENGAGEMENTS_DIR/YYYYMMDD-<name>`), set `$ENGAGEMENT`, open `scope.txt` first |
 | `eng` | fzf-jump between existing engagement directories; sets `$ENGAGEMENT` |
 | `logshell` | Record a full shell session (typescript + timing) into `$ENGAGEMENT/notes/` for audit trail |
+| `cde` | `cd` back to the active engagement directory (`$ENGAGEMENT`); errors if none set |
+| `note [msg]` | Append a timestamped line to `$ENGAGEMENT/notes.md`; with no args opens notes in `$EDITOR` |
+| `lhost [iface]` | Print attacker IP — prefers VPN tun (tun0/wg0), falls back to default-route source; pass iface to force one |
+| `ttyup` | Print the IppSec TTY-upgrade sequence (python pty → Ctrl-Z → `stty raw -echo; fg`) with your terminal rows/cols filled in |
+| `rocks <keyword…>` | Open ippsec.rocks search in the browser for a technique or keyword |
 
 ### Key Environment Variables
 
@@ -719,13 +725,14 @@ The following inconsistencies were identified during this audit:
    on Leap performs a dist-upgrade that may be unexpected. No guard exists — relies on
    user knowing their flavor.
 
-6. **dotfiles-Kali README documents non-existent commands**: `dotfiles-Kali/README.md`
-   references `newengagement`, `seteng`, `cde`, `note`, `lhost`, and `www` as implemented
-   workflow helpers. None of these exist in `offensive/offensive.zsh`. The actual function
-   is `mkengagement` (not `newengagement`), and the others were never implemented.
-   The workflow example at the bottom of the README uses these phantom commands.
-   **Fixed in companion PR**: dotfiles-Kali#11 updates the README to reflect the real command set.
+6. **`cdwin` missing from `dotfiles-Kali/os/kali.zsh`**: Every other Linux OS repo
+   (Fedora, Arch, Alpine, openSUSE, Gentoo) defines `cdwin` inside the WSL detection
+   block, guarded on `WINHOME`: `[[ -n "${WINHOME:-}" ]] && alias cdwin='cd "$WINHOME"'`.
+   `kali.zsh` omits it — likely an oversight since Kali is the primary WSL distro
+   where this is most useful. Add the same guarded form inside `kali.zsh`'s
+   `if (( _IS_WSL ))` block to keep parity; the guard ensures `cdwin` is inert
+   when `WINHOME` is not set (e.g. bare-metal Kali).
 
 ---
 
-Generated 2026-06-25 by `claude/alias-sync`.
+Generated 2026-06-26 by `claude/alias-sync`.
