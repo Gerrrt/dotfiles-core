@@ -28,6 +28,21 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **`lib/bootstrap-lib.sh`** — a vendored BASH provisioning scaffold that ends the
+  per-repo bootstrap fan-out. Roughly half of each OS bootstrap.sh was the _same_
+  code — `link()`, `read_pkgs()`, WSL detection, the Core-symlink loop, the `.zshrc`
+  loader heredoc, the default-login-shell logic — copy-pasted and then independently
+  reformatted, so a fix had to be made in every repo by hand (the exact N-way drift
+  Core exists to kill, leaking through the one file that can't be vendored). The
+  shared half now lives here as `blib_*` helpers (`blib_link`, `blib_read_pkgs`,
+  `blib_is_wsl`, `blib_link_core`, `blib_link_os_layer`, `blib_write_zshrc_loader`,
+  `blib_set_login_shell`), sourced by each bootstrap.sh alongside `lib/ux.sh`. The
+  loader writer takes the module list as an argument, so a role repo (Kali) injects
+  its `offensive` stage; the login-shell helper takes `$BLIB_SU` so a doas-only or
+  root box works. The `core/`-presence check stays inline per bootstrap (you cannot
+  source a lib out of `core/` before confirming `core/` exists). Listed in
+  `core.manifest`; sourced (non-exec) like `lib/ux.sh`. Adopting it in each OS
+  bootstrap.sh is a follow-up that lands after this is synced out.
 - **`pullall [dir]` shell function** (`zsh/functions.zsh`) — fast-update every git
   repo under a parent directory in parallel: prunes deleted remote branches,
   stashes uncommitted tracked changes, switches to each repo's auto-detected trunk
