@@ -79,6 +79,10 @@ bin/clip-paste
 # ── shared BASH UX lib — palette/glyphs/spinner; SOURCED by each OS repo's
 #    bootstrap.sh (the pre-shell installer can't source the zsh ui.zsh) ─────────
 lib/ux.sh
+# ── shared Core->destination symlink map — the ONE wire_core_links() each OS repo's
+#    bootstrap.sh SOURCES + calls, so a new Core file links everywhere on sync instead
+#    of needing a hand-edit in every bootstrap (and being forgotten in some). ────
+lib/wire-core.sh
 # ── mise — polyglot runtime manager; global tool versions (portable) ──────────
 mise/config.toml
 # ── sesh — portable session-manager config (SEEDED to ~/.config/sesh/sesh.toml;

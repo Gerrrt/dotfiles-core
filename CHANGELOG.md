@@ -15,6 +15,18 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **`lib/wire-core.sh` — the one Core→destination symlink map** (vendored; in
+  `core.manifest`). Each OS repo's `bootstrap.sh` hand-rolled the same ~40 lines that
+  symlink the vendored `core/` tree into `~/.config`; the copies drifted in format and,
+  worse, in content — `core/lazygit/config.yml` and `core/vim/vimrc` are in the manifest
+  yet **no** bootstrap linked them, so two Core files shipped to every machine but reached
+  none. This library centralises that map as `wire_core_links "$DOTFILES" "$CFG"`, plus
+  reusable idempotent `wire_link`/`wire_seed` helpers (back up a real file once, no-op on an
+  already-correct link, `WIRE_DRY=1` plan-only) built on `lib/ux.sh`. A Core file added here
+  now links everywhere on the next sync instead of needing a hand-edit in every bootstrap
+  (and being forgotten in some); linking lazygit + vim closes the pre-existing gap. Sourced,
+  `bash` 3.2-safe, mode `100644`. The OS-native overlays, zsh entry layer, ssh, tpm, and
+  provisioning stay per-repo; bootstraps adopt it incrementally (Fedora first).
 - **`pullall [dir]` shell function** (`zsh/functions.zsh`) — fast-update every git
   repo under a parent directory in parallel: prunes deleted remote branches,
   stashes uncommitted tracked changes, switches to each repo's auto-detected trunk
