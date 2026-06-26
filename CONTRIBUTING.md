@@ -2,7 +2,7 @@
 
 This repo is the **Core layer** — the config that is identical on every machine —
 authored once here and vendored into each OS repo's `core/` via `git subtree`.
-A change here fans out to all eight OS repos, so the bar is: _is this truly Core,
+A change here fans out to all seven OS repos, so the bar is: _is this truly Core,
 and is it healthy?_
 
 ## Is it actually Core?
@@ -16,7 +16,7 @@ Otherwise it lives elsewhere:
 
 | If it changes when…                                               | It belongs in…                                     |
 | ----------------------------------------------------------------- | -------------------------------------------------- |
-| the **operating system** changes (pkg manager, paths, clipboard)  | the OS repo (`dotfiles-{MacBook,Debian,Fedora,…}`) |
+| the **operating system** changes (pkg manager, paths, clipboard)  | the OS repo (`dotfiles-{MacBook,Fedora,Arch,…}`)   |
 | **you as an operator** change (C2, wordlists, engagement layouts) | `dotfiles-Kali`                                    |
 | neither — it's the same everywhere                                | **here**                                           |
 
