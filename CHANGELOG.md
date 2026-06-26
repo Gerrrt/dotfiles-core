@@ -3,7 +3,7 @@
 All notable changes to **dotfiles-core** are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-Core is the single source of truth vendored into eight OS repos via
+Core is the single source of truth vendored into seven OS repos via
 `git subtree pull --prefix=core <core-remote> main --squash` (see `scripts/sync-core.sh`).
 Every entry below is therefore a change those repos receive on their next sync —
 this file is the human-readable record of _what_ a sync will bring, complementing
@@ -12,6 +12,19 @@ the SHA that `scripts/sync-core.sh` now prints. To cut a release, move the
 commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
+
+### Changed
+
+- **Dropped `dotfiles-Debian` from the documented fleet.** The Debian OS-native
+  repo was only ever planned, never created, and is no longer being pursued — so
+  the fleet docs that named it as a real target were ahead of reality. Removed it
+  from the OS-native repo lists (`README.md`, `CLAUDE.md`, `CONTRIBUTING.md`,
+  `SECURITY.md`, `PORTING-MATRIX.md`), reframed it in `scripts/os-repos.txt` from
+  "planned" to a documented permanent absence (so it is not re-added), and dropped
+  it from the `claude-routines` fleet-clone loop. This also reconciles the
+  "nine-repo system" / "seven vendoring OS repos" counts, which the phantom Debian
+  entry had thrown off by one. Debian *distro-family* facts (the `bat`→`batcat` /
+  `fd`→`fdfind` renames, Kali being Debian-family) are unaffected and retained.
 
 ### Added
 

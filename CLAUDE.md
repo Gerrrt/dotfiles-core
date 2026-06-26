@@ -16,7 +16,7 @@ because it does.
 | Layer         | Lives in                                                               | Examples                                     |
 | ------------- | ---------------------------------------------------------------------- | -------------------------------------------- |
 | **Core**      | **this repo**, vendored into each OS repo's `core/`                    | zsh modules, tmux, nvim, git, starship       |
-| **OS-native** | `dotfiles-{MacBook,Windows,Debian,Fedora,Arch,openSUSE,Alpine,Gentoo}` | package manager, clipboard, paths            |
+| **OS-native** | `dotfiles-{MacBook,Windows,Fedora,Arch,openSUSE,Alpine,Gentoo}`        | package manager, clipboard, paths            |
 | **Role**      | `dotfiles-Kali`                                                        | offensive/engagement tooling on the OS layer |
 
 Plus `dotfiles-web` — the public Astro showcase/docs site (the system's public

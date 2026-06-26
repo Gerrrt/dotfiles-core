@@ -16,7 +16,7 @@ Otherwise it lives elsewhere:
 
 | If it changes when…                                               | It belongs in…                                     |
 | ----------------------------------------------------------------- | -------------------------------------------------- |
-| the **operating system** changes (pkg manager, paths, clipboard)  | the OS repo (`dotfiles-{MacBook,Debian,Fedora,…}`) |
+| the **operating system** changes (pkg manager, paths, clipboard)  | the OS repo (`dotfiles-{MacBook,Fedora,Arch,…}`)   |
 | **you as an operator** change (C2, wordlists, engagement layouts) | `dotfiles-Kali`                                    |
 | neither — it's the same everywhere                                | **here**                                           |
 
