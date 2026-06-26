@@ -727,10 +727,7 @@ The following inconsistencies were identified during this audit:
 
 6. **`cdwin` missing from `dotfiles-Kali/os/kali.zsh`**: Every other Linux OS repo
    (Fedora, Arch, Alpine, openSUSE, Gentoo) defines `cdwin` inside the WSL detection
-   block, guarded on `WINHOME`:
-   ```zsh
-   [[ -n "${WINHOME:-}" ]] && alias cdwin='cd "$WINHOME"'
-   ```
+   block, guarded on `WINHOME`: `[[ -n "${WINHOME:-}" ]] && alias cdwin='cd "$WINHOME"'`.
    `kali.zsh` omits it — likely an oversight since Kali is the primary WSL distro
    where this is most useful. Add the same guarded form inside `kali.zsh`'s
    `if (( _IS_WSL ))` block to keep parity; the guard ensures `cdwin` is inert
