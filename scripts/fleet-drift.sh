@@ -26,6 +26,10 @@
 #   ./scripts/fleet-drift.sh --root ~/src    # fleet lives elsewhere
 #   ./scripts/fleet-drift.sh --ref v1.2.0    # compare against a tag, not main
 #   ./scripts/fleet-drift.sh --strict        # a not-checked-out repo FAILS, not skips
+#   ./scripts/fleet-drift.sh --quiet         # suppress the ✓ rows; show only drift + summary
+#
+# Flags: [--root DIR] [--ref COMMIT-ISH] [--strict] [--quiet] [--color auto|always|never]
+#   (--color defaults to auto and honours NO_COLOR, like the sibling gate scripts.)
 #
 # Exit: 0 = every present repo is current; 1 = drift found; 2 = usage error.
 # ──────────────────────────────────────────────────────────────────────────────
