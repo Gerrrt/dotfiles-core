@@ -100,8 +100,8 @@ After a Core change, one helper fans it out to the whole fleet:
 
 Because the subtree squash records the exact Core commit, a tagged clone of any
 OS repo carries the precise Core it was tested with — the human-readable SemVer
-lives in `core.version` (currently `1.2.0`) and is vendored alongside it so a
-machine can report which Core it runs.
+lives in `core.version` and is vendored alongside it so a machine can report
+which Core it runs.
 
 The cardinal rule that follows from this topology: **never edit a vendored
 `core/` tree in an OS repo.** It is a copy and is overwritten on the next sync.
