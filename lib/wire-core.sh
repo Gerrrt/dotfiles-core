@@ -122,7 +122,9 @@ wire_core_links() {
   # cross-OS helper scripts onto PATH (called by zsh, tmux AND nvim)
   wire_link "$core/bin/clip" "$HOME/.local/bin/clip"
   wire_link "$core/bin/clip-paste" "$HOME/.local/bin/clip-paste"
-  chmod +x "$core/bin/clip" "$core/bin/clip-paste" 2>/dev/null || true
+  # Skip the exec-bit fix under WIRE_DRY — a dry run must change nothing, including the
+  # mode of the vendored source files.
+  [[ "${WIRE_DRY:-0}" != 0 ]] || chmod +x "$core/bin/clip" "$core/bin/clip-paste" 2>/dev/null || true
 
   # zsh modules — the whole load-order set (completions are fpath-added by options.zsh, not
   # symlinked; the OS layer adds os.zsh + the entry files itself)
@@ -140,7 +142,7 @@ wire_core_links() {
   wire_link "$core/tmux/tmux.reset.conf" "$cfg/tmux/tmux.reset.conf"
   if [[ -d "$core/tmux/scripts" ]]; then
     wire_link "$core/tmux/scripts" "$cfg/tmux/scripts"
-    chmod +x "$core"/tmux/scripts/*.sh 2>/dev/null || true
+    [[ "${WIRE_DRY:-0}" != 0 ]] || chmod +x "$core"/tmux/scripts/*.sh 2>/dev/null || true
   fi
 
   # neovim (whole lazy.nvim tree) + vim fallback for stock-vim-only boxes
