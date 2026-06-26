@@ -85,7 +85,7 @@ fi
 alias lg='lazygit'
 
 # ── upstream sync (gsync) ─────────────────────────────────────────────────────
-# `gsync` splits the vendored Neovim config out and pushes it to dotfiles-core.
+# `gsync` pushes an OS repo's vendored core/ subtree back upstream to dotfiles-core.
 # Resolve the runner relative to THIS file (survives the core/ subtree living
 # inside each OS repo) — the same %x trick maint.zsh uses for its runner, so the
 # shortcut works without putting .bin on PATH.
