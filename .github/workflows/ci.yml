@@ -74,7 +74,7 @@ jobs:
 
   audit:
     needs: changes
-    # Core fans out to macOS (dotfiles-MacBook) AND eight Linux distros, so gate
+    # Core fans out to macOS (dotfiles-MacBook) AND six Linux distros, so gate
     # on BOTH userlands — not just Linux. The portable checks (shellcheck, zsh -n,
     # manifest/exec-bit) are OS-agnostic, but the BEHAVIORAL tests and bin/clip*
     # exercise real runtime: macOS ships bash 3.2 (no `mapfile`/assoc-array niceties
