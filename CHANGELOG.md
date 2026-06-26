@@ -15,6 +15,14 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **`gsync` upstream-sync shortcut** (`.bin/sync-upstream.sh`, `zsh/aliases.zsh`) —
+  a one-word alias that `git subtree push`es the vendored Neovim config back to
+  dotfiles-core (`main`). The runner auto-resolves the Neovim folder by location
+  (`nvim/` in core, `core/nvim/` once vendored into an OS repo), refuses to run
+  with a dirty working tree, and reports the current branch. The alias resolves
+  the script relative to the sourced module via the `${(%):-%x}` trick (the same
+  one `maint.zsh` uses), so the shortcut survives the `core/` subtree vendoring
+  without putting `.bin` on `PATH`. Registered in `core.manifest`.
 - **`pullall [dir]` shell function** (`zsh/functions.zsh`) — fast-update every git
   repo under a parent directory in parallel: prunes deleted remote branches,
   stashes uncommitted tracked changes, switches to each repo's auto-detected trunk
