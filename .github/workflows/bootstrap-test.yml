@@ -68,7 +68,13 @@ jobs:
           PREP: ${{ inputs.prep }}
           OFFENSIVE: ${{ inputs.offensive }}
         run: |
-          docker run --rm -e PREP -e OFFENSIVE -v "$PWD:/repo" -w /repo "$IMAGE" sh -euc '
+          # BLIB_SU= : the container runs as root, so no privilege escalation is
+          # needed. Without this, blib_set_login_shell defaults BLIB_SU=sudo and a
+          # distro whose image HAS chsh but NOT sudo (Arch/openSUSE/Kali base images)
+          # would run `sudo chsh` and abort. Empty = run chsh/tee directly as root.
+          # (Alpine/Gentoo bootstraps already export their own BLIB_SU; this is a no-op
+          # there and the correct default for the rest.)
+          docker run --rm -e PREP -e OFFENSIVE -e BLIB_SU= -v "$PWD:/repo" -w /repo "$IMAGE" sh -euc '
             eval "$PREP"
             # Pre-seed the tpm dir so blib_link_core skips its network git clone — the
             # same "seed the plugin dir to skip the first-run clone" trick test-core.sh
