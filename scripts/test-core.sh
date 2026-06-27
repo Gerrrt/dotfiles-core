@@ -1094,7 +1094,7 @@ ucheck "update: _pkgup_list surfaces upgradable package names (apt)" \
 # sentinel, enable prompt_subst, seed a positive cached count, and assert the rendered
 # nudge MENTIONS up but never EXECUTED it.
 ucheck "update: _pkgup_notice nudge is prompt_subst-safe (mentions up, never runs it)" \
-  "source '$UPD'; setopt prompt_subst; up(){ print RAN_UP }; mkdir -p \${_PKGUP_CACHE:h}; print -rl -- 3 \$EPOCHSECONDS >| \$_PKGUP_CACHE; out=\$(_pkgup_notice); [[ \$out == *up* && \$out != *RAN_UP* ]]" \
+  "source '$UPD'; setopt prompt_subst; up(){ print RAN_UP }; mkdir -p \${_PKGUP_CACHE:h}; print -rl -- 3 \$EPOCHSECONDS >| \$_PKGUP_CACHE; out=\$(_pkgup_notice); [[ \$out == *\"run 'up'\"* && \$out != *RAN_UP* ]]" \
   XDG_CACHE_HOME="$SANDBOX/psubst-notice" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 # up --dry-run (#8): the non-destructive inspect — list what WOULD upgrade and exit 0,
 # applying nothing. Same apt stub as above; assert the names print and the rc is 0.
