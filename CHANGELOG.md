@@ -15,6 +15,12 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Changed
 
+- **`/freshness-triage` now covers the CLI tool pins.** The routine reviewed zsh/nvim/
+  actions bumps but said nothing about `scripts/tool-versions.env` — the one bump class
+  that also needs `make update-tool-checksums` to refresh its `*_SHA256`. Added a section
+  so a `*_VERSION` change without its checksum is flagged **Hold** (the audit only checks
+  the hash is _present_, not correct, so a stale hash otherwise fails late at the action's
+  `sha256sum -c` in CI). Routine-doc only; no code change.
 - **Cross-shell keybindings aligned (PARITY.md decisions resolved).** The four open
   parity decisions are settled and implemented on both shells: **Ctrl+T** = file picker
   (zsh moved off `Ctrl+F`), **Ctrl+E** = atuin TUI / **Ctrl+R** = quick fzf history,
