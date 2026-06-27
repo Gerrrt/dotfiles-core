@@ -15,6 +15,17 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Changed
 
+- **De-forked `update.zsh`'s per-shell path** (`zsh/update.zsh`) — the throttle check
+  and the upgrade nudge ran `date +%s` once and `sed -n Np` twice on **every**
+  interactive shell, three subprocess spawns (~1.7 ms each, measured) on the critical
+  path before the first prompt — the exact fork tax this stack's cached inits + deferred
+  plugins exist to avoid. Replaced with zsh builtins: `$EPOCHSECONDS` (a `zsh/datetime`
+  param) for the clock and `$(<file)` + `${(f)…}` for the two-line cache read, removing
+  all three forks (~5 ms off a warm shell) with byte-identical behaviour and a `date`
+  fallback if the module is unavailable. Profiled with `make profile`; the `_pkgup_*`
+  parse + nudge unit tests are unchanged and green. (A profile-led pivot: caching
+  `tools.zsh`'s `command -v` probes — only ~1.8 ms total, and a stale cache could hide a
+  newly-installed tool — was measured and rejected as not worth the footgun.)
 - **Dropped `dotfiles-Debian` from the documented fleet.** The Debian OS-native
   repo was only ever planned, never created, and is no longer being pursued — so
   the fleet docs that named it as a real target were ahead of reality. Removed it
@@ -28,6 +39,29 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **`PARITY.md` — the cross-shell parity contract** — the source of truth for what
+  "the same on zsh and PowerShell" means, mapping every prompt/alias/keybinding/
+  function capability to `aligned` (must stay in step), `deliberate` (intentional
+  platform difference), or `gap` (open item). Makes the WSL-zsh ↔ Windows-pwsh
+  divergences a documented decision instead of silent drift, and names the open
+  decisions (the `Ctrl+G` sesh-vs-navi collision, the file-picker key, the atuin
+  key, the `gaf`/`grf`/`grsf` + `Alt+Z` ports). Paired with a same-change fix that
+  brings the **fzf tokyonight-storm palette to pwsh** (`dotfiles-Windows`
+  `powershell/core/10-tools.ps1`), which previously fell back to terminal-default
+  colours — the first `aligned` row closed. A future `scripts/parity-check.sh` can
+  mechanise the `aligned` rows the way `fleet-drift.sh` mechanised provenance.
+- **`core/` edit guard** (`blib_install_core_guard` in `lib/bootstrap-lib.sh`, wired into
+  `scripts/sync-core.sh`) — a local `pre-commit` hook that refuses commits touching the
+  vendored `core/` subtree, turning the prose rule "never hand-edit `core/`" into a
+  mechanical block. Motivated by a real incident: an upstream "Lazy lock update" edited a
+  vendored `core/nvim/lazy-lock.json` directly, drifting it from canonical Core. `sync-core.sh`
+  now (re)installs the hook into every repo it fans out to (so the protection lands on the
+  maintainer's machine, where the edit happens) and exempts its own legitimate subtree
+  writes via `DOTFILES_ALLOW_CORE_EDIT=1`; a one-off bypass is the standard
+  `git commit --no-verify`. Idempotent and non-destructive — it never clobbers a
+  pre-existing unrelated `pre-commit` hook. Covered by hermetic git tests in
+  `scripts/test-core.sh`. (Wiring it into each OS `bootstrap.sh` for fresh clones rides
+  along with the pending `bootstrap-lib.sh` adoption.)
 - **Fleet-drift check** (`scripts/fleet-drift.sh`, `make fleet-drift`, and a weekly
   `.github/workflows/fleet-drift.yml`) — reads every OS repo's `core.lock`
   (`core_sha=…`) plus `dotfiles-Windows`'s `nvim/.core-ref` (`commit = …`) and reports
