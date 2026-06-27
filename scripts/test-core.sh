@@ -569,11 +569,20 @@ hdr "module selection (blib_select / blib_want)"
 # shellcheck source=lib/bootstrap-lib.sh
 source "$HERE/lib/bootstrap-lib.sh"
 
+# Drift guard: the cases below hardcode the six groups as an independent oracle (so a
+# corrupted BLIB_MODULES can't make them pass vacuously). Pin the production list to that
+# oracle HERE so adding/renaming a group trips one obvious assertion instead of silently
+# skewing every _want_set expectation.
+if [[ "$BLIB_MODULES" == "zsh nvim tmux git prompt tools" ]]; then pass "BLIB_MODULES matches the tested group set"; else fail "BLIB_MODULES drifted from the tested oracle (got '$BLIB_MODULES') — update Section G"; fi
+
 # blib_select aborts (exit 1) on bad input — drive it in a subshell and read the rc.
 _sel_rc() { ( blib_select "$1" "$2" ) >/dev/null 2>&1; }
 for _bad in 'zsh,,nvim' 'zsh,' ',zsh' '' '*' 'a b' 'bogus' 'zsh nvim'; do
   if _sel_rc --only "$_bad"; then fail "blib_select accepted a bad selector: '$_bad'"; else pass "blib_select rejects '$_bad'"; fi
 done
+
+# an unknown flag (not --only/--skip) must fail fast, not silently no-op the selection.
+if _sel_rc --bogus 'zsh'; then fail "blib_select accepted an unknown flag"; else pass "blib_select rejects an unknown flag"; fi
 
 # a clean selector is accepted and normalised to space-separated (subshell: blib_select
 # would mutate the suite's own BLIB_ONLY otherwise).
@@ -597,6 +606,10 @@ if [[ "$(_want_set 'zsh' 'zsh')" == "zsh" ]]; then pass "blib_want: --only wins 
 # blib_selected_note — empty when unfiltered, reflects the active selection otherwise.
 if [[ -z "$( blib_selected_note )" ]]; then pass "blib_selected_note: empty when nothing is filtered"; else fail "blib_selected_note: not empty by default"; fi
 if [[ "$( blib_select --only zsh,nvim; blib_selected_note )" == " (only: zsh nvim)" ]]; then pass "blib_selected_note: shows the --only suffix"; else fail "blib_selected_note: --only suffix wrong"; fi
+if [[ "$( blib_select --skip tmux; blib_selected_note )" == " (skipped: tmux)" ]]; then pass "blib_selected_note: shows the --skip suffix"; else fail "blib_selected_note: --skip suffix wrong"; fi
+# precedence: when both are set --only wins in blib_want, so the note must report ONLY the
+# only-mode (showing a skipped suffix that's actually ignored would be misleading).
+if [[ "$( blib_select --only zsh; blib_select --skip nvim; blib_selected_note )" == " (only: zsh)" ]]; then pass "blib_selected_note: --only wins, --skip not shown"; else fail "blib_selected_note: should report only-mode when both set"; fi
 
 # ── zsh-gated sections (A load-order, B function units) ───────────────────────
 # Everything below needs a real zsh. On a bare box we SKIP it (not fail) and fall
