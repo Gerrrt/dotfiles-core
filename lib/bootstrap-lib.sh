@@ -43,6 +43,15 @@
 [[ -n "${_CORE_BOOTSTRAP_LIB_SH:-}" ]] && return 0
 _CORE_BOOTSTRAP_LIB_SH=1
 
+# ── dry-run + tallies ─────────────────────────────────────────────────────────
+# BLIB_DRY=1 makes the mutating helpers (blib_link / blib_seed / blib_link_core /
+# blib_write_zshrc_loader / blib_set_login_shell) PRINT what they WOULD do and change
+# nothing — so a bootstrap's `--dry-run` previews the full plan. Default off, so every
+# existing caller is byte-for-byte unaffected. The BLIB_* counters accumulate across a
+# run; blib_wire_summary prints them. (MacBook adopts these so its --dry-run survives.)
+BLIB_LINKED=0 BLIB_SEEDED=0 BLIB_BACKED=0 BLIB_SKIPPED=0
+_blib_dry() { [[ "${BLIB_DRY:-0}" != 0 ]]; }
+
 # ── messages ──────────────────────────────────────────────────────────────────
 # Thin wrappers over the UX_* palette (set by lib/ux.sh). When ux.sh wasn't sourced,
 # UX_* expand empty and these stay plain — no hard dependency, no colour codes leak.
@@ -61,16 +70,62 @@ blib_is_wsl() {
 
 # ── symlink with backup ───────────────────────────────────────────────────────
 # blib_link <src> <dst> — replace an existing SYMLINK in place; back up a real file
-# to <dst>.pre-dotfiles.<epoch> first. Idempotent (safe to re-run a bootstrap).
+# to <dst>.pre-dotfiles.<epoch> first. Idempotent (safe to re-run a bootstrap): an
+# already-correct link is a no-op. A missing src is skipped (not a dangling link).
+# Honors BLIB_DRY (plan only) and updates the BLIB_* counters. Non-dry mutation
+# behaviour is unchanged from before (symlink → relink, real file → backup, then link).
 blib_link() {
   local src="$1" dst="$2"
+  if [[ ! -e "$src" ]]; then
+    blib_say "skip (missing): ${src##*/}"
+    BLIB_SKIPPED=$((BLIB_SKIPPED + 1))
+    return 0
+  fi
+  if [[ -L "$dst" && "$(readlink "$dst")" == "$src" ]]; then
+    BLIB_LINKED=$((BLIB_LINKED + 1)) # already correct → no-op
+    return 0
+  fi
+  if _blib_dry; then
+    if [[ -L "$dst" ]]; then
+      blib_say "would relink: $dst"
+    elif [[ -e "$dst" ]]; then
+      blib_say "would back up + link: $dst"
+      BLIB_BACKED=$((BLIB_BACKED + 1))
+    else
+      blib_say "would link: $dst"
+    fi
+    BLIB_LINKED=$((BLIB_LINKED + 1))
+    return 0
+  fi
   mkdir -p "$(dirname "$dst")"
   if [[ -L "$dst" ]]; then
     rm -f "$dst"
   elif [[ -e "$dst" ]]; then
     mv "$dst" "$dst.pre-dotfiles.$(date +%s)"
+    BLIB_BACKED=$((BLIB_BACKED + 1))
   fi
   ln -s "$src" "$dst"
+  BLIB_LINKED=$((BLIB_LINKED + 1))
+}
+
+# ── seed a starter file (copy, not symlink) ───────────────────────────────────
+# blib_seed <src> <dst> <note> — COPY a starter file into place ONLY when dst is absent,
+# for files the user edits locally and that must never be tracked back (git identity,
+# sesh layout). A present dst is left untouched (never relinked/clobbered). Honors
+# BLIB_DRY and counts. This is the one definition of the seed pattern blib_link_core
+# previously inlined twice.
+blib_seed() {
+  local src="$1" dst="$2" note="$3"
+  [[ -f "$src" && ! -e "$dst" ]] || return 0
+  if _blib_dry; then
+    blib_say "would seed: $dst ($note)"
+    BLIB_SEEDED=$((BLIB_SEEDED + 1))
+    return 0
+  fi
+  mkdir -p "$(dirname "$dst")"
+  cp "$src" "$dst"
+  blib_say "seeded $dst — $note"
+  BLIB_SEEDED=$((BLIB_SEEDED + 1))
 }
 
 # ── read a package list ───────────────────────────────────────────────────────
@@ -105,16 +160,20 @@ blib_link_core() {
   # tmux popup scripts (prefix w/T/f) — symlink the dir + ensure they're runnable.
   if [[ -d "$dotfiles/core/tmux/scripts" ]]; then
     blib_link "$dotfiles/core/tmux/scripts" "$config/tmux/scripts"
-    chmod +x "$dotfiles"/core/tmux/scripts/*.sh 2>/dev/null || true
+    _blib_dry || chmod +x "$dotfiles"/core/tmux/scripts/*.sh 2>/dev/null || true
   fi
   # tmux plugin manager (tpm) — clone once so the theme + resurrect/continuum load.
   # Plugins still need one install pass: `prefix + I` in tmux.
   if [[ ! -d "$config/tmux/plugins/tpm" ]]; then
-    blib_say "cloning tpm (tmux plugin manager)"
-    if git clone --depth=1 https://github.com/tmux-plugins/tpm "$config/tmux/plugins/tpm" >/dev/null 2>&1; then
-      blib_ok "tpm cloned — run prefix + I in tmux to install plugins"
+    if _blib_dry; then
+      blib_say "would clone tpm (tmux plugin manager)"
     else
-      blib_say "tpm clone failed — clone it manually, then prefix + I"
+      blib_say "cloning tpm (tmux plugin manager)"
+      if git clone --depth=1 https://github.com/tmux-plugins/tpm "$config/tmux/plugins/tpm" >/dev/null 2>&1; then
+        blib_ok "tpm cloned — run prefix + I in tmux to install plugins"
+      else
+        blib_say "tpm clone failed — clone it manually, then prefix + I"
+      fi
     fi
   fi
 
@@ -130,28 +189,20 @@ blib_link_core() {
   [[ -f "$dotfiles/core/mise/config.toml" ]] && blib_link "$dotfiles/core/mise/config.toml" "$config/mise/config.toml"
   [[ -f "$dotfiles/core/git/gitconfig" ]] && blib_link "$dotfiles/core/git/gitconfig" "$HOME/.gitconfig"
 
-  # private identity file, seeded ONCE from the example (never tracked, never relinked).
-  if [[ ! -f "$config/git/local.gitconfig" && -f "$dotfiles/core/git/local.gitconfig.example" ]]; then
-    mkdir -p "$config/git"
-    cp "$dotfiles/core/git/local.gitconfig.example" "$config/git/local.gitconfig"
-    blib_say "seeded ~/.config/git/local.gitconfig — FILL IN your name & email"
-  fi
-
-  # portable sesh session config, seeded ONCE (COPIED not symlinked — engagement layouts
-  # live in dotfiles-Kali; in core.manifest as SEEDED to ~/.config/sesh/sesh.toml).
-  if [[ ! -f "$config/sesh/sesh.toml" && -f "$dotfiles/core/sesh/sesh.toml.example" ]]; then
-    mkdir -p "$config/sesh"
-    cp "$dotfiles/core/sesh/sesh.toml.example" "$config/sesh/sesh.toml"
-    blib_say "seeded ~/.config/sesh/sesh.toml — edit freely; not tracked from here"
-  fi
+  # private identity file + portable sesh config, each seeded ONCE (copied, never tracked
+  # back, never relinked) via the shared blib_seed (dry-run + counter aware).
+  blib_seed "$dotfiles/core/git/local.gitconfig.example" "$config/git/local.gitconfig" \
+    "FILL IN your name & email"
+  blib_seed "$dotfiles/core/sesh/sesh.toml.example" "$config/sesh/sesh.toml" \
+    "edit freely; not tracked from here"
 
   # cross-OS helper scripts from Core onto PATH (~/.local/bin).
   if [[ -d "$dotfiles/core/bin" ]]; then
-    mkdir -p "$HOME/.local/bin"
+    _blib_dry || mkdir -p "$HOME/.local/bin"
     for s in clip clip-paste; do
       if [[ -f "$dotfiles/core/bin/$s" ]]; then
         blib_link "$dotfiles/core/bin/$s" "$HOME/.local/bin/$s"
-        chmod +x "$dotfiles/core/bin/$s" 2>/dev/null || true
+        _blib_dry || chmod +x "$dotfiles/core/bin/$s" 2>/dev/null || true
       fi
     done
   fi
@@ -159,12 +210,16 @@ blib_link_core() {
   # ssh client config (keys are NEVER tracked — only ssh/config). ssh is strict about
   # permissions: ~/.ssh must be 0700, and ControlMaster needs the sockets dir to exist.
   if [[ -f "$dotfiles/ssh/config" ]]; then
-    blib_say "symlinking ssh/config"
-    mkdir -p "$HOME/.ssh/sockets"
-    chmod 700 "$HOME/.ssh" "$HOME/.ssh/sockets"
-    chmod 600 "$dotfiles/ssh/config" 2>/dev/null || true
-    blib_link "$dotfiles/ssh/config" "$HOME/.ssh/config"
-    blib_ok "ssh/config linked into ~/.ssh (generate a key with: ssh-keygen -t ed25519)"
+    if _blib_dry; then
+      blib_say "would link ssh/config into ~/.ssh (0700 ~/.ssh + sockets, 0600 config)"
+    else
+      blib_say "symlinking ssh/config"
+      mkdir -p "$HOME/.ssh/sockets"
+      chmod 700 "$HOME/.ssh" "$HOME/.ssh/sockets"
+      chmod 600 "$dotfiles/ssh/config" 2>/dev/null || true
+      blib_link "$dotfiles/ssh/config" "$HOME/.ssh/config"
+      blib_ok "ssh/config linked into ~/.ssh (generate a key with: ssh-keygen -t ed25519)"
+    fi
   fi
 }
 
@@ -182,6 +237,17 @@ blib_link_os_layer() {
   fi
 }
 
+# ── wiring summary ────────────────────────────────────────────────────────────
+# blib_wire_summary — print the BLIB_* tallies accumulated by blib_link / blib_seed
+# since the counters were last reset (they start at 0 on source). Optional: a caller
+# that wants a one-line "N linked · M seeded · K backed up" footer calls this after
+# its wire_links. Prefixes "(dry run) " under BLIB_DRY so a preview reads as a preview.
+blib_wire_summary() {
+  local pre=""
+  _blib_dry && pre="(dry run) "
+  blib_ok "${pre}${BLIB_LINKED} linked · ${BLIB_SEEDED} seeded · ${BLIB_BACKED} backed up · ${BLIB_SKIPPED} skipped"
+}
+
 # ── write the .zshrc entry loader ─────────────────────────────────────────────
 # blib_write_zshrc_loader [module...] — write the managed ~/.zshrc that sets the env
 # the Core modules expect and sources the vendored Core loader in the ONE canonical
@@ -196,6 +262,10 @@ blib_write_zshrc_loader() {
   [[ -n "$modules" ]] || modules="tools ui options history aliases git functions fzf bindings plugins op maint update os local"
 
   if [[ -f "$rc" ]] && grep -q "dotfiles-managed v2" "$rc" 2>/dev/null; then
+    return 0
+  fi
+  if _blib_dry; then
+    blib_say "would write managed ~/.zshrc loader (modules: $modules)"
     return 0
   fi
   blib_say "writing .zshrc loader"
@@ -264,6 +334,10 @@ blib_set_login_shell() {
   fi
   [[ "$current" == "$zsh_path" ]] && return 0
 
+  if _blib_dry; then
+    blib_say "would set login shell to $zsh_path"
+    return 0
+  fi
   blib_say "setting zsh as default login shell"
   grep -qxF "$zsh_path" /etc/shells || echo "$zsh_path" | _blib_priv tee -a /etc/shells >/dev/null
   if command -v chsh >/dev/null 2>&1; then

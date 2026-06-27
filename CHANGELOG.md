@@ -15,6 +15,20 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Changed
 
+- **`bootstrap-lib.sh` gains opt-in dry-run + tallies** (`lib/bootstrap-lib.sh`) — the
+  shared provisioning scaffold now honors `BLIB_DRY=1`: `blib_link` / `blib_seed` /
+  `blib_link_core` / `blib_write_zshrc_loader` / `blib_set_login_shell` PRINT what they
+  would do and change nothing — every mutation (symlink, backup, seed copy, chmod, the tpm
+  clone, the ssh perms, the `.zshrc` write, the `chsh`) is guarded — so an OS bootstrap's
+  `--dry-run` can preview the whole plan instead of each repo hand-rolling it. `blib_link`
+  also gained an idempotent already-correct-link no-op and a missing-source skip; the two
+  inline git/sesh seed blocks are unified into a new `blib_seed`; `BLIB_*` counters +
+  `blib_wire_summary` give a "N linked · M seeded · K backed up" footer. **Backward
+  compatible** — `BLIB_DRY` defaults off and the non-dry path is byte-for-byte the prior
+  behaviour, so the already-adopted Fedora/Arch/Alpine/openSUSE/Gentoo/Kali bootstraps are
+  unaffected. This unblocks MacBook adopting the shared scaffold without losing its
+  `--dry-run`. Verified: dry run creates zero files; a real run wires all 25 links + 2
+  seeds; a re-run backs up nothing.
 - **De-forked `update.zsh`'s per-shell path** (`zsh/update.zsh`) — the throttle check
   and the upgrade nudge ran `date +%s` once and `sed -n Np` twice on **every**
   interactive shell, three subprocess spawns (~1.7 ms each, measured) on the critical
