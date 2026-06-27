@@ -183,6 +183,14 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   into the ignored `.git/hooks` was false protection), and return non-zero instead
   of silently succeeding if the hooks dir can't be created. New hermetic test
   covers the `core.hooksPath` skip.
+- **`sync-core.sh` pre-fan-out audit no longer false-fails on the core-guard test.**
+  The script `export`s `DOTFILES_ALLOW_CORE_EDIT=1` for its own legitimate subtree
+  commits, but that exemption was still in the environment when it ran the
+  pre-fan-out `audit-core.sh` — whose behavioral suite commits to a throwaway
+  `core/` and asserts the guard hook BLOCKS it. The inherited exemption made that
+  assertion fail, reding an otherwise-green tree and forcing `SYNC_SKIP_AUDIT=1`.
+  The audit now runs via `env -u DOTFILES_ALLOW_CORE_EDIT` (it never writes to
+  `core/`, so it needs no exemption); the fan-out commits keep theirs.
 - **`bootstrap-lib.sh` now wires three Core files it silently dropped.**
   `blib_link_core` linked starship/nvim/mise/git/tmux/clip but omitted
   `core/lazygit/config.yml` (→ `~/.config/lazygit/config.yml`), `core/vim/vimrc`
