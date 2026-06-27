@@ -54,6 +54,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+[[ -d "$ROOT" ]] || { fail "fleet root not found: $ROOT"; exit 2; }
 WIN="$ROOT/dotfiles-Windows"
 
 # Each row: label | zsh-relpath | zsh-needle | pwsh-relpath | pwsh-needle.

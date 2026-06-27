@@ -43,6 +43,7 @@ gaps below.
 | --- | --- | --- | --- |
 | History search | `Ctrl+R` (fzf widget) | `Ctrl+R` (atuin, else PSFzf) | `aligned` (Ctrl+R = history) |
 | FZF palette | tokyonight-storm `--color` | tokyonight-storm `--color` | `aligned` |
+| FZF source cmd | `fd` (`FZF_DEFAULT_COMMAND`) | `fd` (`FZF_DEFAULT_COMMAND`) | `aligned` |
 | File picker | `Ctrl+F` (`_fzf_file_no_hidden`) | `Ctrl+T` (PSFzf) | **`gap`** — different key |
 | atuin TUI | `Ctrl+E` (`_atuin_search_widget`) | folded into `Ctrl+R` | **`gap`** — no distinct key on pwsh |
 | Dir jump | `Alt+Z` (zoxide) / `Alt+C` (fzf) | `Alt+C` (PSFzf cd) | `deliberate` (`Alt+C` both; `Alt+Z` zsh extra) |
