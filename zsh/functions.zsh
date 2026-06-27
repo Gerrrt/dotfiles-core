@@ -800,7 +800,7 @@ _core_help_render() {
     "grbm|rebase onto the trunk branch"
     "pullall [dir]|pull every git repo under a dir in parallel (stashes, fast-forwards trunk)"
     "§keybindings"
-    "Ctrl-F|file picker → insert path at cursor|fzf"
+    "Ctrl-T|file picker → insert path at cursor|fzf"
     "Ctrl-R|history search|fzf"
     "Ctrl-E|Atuin history TUI|atuin"
     "Ctrl-G|session picker (sesh)|sesh"

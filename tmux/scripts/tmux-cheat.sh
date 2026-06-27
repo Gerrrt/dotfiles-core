@@ -56,7 +56,7 @@ e copy "y" "copy selection -> system clipboard (clip)"
 e copy "Escape" "cancel copy-mode"
 
 # ── SHELL · zsh key widgets ───────────────────────────────────────────────────
-e key "Ctrl-F" "fzf file picker -> insert path"
+e key "Ctrl-T" "fzf file picker -> insert path"
 e key "Ctrl-R" "fzf history search"
 e key "Ctrl-E" "Atuin history TUI"
 e key "Ctrl-G" "sesh session picker"

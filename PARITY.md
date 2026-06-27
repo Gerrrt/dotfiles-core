@@ -41,14 +41,14 @@ gaps below.
 
 | Capability | zsh | pwsh | Status |
 | --- | --- | --- | --- |
-| History search | `Ctrl+R` (fzf widget) | `Ctrl+R` (atuin, else PSFzf) | `aligned` (Ctrl+R = history) |
+| History search | `Ctrl+R` (fzf widget) | `Ctrl+R` (PSFzf) | `aligned` |
 | FZF palette | tokyonight-storm `--color` | tokyonight-storm `--color` | `aligned` |
 | FZF source cmd | `fd` (`FZF_DEFAULT_COMMAND`) | `fd` (`FZF_DEFAULT_COMMAND`) | `aligned` |
-| File picker | `Ctrl+F` (`_fzf_file_no_hidden`) | `Ctrl+T` (PSFzf) | **`gap`** — different key |
-| atuin TUI | `Ctrl+E` (`_atuin_search_widget`) | folded into `Ctrl+R` | **`gap`** — no distinct key on pwsh |
-| Dir jump | `Alt+Z` (zoxide) / `Alt+C` (fzf) | `Alt+C` (PSFzf cd) | `deliberate` (`Alt+C` both; `Alt+Z` zsh extra) |
-| Session picker | `Ctrl+G` (sesh) | — | `deliberate` (no tmux sessionizer on the host) |
-| Cheatsheet | `core-help` / `cheat` | `Ctrl+G` (navi widget) | **collision** — same key, different tool |
+| File picker | `Ctrl+T` (`_fzf_file_no_hidden`) | `Ctrl+T` (PSFzf) | `aligned` |
+| atuin TUI | `Ctrl+E` (`_atuin_search_widget`) | `Ctrl+E` (`Invoke-AtuinSearch`) | `aligned` |
+| Dir jump | `Alt+Z` (zoxide) / `Alt+C` (fzf) | `Alt+Z` (zoxide `zi`) / `Alt+C` (PSFzf) | `aligned` |
+| Session picker | `Ctrl+G` (sesh) | `Ctrl+G` (psmux sessionizer) | `aligned` — jump-to-session both |
+| Cheatsheet | `cheat` / `core-help` | `navi` / `cheat` | `deliberate` — command, not a keybind |
 | Autosuggest toggle | `Ctrl+\` | PSReadLine predictive (always on) | `deliberate` |
 | Word nav | `Ctrl+←/→` | `Ctrl+←/→` (PSReadLine) | `aligned` |
 
@@ -57,24 +57,25 @@ gaps below.
 | Capability | zsh | pwsh | Status |
 | --- | --- | --- | --- |
 | `extract`, `mkbak`, `serve`, `fif`, `fbr` | yes | yes | `aligned` |
-| Fuzzy git stage/restore (`gaf`/`grf`/`grsf`) | yes | — | **`gap`** |
-| `cheat` (cht.sh) | — | yes | `gap` (reverse) |
+| Fuzzy git stage/restore (`gaf`/`grf`/`grsf`) | yes | yes | `aligned` |
+| `cheat` (cht.sh / navi) | `cheat` | `cheat` / `navi` | `aligned` |
 
-## Open decisions
+## Resolved decisions
 
-The **collision** and **gap** rows above are the ones that change daily muscle
-memory, so they are decisions for the operator, not silent edits:
+The four formerly-open keybinding decisions were settled together and implemented on
+both shells in the same change:
 
-1. **`Ctrl+G`** — zsh opens a tmux session picker (sesh); pwsh opens a navi
-   cheatsheet. Same key, different action. Options: rebind one, or accept the
-   split (the host genuinely has no tmux sessionizer).
-2. **File picker key** — unify on `Ctrl+F` or `Ctrl+T` across both.
-3. **atuin key** — give pwsh a distinct `Ctrl+E` (matching zsh) and leave `Ctrl+R`
-   to the fzf-style widget on both, or keep pwsh's fold-into-`Ctrl+R`.
-4. **Port to pwsh** — `gaf`/`grf`/`grsf` fuzzy git staging, `Alt+Z` zoxide jump.
+1. **`Ctrl+G` → jump-to-session on both** (Option A). zsh keeps sesh; the Windows host
+   binds a psmux sessionizer (zoxide + project roots → `mux`), the bare-prompt port of
+   `psmux-sesh.ps1`. navi loses its Ctrl+G widget and is now the `navi` command, freeing
+   the key — so Ctrl+G means the same thing everywhere.
+2. **File picker → `Ctrl+T` on both** (the fzf-ecosystem default; zsh moved off `Ctrl+F`).
+3. **atuin → `Ctrl+E` on both**, `Ctrl+R` = quick fzf history on both. (atuin's pwsh
+   module ignores `ATUIN_NOBIND`, so the host rebinds after init: `Ctrl+E` →
+   `Invoke-AtuinSearch`, `Ctrl+R`/arrows handed back.)
+4. **Ported to pwsh** — `gaf`/`grf`/`grsf` fuzzy git staging and `Alt+Z` zoxide jump.
 
-When a decision is made, move the row to `aligned` (or `deliberate` with the
-rationale) and implement it on both sides in the same change.
+All four rows are now `aligned` and enforced by `parity-check.sh`.
 
 ## Enforcement
 
@@ -86,6 +87,6 @@ exactly like `scripts/fleet-drift.sh`. The weekly `.github/workflows/parity-chec
 clones `dotfiles-Windows` and runs it `--strict`, failing red on drift.
 
 When a row here moves to `aligned`, add a matching check to `parity-check.sh` in the
-same change — the check is the enforcement. The keybinding rows under **Open
-decisions** are deliberately *not* enforced yet; they join the checker as each
-decision is made and implemented on both shells.
+same change — the check is the enforcement. Every `aligned` row above (including the
+keybindings settled in **Resolved decisions**) has a corresponding check today; a new
+alignment is not done until its needle is added.

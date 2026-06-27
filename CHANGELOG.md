@@ -15,6 +15,18 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Changed
 
+- **Cross-shell keybindings aligned (PARITY.md decisions resolved).** The four open
+  parity decisions are settled and implemented on both shells: **Ctrl+T** = file picker
+  (zsh moved off `Ctrl+F`), **Ctrl+E** = atuin TUI / **Ctrl+R** = quick fzf history,
+  **Ctrl+G** = jump-to-session everywhere (zsh sesh; the host gets a psmux sessionizer,
+  with navi demoted from its Ctrl+G widget to the `navi` command), and **Alt+Z** = zoxide
+  jump + `gaf`/`grf`/`grsf` fuzzy git staging ported to pwsh. Core's functional change is
+  the file-picker rebind (`zsh/bindings.zsh`: `Ctrl+F`→`Ctrl+T`), with the announced key
+  updated everywhere it appears (`zsh/fzf.zsh` warning + comments, the `core-help` cheat
+  row in `zsh/functions.zsh`, `tmux/scripts/tmux-cheat.sh`, `README.md`, and the
+  `test-core.sh` assertions); the pwsh half lands in `dotfiles-Windows`. The six rows
+  moved to `aligned` (file-picker, atuin, dir-jump, session-picker, fuzzy-git, cheat) are
+  each enforced by a `scripts/parity-check.sh` needle. `make audit` + `make parity-check` green.
 - **`bootstrap-lib.sh` gains opt-in dry-run + tallies** (`lib/bootstrap-lib.sh`) — the
   shared provisioning scaffold now honors `BLIB_DRY=1`: `blib_link` / `blib_seed` /
   `blib_link_core` / `blib_write_zshrc_loader` / `blib_set_login_shell` PRINT what they

@@ -863,7 +863,7 @@ check "core-help can filter to a git alias row" \
 # Section-aware filter: a SECTION name (the completion offers these) surfaces its whole
 # group even though the word appears in no row key/desc — e.g. `core-help keybindings`.
 check "core-help filters by section name (keybindings → its rows, not others)" \
-  'out=$(COLUMNS=120 NO_COLOR=1 core-help keybindings 2>&1); (( $? == 0 )) && [[ $out == *Ctrl-F* && $out != *"maint-install"* ]]'
+  'out=$(COLUMNS=120 NO_COLOR=1 core-help keybindings 2>&1); (( $? == 0 )) && [[ $out == *Ctrl-T* && $out != *"maint-install"* ]]'
 check "core-help --help returns 0 (not mis-read as a filter)" \
   'out=$(core-help --help); (( $? == 0 )) && [[ $out == *"usage: core-help"* ]]'
 # core umbrella dispatcher (B1): bare `core` is the cheat sheet (U6 — help, not an
@@ -1095,15 +1095,15 @@ ucheck "fif rejects cleanly without fzf (Core error voice, not 'command not foun
 ucheck "fbr rejects cleanly without fzf (Core error voice, not 'command not found')" \
   "source '$UI'; source '$FZF_FILE' 2>/dev/null; out=\$(fbr 2>&1); (( \$? != 0 )) && [[ \$out == *'fbr: requires fzf'* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
-# zle-widget graceful degradation (regression gate for the Ctrl-F/Ctrl-R bare-box bug):
+# zle-widget graceful degradation (regression gate for the Ctrl-T/Ctrl-R bare-box bug):
 # both are bound UNCONDITIONALLY in bindings.zsh, so on a box without fzf/fd their widget
 # bodies must warn in Core's voice and repaint — NOT leak a raw "command not found" (the
-# class of bug fif/fbr/Alt-Z already guard; Ctrl-F/Ctrl-R lacked it). `zle` is stubbed to a
+# class of bug fif/fbr/Alt-Z already guard; Ctrl-T/Ctrl-R lacked it). `zle` is stubbed to a
 # no-op so `zle reset-prompt` is callable outside an active ZLE; PATH is isolated so fzf/fd
 # are guaranteed absent. Alt-Z is asserted too, locking in the parity across all three.
 _pm_only ""
-ucheck "Ctrl-F widget degrades in Core's voice without fzf/fd (no 'command not found')" \
-  "source '$UI'; source '$FZF_FILE' 2>/dev/null; zle() { : }; FD_BIN=''; out=\$(_fzf_file_no_hidden 2>&1); (( \$? != 0 )) && [[ \$out == *'Ctrl-F: needs'* && \$out != *'command not found'* ]]" \
+ucheck "Ctrl-T widget degrades in Core's voice without fzf/fd (no 'command not found')" \
+  "source '$UI'; source '$FZF_FILE' 2>/dev/null; zle() { : }; FD_BIN=''; out=\$(_fzf_file_no_hidden 2>&1); (( \$? != 0 )) && [[ \$out == *'Ctrl-T: needs'* && \$out != *'command not found'* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 ucheck "Ctrl-R widget degrades in Core's voice without fzf (no 'command not found')" \
   "source '$UI'; source '$FZF_FILE' 2>/dev/null; zle() { : }; out=\$(_fzf_history_clean 2>&1); (( \$? != 0 )) && [[ \$out == *'Ctrl-R: needs'* && \$out != *'command not found'* ]]" \
