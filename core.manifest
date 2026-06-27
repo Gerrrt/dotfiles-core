@@ -79,6 +79,10 @@ bin/clip-paste
 # ── shared BASH UX lib — palette/glyphs/spinner; SOURCED by each OS repo's
 #    bootstrap.sh (the pre-shell installer can't source the zsh ui.zsh) ─────────
 lib/ux.sh
+# ── shared BASH provisioning scaffold — link/read_pkgs/WSL-detect/Core-symlink/
+#    .zshrc-loader/login-shell helpers; SOURCED by each OS repo's bootstrap.sh so
+#    the shared half of the bootstrap stops being hand-forked across the fleet ───
+lib/bootstrap-lib.sh
 # ── mise — polyglot runtime manager; global tool versions (portable) ──────────
 mise/config.toml
 # ── sesh — portable session-manager config (SEEDED to ~/.config/sesh/sesh.toml;

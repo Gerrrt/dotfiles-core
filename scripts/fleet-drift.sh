@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+# scripts/fleet-drift.sh
+# ──────────────────────────────────────────────────────────────────────────────
+# FLEET DRIFT CHECK — is every OS repo carrying the latest Core?
+#
+# sync-core.sh fans Core out and stamps each OS repo with its provenance:
+#   • Unix repos: a root-level `core.lock` with `core_sha=<full sha>` (B1)
+#   • dotfiles-Windows: `nvim/.core-ref` with `commit = <sha>` (it vendors only
+#     nvim/ via robocopy, not the whole core/ subtree)
+# Those markers answer "which Core do I carry?" offline — but NOTHING compared them
+# against each other or against Core's tip, so a repo could silently sit on a stale
+# Core for weeks (exactly how dotfiles-MacBook's nvim lockfile drifted). This is that
+# missing check: it reads every marker and flags any repo behind (or ahead of) the
+# reference Core commit.
+#
+# It is a REPORTER, not a mutator — it never writes to a repo. Run it locally against
+# your checked-out fleet, or in CI (.github/workflows/fleet-drift.yml) which shallow-
+# clones the fleet first. Graceful degradation mirrors audit-core.sh: a repo that
+# isn't checked out is SKIPPED with a notice (not a failure) unless --strict.
+#
+# Reference commit (what "current" means), first hit wins:
+#   --ref <sha|ref>  →  $CORE_REF_SHA  →  origin/main  →  main  →  HEAD
+#
+# Usage:
+#   ./scripts/fleet-drift.sh                 # check siblings of this repo
+#   ./scripts/fleet-drift.sh --root ~/src    # fleet lives elsewhere
+#   ./scripts/fleet-drift.sh --ref v1.2.0    # compare against a tag, not main
+#   ./scripts/fleet-drift.sh --strict        # a not-checked-out repo FAILS, not skips
+#   ./scripts/fleet-drift.sh --quiet         # suppress the ✓ rows; show only drift + summary
+#
+# Flags: [--root DIR] [--ref COMMIT-ISH] [--strict] [--quiet] [--color auto|always|never]
+#   (--color defaults to auto and honours NO_COLOR, like the sibling gate scripts.)
+#
+# Exit: 0 = every present repo is current; 1 = drift found; 2 = usage error.
+# ──────────────────────────────────────────────────────────────────────────────
+set -uo pipefail
+
+HERE="$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)"
+# shellcheck source=scripts/lib/common.sh
+source "$HERE/scripts/lib/common.sh"
+
+ROOT="$(cd "$HERE/.." && pwd)" # siblings of dotfiles-core by default
+REF_ARG="${CORE_REF_SHA:-}"
+STRICT=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --root)
+    ROOT="${2:-}"
+    shift 2 || { fail "--root needs a directory"; exit 2; }
+    ;;
+  --ref)
+    REF_ARG="${2:-}"
+    shift 2 || { fail "--ref needs a commit-ish"; exit 2; }
+    ;;
+  --strict) STRICT=1; shift ;;
+  --quiet) QUIET=1; shift ;;
+  --color)
+    _core_set_color "${2:-}" || { fail "--color wants auto|always|never"; exit 2; }
+    shift 2
+    ;;
+  -h | --help)
+    sed -n '2,/^set -u/p' "${BASH_SOURCE[0]}" | sed '$d;s/^# \{0,1\}//'
+    exit 0
+    ;;
+  *) fail "unknown argument: $1"; exit 2 ;;
+  esac
+done
+
+[[ -d "$ROOT" ]] || { fail "fleet root not found: $ROOT"; exit 2; }
+
+# Resolve the reference Core commit to a full sha (first that exists wins).
+_resolve_ref() {
+  local r s
+  for r in "$@"; do
+    [[ -n "$r" ]] || continue
+    if s="$(git -C "$HERE" rev-parse --verify --quiet "${r}^{commit}" 2>/dev/null)"; then
+      printf '%s\n' "$s"
+      return 0
+    fi
+  done
+  return 1
+}
+REF="$(_resolve_ref "$REF_ARG" origin/main main HEAD)" ||
+  { fail "could not resolve a reference Core commit (tried: ${REF_ARG:-} origin/main main HEAD)"; exit 2; }
+
+# The fleet that vendors the full core/ subtree. SINGLE SOURCE: scripts/os-repos.txt
+# (same data file sync-core.sh reads), with the inline list as a hard fallback so a
+# missing/corrupt file degrades to the last-known fleet instead of checking nothing.
+OS_REPOS=()
+_OS_REPOS_FILE="$HERE/scripts/os-repos.txt"
+if [[ -r "$_OS_REPOS_FILE" ]]; then
+  while IFS= read -r _line || [[ -n "$_line" ]]; do
+    _line="${_line%%#*}"                       # strip trailing comments
+    _line="${_line#"${_line%%[![:space:]]*}"}" # ltrim
+    _line="${_line%"${_line##*[![:space:]]}"}" # rtrim
+    [[ -n "$_line" ]] && OS_REPOS+=("$_line")
+  done <"$_OS_REPOS_FILE"
+fi
+((${#OS_REPOS[@]})) || OS_REPOS=(
+  dotfiles-MacBook dotfiles-Alpine dotfiles-Arch
+  dotfiles-Fedora dotfiles-Gentoo dotfiles-Kali dotfiles-openSUSE
+)
+
+# Read a `key=value` (core.lock) or `key = value` (.core-ref) value from a file.
+_read_kv() { # _read_kv <file> <key>
+  sed -n "s/^[[:space:]]*$2[[:space:]]*=[[:space:]]*//p" "$1" 2>/dev/null | head -n1
+}
+
+# Classify a recorded sha against REF, echoing a human status. PURE: it only reads
+# (no shared-state writes) because callers run it in a command substitution — a
+# subshell, where any DRIFT=1 would be lost. The caller decides drift from the
+# returned status string (status == "current" is the only non-drift verdict).
+DRIFT=0
+_classify() { # _classify <recorded-sha>
+  local rec="$1" ahead behind
+  if [[ -z "$rec" ]]; then echo "no provenance recorded"; return; fi
+  if [[ "$rec" == "$REF" ]]; then echo "current"; return; fi
+  # Try to quantify; objects may be absent (shallow clone) → fall back to "differs".
+  behind="$(git -C "$HERE" rev-list --count "${rec}..${REF}" 2>/dev/null)" || behind=""
+  ahead="$(git -C "$HERE" rev-list --count "${REF}..${rec}" 2>/dev/null)" || ahead=""
+  if [[ -n "$behind" && -n "$ahead" ]]; then
+    if [[ "$behind" != 0 && "$ahead" == 0 ]]; then echo "BEHIND by $behind commit(s)"; return; fi
+    if [[ "$ahead" != 0 && "$behind" == 0 ]]; then echo "AHEAD by $ahead commit(s)"; return; fi
+    echo "DIVERGED (behind $behind, ahead $ahead)"; return
+  fi
+  echo "DIFFERS (sha not in local history)"
+}
+
+hdr "Fleet drift vs Core ${REF:0:12} ($(git -C "$HERE" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?'))"
+printf '%-22s %-14s %s\n' "REPO" "RECORDED" "STATUS"
+printf '%-22s %-14s %s\n' "----" "--------" "------"
+
+_check_repo() { # _check_repo <repo-dir-name> <marker-relative-path> <key>
+  local name="$1" marker="$2" key="$3" dir="$ROOT/$1" file rec status
+  if [[ ! -d "$dir" ]]; then
+    if ((STRICT)); then fail "$(printf '%-22s %-14s %s' "$name" "-" "NOT CHECKED OUT")"
+    else skip "$(printf '%-22s %-14s %s' "$name" "-" "not checked out")"; fi
+    return
+  fi
+  file="$dir/$marker"
+  if [[ ! -r "$file" ]]; then
+    fail "$(printf '%-22s %-14s %s' "$name" "-" "missing $marker")"; DRIFT=1; return
+  fi
+  rec="$(_read_kv "$file" "$key")"
+  status="$(_classify "$rec")"
+  if [[ "$status" == "current" ]]; then
+    pass "$(printf '%-22s %-14s %s' "$name" "${rec:0:12}" "$status")"
+  else
+    fail "$(printf '%-22s %-14s %s' "$name" "${rec:0:12}" "$status")"
+    DRIFT=1
+  fi
+}
+
+for _r in "${OS_REPOS[@]}"; do
+  _check_repo "$_r" "core.lock" "core_sha"
+done
+# Windows is the outlier: no core/ subtree, only nvim/ mirrored — its provenance
+# lives in nvim/.core-ref. Include it so the dashboard covers the whole fleet.
+_check_repo "dotfiles-Windows" "nvim/.core-ref" "commit"
+
+echo
+if ((DRIFT)); then
+  fail "fleet drift detected — run 'make sync' (and nvim-sync.ps1 for Windows) to bring repos to ${REF:0:12}"
+  exit 1
+fi
+pass "every checked-out repo is on Core ${REF:0:12}"
+exit 0

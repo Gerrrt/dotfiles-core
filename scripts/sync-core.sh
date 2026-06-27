@@ -117,6 +117,14 @@ source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 ok() { pass "$@"; }
 err() { fail "$@"; }
 
+# core-guard: reuse the bootstrap lib's installer so each repo we sync gets the local
+# pre-commit hook that blocks hand-edits to its vendored core/ (see blib_install_core_guard).
+# And exempt the commits THIS script makes (subtree pull + core.lock) from that hook —
+# this IS the legitimate path that rewrites core/.
+# shellcheck source=lib/bootstrap-lib.sh
+source "$HERE/lib/bootstrap-lib.sh"
+export DOTFILES_ALLOW_CORE_EDIT=1
+
 [[ -n "$CORE_REMOTE" ]] || {
   err "CORE_REMOTE empty (set origin on dotfiles-core, or export CORE_REMOTE)"
   exit 1
@@ -243,6 +251,9 @@ for repo in "${TARGETS[@]}"; do
         err "$repo core.lock commit failed — commit it manually before re-running"
       fi
     fi
+    # (re)install the local core/ pre-commit guard so a later hand-edit of the vendored
+    # subtree in this repo is rejected (this sync run itself is exempt via the env var above).
+    blib_install_core_guard "$path" || true
   else
     err "$repo subtree pull failed — resolve, then re-run"
   fi

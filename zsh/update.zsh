@@ -27,6 +27,13 @@
 : "${UPDATE_CHECK_INTERVAL:=86400}"
 typeset -g _PKGUP_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/pkg-updates"
 
+# Fork-free per-shell path: $EPOCHSECONDS (a zsh/datetime param) replaces `date +%s`,
+# and $(<file) replaces `sed -n Np` — removing three subprocess spawns from EVERY
+# interactive shell (the same anti-fork thesis as tools.zsh's cached inits; `date`/`sed`
+# each cost ~1.7ms/call vs ~0ms for the builtins). Falls back to `date` if the module
+# is somehow unavailable, so behaviour is identical on an ancient zsh.
+zmodload -F zsh/datetime p:EPOCHSECONDS 2>/dev/null
+
 # Accent colours for the nudge + welcome below (they feed `print -P %F{…}`). These
 # come from ui.zsh's canonical palette ($_CORE_ACCENT_SPEC/$_CORE_MUTED_SPEC — the one
 # place $COLORTERM is interpreted) when it's loaded, which it is in canonical order
@@ -139,7 +146,7 @@ _pkgup_refresh() {
   : "${n:=-1}"
   mkdir -p "${_PKGUP_CACHE:h}"
   print -r -- "$n" >|"$_PKGUP_CACHE"       # >| : force past NO_CLOBBER (cache pre-exists)
-  print -r -- "$(date +%s)" >>"$_PKGUP_CACHE"
+  print -r -- "${EPOCHSECONDS:-$(date +%s)}" >>"$_PKGUP_CACHE"
 }
 
 # Capture _pkgup_list into a file so a spinner can wrap the slow, SILENT fetch (brew
@@ -187,8 +194,10 @@ update-check() {
 # Print the one-line nudge from cache (instant; no work).
 _pkgup_notice() {
   [[ -r "$_PKGUP_CACHE" ]] || return 0
-  local count
-  count="$(sed -n 1p "$_PKGUP_CACHE" 2>/dev/null)"
+  # fork-free read: $(<file) is a zsh builtin; (f) splits the 2-line cache on newlines.
+  local -a _l
+  _l=(${(f)"$(<"$_PKGUP_CACHE")"})
+  local count=${_l[1]:-}
   [[ "$count" == <1-> ]] || return 0 # zsh numeric-range glob: only positive ints
   print -P "%F{$_PKGUP_ACCENT}󰚰 ${count} update$([[ $count -ne 1 ]] && print s) available%f %F{$_PKGUP_MUTED}— run \`up\` to apply%f"
 }
@@ -204,18 +213,24 @@ _pkgup_notice() {
 # stays silent there exactly as before.)
 if ((UPDATE_CHECK_ENABLED)); then
   () {
-    local now last=0
-    now="$(date +%s)"
-    [[ -r "$_PKGUP_CACHE" ]] && last="$(sed -n 2p "$_PKGUP_CACHE" 2>/dev/null)"
+    local now last=0 count=
+    now=${EPOCHSECONDS:-$(date +%s)}
+    # fork-free read of the 2-line cache ("<count>\n<epoch>") — $(<file) is a builtin.
+    if [[ -r "$_PKGUP_CACHE" ]]; then
+      local -a _l
+      _l=(${(f)"$(<"$_PKGUP_CACHE")"})
+      count=${_l[1]:-}
+      last=${_l[2]:-0}
+    fi
     [[ "$last" == <-> ]] || last=0
-    # Throttle FIRST (cheap: a date + a cache read), then — only when due — pay for the
-    # manager probe. No elapsed window → no probe, the common per-shell path.
+    # Throttle FIRST (cheap: a clock read + a cache read, both fork-free), then — only when
+    # due — pay for the manager probe. No elapsed window → no probe, the common per-shell path.
     if ((now - last >= UPDATE_CHECK_INTERVAL)) && [[ "$(_pkgup_mgr)" != none ]]; then
       # Claim the slot immediately (bump the timestamp) so sibling shells opened
       # in the same instant don't all fire, then refresh in a disowned subshell.
       mkdir -p "${_PKGUP_CACHE:h}"
       {
-        print -r -- "$(sed -n 1p "$_PKGUP_CACHE" 2>/dev/null)"
+        print -r -- "$count"
         print -r -- "$now"
       } >|"$_PKGUP_CACHE" 2>/dev/null    # >| : force past NO_CLOBBER (cache pre-exists)
       { _pkgup_refresh; } &|

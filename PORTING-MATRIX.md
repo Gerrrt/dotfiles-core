@@ -136,8 +136,8 @@ engagement data in `~/engagements` (outside the repo); the repo ships a paranoid
   `Alpine`, `Gentoo`, `Kali`.
 - **Stamp-pending (this doc):** none — all four template stamps are complete.
 - `Kali` (apt + offensive layer) and `MacBook` (Homebrew) are their own lineages,
-  built directly rather than stamped from Fedora. `Debian` and `Windows` are
-  tracked separately from this matrix.
+  built directly rather than stamped from Fedora. `Windows` is tracked separately
+  from this matrix.
 
 ### Stamping order (all complete — kept as the recommended sequence for reference)
 
