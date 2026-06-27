@@ -463,6 +463,58 @@ _classify_is "__ALL__ sentinel → full run" '__ALL__' true true
 _classify_is "unrecognised path → FAIL CLOSED to full run" 'newdir/thing.xyz' true true
 _classify_is "mixed shell+nvim set → union of both" $'zsh/ui.zsh\nnvim/init.lua' true true
 
+# ── F. core/ pre-commit guard (lib/bootstrap-lib.sh blib_install_core_guard) ───
+# The guard hook (installed by sync-core.sh on every fan-out, and by a bootstrap on a
+# fresh clone) is the mechanical backstop for "never hand-edit vendored core/". Drive it
+# hermetically in throwaway git repos: assert it BLOCKS a core/ commit, ALLOWS a non-core
+# commit, ALLOWS a core/ commit under the sync escape hatch, and never clobbers a foreign
+# pre-commit hook. Pure bash + git (skipped where git is absent, like the nvim sections).
+if have git; then
+  hdr "core/ pre-commit guard (blib_install_core_guard)"
+  # shellcheck source=lib/bootstrap-lib.sh
+  source "$HERE/lib/bootstrap-lib.sh"
+  GREPO="$SANDBOX/guardrepo"
+  _guard_fresh() { # fresh repo with the guard installed
+    rm -rf "$GREPO"
+    mkdir -p "$GREPO/core"
+    git -C "$GREPO" init -q
+    git -C "$GREPO" config user.email t@example.com
+    git -C "$GREPO" config user.name tester
+    blib_install_core_guard "$GREPO" >/dev/null 2>&1
+  }
+  _guard_commit() { # _guard_commit <relpath> <allow:0|1> → echoes ok|blocked
+    printf 'edit' >"$GREPO/$1"
+    git -C "$GREPO" add -A
+    local rc
+    if [[ "${2:-0}" == 1 ]]; then
+      DOTFILES_ALLOW_CORE_EDIT=1 git -C "$GREPO" commit -q -m x >/dev/null 2>&1
+      rc=$?
+    else
+      git -C "$GREPO" commit -q -m x >/dev/null 2>&1
+      rc=$?
+    fi
+    [[ $rc -eq 0 ]] && echo ok || echo blocked
+  }
+
+  _guard_fresh
+  if [[ -x "$GREPO/.git/hooks/pre-commit" ]]; then pass "guard: pre-commit hook installed (+x)"; else fail "guard: hook missing or not executable"; fi
+
+  _guard_fresh
+  if [[ "$(_guard_commit core/x.txt 0)" == blocked ]]; then pass "guard: blocks a commit touching core/"; else fail "guard: did NOT block a core/ edit"; fi
+
+  _guard_fresh
+  if [[ "$(_guard_commit README.md 0)" == ok ]]; then pass "guard: allows a non-core commit"; else fail "guard: wrongly blocked a non-core commit"; fi
+
+  _guard_fresh
+  if [[ "$(_guard_commit core/y.txt 1)" == ok ]]; then pass "guard: DOTFILES_ALLOW_CORE_EDIT exempts a sync write"; else fail "guard: escape hatch did not allow a core/ commit"; fi
+
+  # a pre-existing, unrelated pre-commit hook must be preserved (not clobbered)
+  rm -rf "$GREPO"; mkdir -p "$GREPO/core"; git -C "$GREPO" init -q
+  printf '#!/bin/sh\nexit 0\n' >"$GREPO/.git/hooks/pre-commit"; chmod +x "$GREPO/.git/hooks/pre-commit"
+  blib_install_core_guard "$GREPO" >/dev/null 2>&1
+  if grep -q 'dotfiles-core-guard' "$GREPO/.git/hooks/pre-commit"; then fail "guard: clobbered a pre-existing custom hook"; else pass "guard: preserves a pre-existing custom pre-commit hook"; fi
+fi
+
 # ── zsh-gated sections (A load-order, B function units) ───────────────────────
 # Everything below needs a real zsh. On a bare box we SKIP it (not fail) and fall
 # through to the shared summary, so a Section-C failure still surfaces as exit 1.

@@ -28,6 +28,18 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **`core/` edit guard** (`blib_install_core_guard` in `lib/bootstrap-lib.sh`, wired into
+  `scripts/sync-core.sh`) — a local `pre-commit` hook that refuses commits touching the
+  vendored `core/` subtree, turning the prose rule "never hand-edit `core/`" into a
+  mechanical block. Motivated by a real incident: an upstream "Lazy lock update" edited a
+  vendored `core/nvim/lazy-lock.json` directly, drifting it from canonical Core. `sync-core.sh`
+  now (re)installs the hook into every repo it fans out to (so the protection lands on the
+  maintainer's machine, where the edit happens) and exempts its own legitimate subtree
+  writes via `DOTFILES_ALLOW_CORE_EDIT=1`; a one-off bypass is the standard
+  `git commit --no-verify`. Idempotent and non-destructive — it never clobbers a
+  pre-existing unrelated `pre-commit` hook. Covered by hermetic git tests in
+  `scripts/test-core.sh`. (Wiring it into each OS `bootstrap.sh` for fresh clones rides
+  along with the pending `bootstrap-lib.sh` adoption.)
 - **Fleet-drift check** (`scripts/fleet-drift.sh`, `make fleet-drift`, and a weekly
   `.github/workflows/fleet-drift.yml`) — reads every OS repo's `core.lock`
   (`core_sha=…`) plus `dotfiles-Windows`'s `nvim/.core-ref` (`commit = …`) and reports
