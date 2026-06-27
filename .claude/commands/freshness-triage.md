@@ -38,6 +38,25 @@ The `--check` modes are the source of truth for "is it behind":
 4. **Confirm the gate** — note whether CI is green on the PR; a bump that fails
    `make audit` is never mergeable regardless of the changelog.
 
+## CLI tool pins (`scripts/tool-versions.env`)
+
+The pinned gate binaries (shellcheck / actionlint / gitleaks / neovim / shfmt) are
+a **separate, manual bump class** — neither `freshness.yml` nor dependabot touches
+`tool-versions.env`, so these move by hand. Each one carries BOTH a `*_VERSION` and
+a verified `*_SHA256` that `.github/actions/setup-core-tools` checks before install.
+
+When a triaged change bumps a `*_VERSION` here (or you bump one while triaging):
+
+1. **The checksum MUST be refreshed in the same change** — `make update-tool-checksums`
+   re-downloads the exact pinned assets and rewrites the matching `*_SHA256`.
+2. **A version bump with a stale hash is a trap the audit can't fully catch**:
+   `audit-core.sh` only asserts a 64-hex `*_SHA256` is _present_, not that it matches
+   the new asset — so a stale-but-well-formed hash passes the audit and then fails
+   late at the action's `sha256sum -c` in CI. Treat a diff that moves a `*_VERSION`
+   without its `*_SHA256` as **Hold** until the checksum is regenerated.
+3. Review the refreshed hashes against upstream's published checksums where available
+   (the same trust-anchor step as any pin bump) before merging.
+
 ## How to report
 
 Per PR, a verdict:
