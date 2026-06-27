@@ -1,0 +1,65 @@
+name: parity-check
+
+# Cross-shell parity gate. PARITY.md is the human contract for what "the same on zsh
+# and PowerShell" means; scripts/parity-check.sh is the machine gate that fails when an
+# `aligned` capability drifts out of one shell (e.g. the fzf tokyonight palette gets
+# dropped from pwsh). pwsh lives in the separate dotfiles-Windows repo, so — like
+# fleet-drift — this clones it (public, anonymous, shallow) and runs the check.
+#
+# Read-only: it never pushes. Weekly + on demand; PR-triggered CI can't see the other
+# repo's changes, so a scheduled sweep is the right cadence (same as fleet-drift).
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC, alongside fleet-drift + freshness
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parity-check
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Clone dotfiles-Windows (public, anonymous, shallow)
+        run: |
+          set -euo pipefail
+          # parity-check.sh reads the pwsh sources from a sibling checkout under --root.
+          git clone --depth 1 \
+            "https://github.com/${GITHUB_REPOSITORY_OWNER}/dotfiles-Windows.git" \
+            "$RUNNER_TEMP/fleet/dotfiles-Windows"
+
+      - name: Check cross-shell parity
+        run: |
+          set -o pipefail
+          # --strict: in CI the Windows repo IS cloned above, so a missing checkout is a
+          # real failure, not a skip. 2>&1 so the failing rows (fail()→stderr) reach the
+          # job summary below.
+          ./scripts/parity-check.sh --root "$RUNNER_TEMP/fleet" --strict --color never 2>&1 \
+            | tee "$RUNNER_TEMP/parity.txt"
+        continue-on-error: true
+        id: check
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### Cross-shell parity (PARITY.md aligned rows)"
+            echo ""
+            echo '```'
+            cat "$RUNNER_TEMP/parity.txt" 2>/dev/null || echo "(no output captured)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on drift
+        if: steps.check.outcome != 'success'
+        run: |
+          echo "Cross-shell parity drift — an aligned PARITY.md row is missing from a shell." >&2
+          exit 1

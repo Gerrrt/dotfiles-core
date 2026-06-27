@@ -7,7 +7,7 @@
 # pre-commit call the same scripts/audit-core.sh, so `make audit` == green CI.
 # ──────────────────────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help setup doctor audit audit-changed test bench profile lint sync sync-dry fleet-drift hooks update-hooks update-plugins update-nvim-plugins check-pins release release-notes
+.PHONY: help setup doctor audit audit-changed test bench profile lint sync sync-dry fleet-drift parity-check hooks update-hooks update-plugins update-nvim-plugins check-pins release release-notes
 
 help: ## Show this help
 	@echo "dotfiles-core — make targets:"
@@ -45,6 +45,9 @@ sync-dry: ## Show what `sync` would do, touching nothing
 
 fleet-drift: ## Report which OS repos (+ Windows) lag Core's tip — the vendoring-drift dashboard
 	@./scripts/fleet-drift.sh
+
+parity-check: ## Verify PARITY.md's aligned rows hold across zsh + pwsh (needs sibling dotfiles-Windows)
+	@./scripts/parity-check.sh
 
 hooks: ## Install the pre-commit hooks into this clone
 	@command -v pre-commit >/dev/null 2>&1 || { echo "pre-commit not found: pip install pre-commit"; exit 1; }

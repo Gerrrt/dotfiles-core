@@ -77,7 +77,14 @@ rationale) and implement it on both sides in the same change.
 
 ## Enforcement
 
-Today this contract is enforced by review against the two source trees listed
-above. A future `scripts/parity-check.sh` (analogous to `scripts/fleet-drift.sh`)
-can grep both repos and fail CI when an `aligned` row drifts — the same
-documented-then-mechanised path the rest of the fleet's invariants follow.
+`scripts/parity-check.sh` (`make parity-check`) mechanises the `aligned` rows: it
+asserts a distinctive needle for each is present in BOTH a zsh source and the pwsh
+source, and exits non-zero when one side drifts. It reads pwsh from a sibling
+`dotfiles-Windows` checkout (skipped with a notice if absent, unless `--strict`),
+exactly like `scripts/fleet-drift.sh`. The weekly `.github/workflows/parity-check.yml`
+clones `dotfiles-Windows` and runs it `--strict`, failing red on drift.
+
+When a row here moves to `aligned`, add a matching check to `parity-check.sh` in the
+same change — the check is the enforcement. The keybinding rows under **Open
+decisions** are deliberately *not* enforced yet; they join the checker as each
+decision is made and implemented on both shells.
