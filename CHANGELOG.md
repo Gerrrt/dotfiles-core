@@ -223,6 +223,18 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Fixed
 
+- **Startup nudges no longer execute under a substitution prompt** (`zsh/update.zsh`).
+  `_pkgup_notice` ("N updates available — run \`up\` to apply") and `_core_welcome`
+  ("dotfiles Core loaded — run \`core\`…") rendered their hints with `print -P` and wrapped
+  the verb in **backticks**. Under `setopt prompt_subst` — which starship and any
+  substitution prompt enable — `print -P` performs command substitution, so the backtick'd
+  word was *executed* rather than printed: the update nudge fires from a precmd hook before
+  `up()` is defined, surfacing as `command not found: up` on every package-manager box (and,
+  once defined, silently triggering a privileged upgrade). Both hints now use single quotes
+  (`'up'` / `'core'`), which are literal under prompt expansion; the `NO_COLOR` branch already
+  used the safe `print -r`. Surfaced by a `make sync` audit failing on a starship MacBook. A
+  new `test-core.sh` regression seeds a cached count under `prompt_subst` with an `up()`
+  sentinel and asserts the nudge mentions `up` but never runs it.
 - **`gsync` runner + core-guard installer hardening** (review follow-up to the
   fan-out PRs). `.bin/sync-upstream.sh`: normalize to the git toplevel first so
   `gsync` works from any subdirectory (it is an absolute-path runner); use
