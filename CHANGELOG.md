@@ -15,6 +15,15 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Changed
 
+- **Re-enabled the deferred `bootstrap-test.yml` assertions for lazygit/vim/sesh.**
+  The reusable bootstrap test now asserts the three files `blib_link_core` wires
+  but the suite had temporarily stopped checking: `~/.config/lazygit/config.yml`
+  and `~/.vimrc` (symlinks) join the `MISSING symlink` loop, and the seeded
+  `~/.config/sesh/sesh.toml` (a copy, not a link) gets its own `-f` check. These
+  were parked `@main`-safe while the `bootstrap-lib.sh` fix propagated; with the
+  fleet's vendored `core/` and `core.lock`s caught up via `make sync`, the
+  stricter assertions re-engage for every adopter. (Lift of the deferral noted in
+  the _Fixed_ entry below.)
 - **De-forked `update.zsh`'s per-shell path** (`zsh/update.zsh`) — the throttle check
   and the upgrade nudge ran `date +%s` once and `sed -n Np` twice on **every**
   interactive shell, three subprocess spawns (~1.7 ms each, measured) on the critical

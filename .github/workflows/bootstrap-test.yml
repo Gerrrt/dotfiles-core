@@ -89,19 +89,15 @@ jobs:
               "$HOME/.config/zsh/os.zsh" \
               "$HOME/.config/starship.toml" \
               "$HOME/.config/nvim" \
+              "$HOME/.config/lazygit/config.yml" \
+              "$HOME/.vimrc" \
               "$HOME/.gitconfig"; do
               if [ ! -L "$link" ]; then echo "MISSING symlink: $link" >&2; exit 1; fi
             done
             # The vendored loader must resolve to the repo copy (not a dangling link).
             if [ ! -e "$HOME/.config/zsh/loader.zsh" ]; then echo "loader.zsh symlink is dangling" >&2; exit 1; fi
-            # DEFERRED: assertions for ~/.config/lazygit/config.yml, ~/.vimrc, and the seeded
-            # ~/.config/sesh/sesh.toml. blib_link_core only wires those as of the bootstrap-lib.sh
-            # fix that is on Core main but NOT yet vendored fleet-wide. This reusable test is
-            # referenced @main by every caller, so it must assert only what each caller CURRENT
-            # vendored core/ produces (asserting the new wiring before make sync propagates it
-            # would red-flag repos like Fedora/Kali that legitimately have not pulled it yet).
-            # Re-add these once the fleet core.lock files catch up (fleet-drift / freshness say when).
-            # NOTE: keep this block apostrophe-free — it lives inside the single-quoted sh -euc script.
+            # sesh config is SEEDED (copied, not symlinked) so engagement layouts can diverge.
+            if [ ! -f "$HOME/.config/sesh/sesh.toml" ]; then echo "MISSING seeded file: ~/.config/sesh/sesh.toml" >&2; exit 1; fi
 
             grep -q "dotfiles-managed v2" "$HOME/.zshrc" || { echo "~/.zshrc not managed" >&2; exit 1; }
             grep -q "_CORE_MODULES=(tools ui options" "$HOME/.zshrc" || { echo "~/.zshrc missing canonical module list" >&2; exit 1; }
