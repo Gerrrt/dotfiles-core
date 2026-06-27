@@ -39,6 +39,17 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **`PARITY.md` — the cross-shell parity contract** — the source of truth for what
+  "the same on zsh and PowerShell" means, mapping every prompt/alias/keybinding/
+  function capability to `aligned` (must stay in step), `deliberate` (intentional
+  platform difference), or `gap` (open item). Makes the WSL-zsh ↔ Windows-pwsh
+  divergences a documented decision instead of silent drift, and names the open
+  decisions (the `Ctrl+G` sesh-vs-navi collision, the file-picker key, the atuin
+  key, the `gaf`/`grf`/`grsf` + `Alt+Z` ports). Paired with a same-change fix that
+  brings the **fzf tokyonight-storm palette to pwsh** (`dotfiles-Windows`
+  `powershell/core/10-tools.ps1`), which previously fell back to terminal-default
+  colours — the first `aligned` row closed. A future `scripts/parity-check.sh` can
+  mechanise the `aligned` rows the way `fleet-drift.sh` mechanised provenance.
 - **`core/` edit guard** (`blib_install_core_guard` in `lib/bootstrap-lib.sh`, wired into
   `scripts/sync-core.sh`) — a local `pre-commit` hook that refuses commits touching the
   vendored `core/` subtree, turning the prose rule "never hand-edit `core/`" into a
