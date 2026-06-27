@@ -159,7 +159,12 @@ if ((!DRY)) && [[ "${SYNC_SKIP_AUDIT:-0}" != 1 ]]; then
   # 1. The code must pass its own gate before it lands in 9 repos. We run the same
   #    audit CI and pre-commit run — one definition of "Core is healthy".
   echo ":: pre-fan-out audit (scripts/audit-core.sh --quiet)"
-  if ! "$HERE/scripts/audit-core.sh" --quiet; then
+  # Clear DOTFILES_ALLOW_CORE_EDIT (exported above for THIS script's own subtree
+  # commits) for the audit only: the behavioral suite's core-guard test commits to a
+  # throwaway core/ and asserts the hook BLOCKS it, so an inherited exemption would
+  # make that assertion fail — a false negative that wrongly reds an otherwise-green
+  # tree. The audit never writes to core/, so it has no need of the exemption.
+  if ! env -u DOTFILES_ALLOW_CORE_EDIT "$HERE/scripts/audit-core.sh" --quiet; then
     err "Core audit FAILED — refusing to fan out a red tree to $((${#TARGETS[@]})) repos"
     fail "fix the audit (or, if you must, re-run with SYNC_SKIP_AUDIT=1)"
     exit 1

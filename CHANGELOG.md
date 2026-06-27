@@ -27,6 +27,20 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   `test-core.sh` assertions); the pwsh half lands in `dotfiles-Windows`. The six rows
   moved to `aligned` (file-picker, atuin, dir-jump, session-picker, fuzzy-git, cheat) are
   each enforced by a `scripts/parity-check.sh` needle. `make audit` + `make parity-check` green.
+- **`bootstrap-lib.sh` gains opt-in dry-run + tallies** (`lib/bootstrap-lib.sh`) — the
+  shared provisioning scaffold now honors `BLIB_DRY=1`: `blib_link` / `blib_seed` /
+  `blib_link_core` / `blib_write_zshrc_loader` / `blib_set_login_shell` PRINT what they
+  would do and change nothing — every mutation (symlink, backup, seed copy, chmod, the tpm
+  clone, the ssh perms, the `.zshrc` write, the `chsh`) is guarded — so an OS bootstrap's
+  `--dry-run` can preview the whole plan instead of each repo hand-rolling it. `blib_link`
+  also gained an idempotent already-correct-link no-op and a missing-source skip; the two
+  inline git/sesh seed blocks are unified into a new `blib_seed`; `BLIB_*` counters +
+  `blib_wire_summary` give a "N linked · M seeded · K backed up" footer. **Backward
+  compatible** — `BLIB_DRY` defaults off and the non-dry path is byte-for-byte the prior
+  behaviour, so the already-adopted Fedora/Arch/Alpine/openSUSE/Gentoo/Kali bootstraps are
+  unaffected. This unblocks MacBook adopting the shared scaffold without losing its
+  `--dry-run`. Verified: dry run creates zero files; a real run wires all 25 links + 2
+  seeds; a re-run backs up nothing.
 - **De-forked `update.zsh`'s per-shell path** (`zsh/update.zsh`) — the throttle check
   and the upgrade nudge ran `date +%s` once and `sed -n Np` twice on **every**
   interactive shell, three subprocess spawns (~1.7 ms each, measured) on the critical
@@ -51,6 +65,22 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **`gsync` upstream-sync shortcut** (`.bin/sync-upstream.sh`, `zsh/aliases.zsh`) —
+  a one-word alias that `git subtree push`es an OS repo's vendored `core/` subtree
+  back upstream to dotfiles-core (`main`) — the prefix that matches the registered
+  `core/` ⇄ root@main subtree boundary. The runner refuses to run unless a `core/`
+  subtree is present (so it no-ops in dotfiles-core, the source of truth) and bails
+  on a dirty working tree. The alias resolves the script relative to the sourced
+  module via the `${(%):-%x}` trick (the same one `maint.zsh` uses), so the
+  shortcut survives the `core/` subtree vendoring without putting `.bin` on `PATH`.
+  Registered in `core.manifest`.
+- **`ARCHITECTURE.md`** — a strategic architecture overview: the three-layer
+  model and its boundary test, the full fleet map (which repos vendor `core/`
+  and which don't), the one-directional subtree vendoring topology, the
+  load-bearing zsh load order, the audit gate, and the rationale for the model.
+  Sits above `README.md`/`CONTRIBUTING.md` (which stay operational) and
+  cross-references them. Added to the audit's repo-meta allowlist; it is docs,
+  not shipped Core.
 - **`parity-check` gate** (`scripts/parity-check.sh`, `make parity-check`, weekly
   `.github/workflows/parity-check.yml`) — mechanises the `aligned` rows of `PARITY.md`:
   asserts a distinctive needle (starship/zoxide/atuin init, the fzf tokyonight palette,
@@ -164,6 +194,29 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Fixed
 
+- **`gsync` runner + core-guard installer hardening** (review follow-up to the
+  fan-out PRs). `.bin/sync-upstream.sh`: normalize to the git toplevel first so
+  `gsync` works from any subdirectory (it is an absolute-path runner); use
+  `git status --porcelain` for the clean-tree check so untracked files also block
+  (`git diff-index HEAD` missed them); and reword the failure hint to be
+  auth-agnostic (the remote is HTTPS, not SSH) and point at the right re-pull
+  command for an OS repo. `zsh/aliases.zsh`: `gsync` is now a wrapper function,
+  not an alias, so a dotfiles path containing whitespace stays one word and args
+  pass through — with a matching `_gsync` completion and `core-help` row.
+  `lib/bootstrap-lib.sh` `blib_install_core_guard`: detect the git work tree and
+  hooks dir via `git rev-parse` (so worktrees/submodules, where `.git` is a file,
+  get the guard too), skip with a warning when `core.hooksPath` is set (installing
+  into the ignored `.git/hooks` was false protection), and return non-zero instead
+  of silently succeeding if the hooks dir can't be created. New hermetic test
+  covers the `core.hooksPath` skip.
+- **`sync-core.sh` pre-fan-out audit no longer false-fails on the core-guard test.**
+  The script `export`s `DOTFILES_ALLOW_CORE_EDIT=1` for its own legitimate subtree
+  commits, but that exemption was still in the environment when it ran the
+  pre-fan-out `audit-core.sh` — whose behavioral suite commits to a throwaway
+  `core/` and asserts the guard hook BLOCKS it. The inherited exemption made that
+  assertion fail, reding an otherwise-green tree and forcing `SYNC_SKIP_AUDIT=1`.
+  The audit now runs via `env -u DOTFILES_ALLOW_CORE_EDIT` (it never writes to
+  `core/`, so it needs no exemption); the fan-out commits keep theirs.
 - **`bootstrap-lib.sh` now wires three Core files it silently dropped.**
   `blib_link_core` linked starship/nvim/mise/git/tmux/clip but omitted
   `core/lazygit/config.yml` (→ `~/.config/lazygit/config.yml`), `core/vim/vimrc`
@@ -172,13 +225,12 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   manifest comments even spell out their destinations) yet reached no machine,
   inherited from the per-repo bootstraps this library consolidated. lazygit + vim
   symlink like starship; sesh is seeded (copied, never relinked) like the git
-  identity file. The matching `bootstrap-test.yml` assertions for these three are
-  **deferred** until the fix is vendored fleet-wide: that reusable test is referenced
-  `@main` by every adopter, so it must assert only what each adopter's CURRENT
-  vendored `core/` produces — asserting the new wiring before `make sync` propagates
-  it would red-flag repos (Fedora, Kali) that legitimately haven't pulled it yet.
-  Re-add them once the fleet's `core.lock`s have caught up (fleet-drift / freshness
-  report when).
+  identity file. The matching `bootstrap-test.yml` assertions for these three were
+  briefly **deferred** — that reusable test is referenced `@main` by every adopter, so
+  it can only assert what each adopter's CURRENT vendored `core/` produces, and asserting
+  the wiring before `make sync` propagated it would have red-flagged Fedora/Kali. They are
+  **now re-added**: every adopter's `core.lock` is at a Core that includes the wiring, so
+  the `@main` test asserts lazygit/`~/.vimrc`/seeded-sesh again without false reds.
 - **`freshness.yml` opens its pin-bump PRs against the default branch**, not the
   dispatched ref (`GITHUB_REF_NAME`), and uses a ref-independent concurrency group —
   so a manual run from a feature branch can't target the wrong base or race the cron.
@@ -195,6 +247,24 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   added the manifest-listed `zsh/loader.zsh` and `lazygit/config.yml` to the README
   Layout tree; completed the README tmux-scripts list (added `tmux-battery`/`tmux-cheat`);
   and attributed the `cheat` alias to `functions.zsh` (not `aliases.zsh`) in `aliases.md`.
+
+### Security
+
+- **CI tool downloads are now SHA-256 verified.** The `setup-core-tools` composite
+  action previously fetched its pinned gate binaries (shellcheck, actionlint, gitleaks,
+  neovim) with `curl … | tar` and **no integrity check** — a tampered or MITM'd release
+  asset would have executed inside the gate. Each install now downloads to a file,
+  verifies it against a pinned hash from `scripts/tool-versions.env`, and only then
+  installs; a mismatch fails the build. `shfmt` was folded into the action (it was the
+  last tool still installed via inline `curl` in the OS-repo lint workflows), so one
+  verified definition now covers every downloaded gate tool.
+- **`scripts/tool-versions.env`** gained a `*_SHA256` per downloaded tool (the single
+  source the action reads alongside each `*_VERSION`), plus `SHFMT_VERSION`.
+- **`scripts/audit-core.sh`** gained a "tool download integrity" section that fails the
+  audit if any pinned `*_VERSION` lacks a 64-hex `*_SHA256` — a version can no longer be
+  bumped without refreshing its checksum.
+- **`scripts/update-tool-checksums.sh`** (new) recomputes the pinned hashes from the
+  exact assets the action downloads, so a version bump is a one-command checksum refresh.
 
 ## [v1.2.0] - 2026-06-21
 

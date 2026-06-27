@@ -245,6 +245,7 @@ trap 'exit 143' TERM
 # manifest, must appear here (or under a META_PREFIXES dir) or section 1 flags it.
 META_ALLOWLIST=(
   README.md PORTING-MATRIX.md CONTRIBUTING.md CHANGELOG.md LICENSE SECURITY.md aliases.md CLAUDE.md
+  ARCHITECTURE.md
   dotfiles-Defense-PLAN.md PARITY.md
   core.manifest .gitignore .gitattributes .editorconfig .pre-commit-config.yaml .markdownlint.jsonc .shellcheckrc
   Makefile cliff.toml
@@ -605,6 +606,38 @@ if [[ -r "$VERSIONS_ENV" && -r "$PRECOMMIT_CFG" ]]; then
   _check_pin "pre-commit/pre-commit-hooks" PRECOMMIT_HOOKS_VERSION pre-commit-hooks
 else
   skip "version consistency ($VERSIONS_ENV or $PRECOMMIT_CFG unreadable)"
+fi
+
+# ── 9b. tool download integrity (every downloaded *_VERSION has a *_SHA256) ────
+# The setup-core-tools composite action verifies each release download against a
+# pinned SHA-256 from tool-versions.env before installing it — the real supply-chain
+# control over the gate toolchain (a tampered or MITM'd asset fails the build instead
+# of running). That guarantee only holds if the hash exists: a version bumped without
+# refreshing its checksum would trip the action's `:?` guard at best, or verify against
+# a stale digest at worst. Gate it here — every tool the action downloads must carry a
+# 64-hex *_SHA256 beside its *_VERSION. Recompute with scripts/update-tool-checksums.sh.
+hdr "tool download integrity (version ⇒ checksum)"
+if [[ -r "$VERSIONS_ENV" ]]; then
+  _v() { sed -n "s/^$1=//p" "$VERSIONS_ENV" | head -n1; }
+  _check_sha() { # _check_sha <env-prefix> <label>
+    local ver sha
+    ver="$(_v "${1}_VERSION")"
+    sha="$(_v "${1}_SHA256")"
+    if [[ -z "$ver" ]]; then
+      fail "tool integrity: ${1}_VERSION missing — the action downloads $2"
+    elif [[ "$sha" =~ ^[0-9a-f]{64}$ ]]; then
+      pass "tool integrity: $2 $ver has a 64-hex ${1}_SHA256"
+    else
+      fail "tool integrity: $2 $ver has no valid ${1}_SHA256 — run scripts/update-tool-checksums.sh"
+    fi
+  }
+  _check_sha SHELLCHECK shellcheck
+  _check_sha ACTIONLINT actionlint
+  _check_sha GITLEAKS gitleaks
+  _check_sha NVIM neovim
+  _check_sha SHFMT shfmt
+else
+  skip "tool download integrity ($VERSIONS_ENV unreadable)"
 fi
 
 # core.version is the human-readable Core stamp vendored into all 9 OS repos (read by

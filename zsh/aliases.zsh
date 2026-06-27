@@ -84,6 +84,16 @@ fi
 # right after this file). Only the non-git lazygit launcher lives here.
 alias lg='lazygit'
 
+# ── upstream sync (gsync) ─────────────────────────────────────────────────────
+# `gsync` pushes an OS repo's vendored core/ subtree back upstream to dotfiles-core.
+# Resolve the runner relative to THIS file (survives the core/ subtree living
+# inside each OS repo) — the same %x trick maint.zsh uses for its runner, so the
+# shortcut works without putting .bin on PATH. A function (not an alias) so a
+# dotfiles path containing whitespace stays one word and any args pass through.
+typeset -g _SYNC_UPSTREAM_SH="${${(%):-%x}:A:h}/../.bin/sync-upstream.sh"
+_SYNC_UPSTREAM_SH="${_SYNC_UPSTREAM_SH:A}"
+gsync() { "$_SYNC_UPSTREAM_SH" "$@"; }
+
 # ── named directories (~dots, ~proj) ──────────────────────────────────────────
 hash -d dots="$HOME/.config"
 hash -d proj="$HOME/Projects"

@@ -51,6 +51,7 @@ zsh/completions/_gaf
 zsh/completions/_genpw
 zsh/completions/_grf
 zsh/completions/_grsf
+zsh/completions/_gsync
 zsh/completions/_maint-install
 zsh/completions/_maint-log
 zsh/completions/_maint-noargs
@@ -102,6 +103,9 @@ tmux/scripts/tmux-scratch.sh
 tmux/scripts/tmux-sesh.sh
 # ── maintenance runner (invoked by the scheduler maint.zsh installs) ──────────
 maint/dotfiles-maint.sh
+# ── upstream-sync runner (invoked by the `gsync` alias in zsh/aliases.zsh, which
+#    resolves this path relative to itself — like maint/ above) ────────────────
+.bin/sync-upstream.sh
 # ── git — portable config; credential/identity split to OS+local ──────────────
 git/gitconfig
 git/local.gitconfig.example

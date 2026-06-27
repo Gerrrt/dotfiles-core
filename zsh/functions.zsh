@@ -809,6 +809,7 @@ _core_help_render() {
     "§updates & maintenance"
     "up [-y]|apply package updates (interactive; confirms first)"
     "update-check|refresh the 'updates available' nudge"
+    "gsync|push this repo's vendored core/ subtree back upstream to dotfiles-core"
     "maint-install [HH:MM]|schedule the daily safe-update job"
     "maint-run|run daily maintenance now"
     "maint-log [-f]|view (or follow) the maintenance log"
