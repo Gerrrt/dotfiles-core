@@ -7,7 +7,7 @@
 # pre-commit call the same scripts/audit-core.sh, so `make audit` == green CI.
 # ──────────────────────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help setup doctor audit audit-changed test bench profile lint sync sync-dry fleet-drift parity-check hooks update-hooks update-plugins update-nvim-plugins check-pins release release-notes
+.PHONY: help setup doctor audit audit-changed test bench profile lint sync sync-dry fleet-drift parity-check hooks update-hooks update-plugins update-nvim-plugins update-tool-checksums check-pins release release-notes
 
 help: ## Show this help
 	@echo "dotfiles-core — make targets:"
@@ -62,6 +62,9 @@ update-plugins: ## Roll the pinned zsh-plugin SHAs in zsh/plugins.zsh to upstrea
 
 update-nvim-plugins: ## Roll the pinned nvim plugin commits in nvim/lazy-lock.json forward (deliberate bump)
 	@./scripts/update-nvim-plugins.sh
+
+update-tool-checksums: ## Recompute the pinned CI tool SHA-256s in tool-versions.env after a version bump
+	@./scripts/update-tool-checksums.sh
 
 check-pins: ## Report whether the zsh-plugin + nvim pins are behind upstream (the weekly freshness gate)
 	@./scripts/update-plugins.sh --check && ./scripts/update-nvim-plugins.sh --check
