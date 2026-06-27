@@ -178,6 +178,7 @@ blib_select() {
   case "$flag" in
     --only) BLIB_ONLY="$out" ;;
     --skip) BLIB_SKIP="$out" ;;
+    *) blib_warn "blib_select: unknown flag '$flag' (expected --only or --skip)"; exit 1 ;;
   esac
 }
 
@@ -191,12 +192,15 @@ blib_want() {
 }
 
 # blib_selected_note — " (only: …)" / " (skipped: …)" suffix for a final summary line,
-# empty when nothing was filtered. Lets a bootstrap's closing message reflect a subset.
+# empty when nothing was filtered. Mirrors blib_want's precedence: --only is an allowlist
+# that WINS when set, so a --skip alongside it is ignored — report only the active mode
+# (never both) to keep the closing message honest about what was actually wired.
 blib_selected_note() {
-  local n=""
-  [[ -n "$BLIB_ONLY" ]] && n=" (only: $BLIB_ONLY)"
-  [[ -n "$BLIB_SKIP" ]] && n="$n (skipped: $BLIB_SKIP)"
-  printf '%s' "$n"
+  if [[ -n "$BLIB_ONLY" ]]; then
+    printf ' (only: %s)' "$BLIB_ONLY"
+  elif [[ -n "$BLIB_SKIP" ]]; then
+    printf ' (skipped: %s)' "$BLIB_SKIP"
+  fi
 }
 
 # ── symlink the vendored Core surface ─────────────────────────────────────────

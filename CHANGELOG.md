@@ -68,6 +68,18 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   "nine-repo system" / "seven vendoring OS repos" counts, which the phantom Debian
   entry had thrown off by one. Debian _distro-family_ facts (the `bat`→`batcat` /
   `fd`→`fdfind` renames, Kali being Debian-family) are unaffected and retained.
+- **Hardened the Track B module selector** (`lib/bootstrap-lib.sh`) — two fixes from
+  review of the fan-out PRs. `blib_select` now **fails fast on an unknown flag** (a
+  `*)` arm warns + `exit 1` instead of silently falling through without recording a
+  selection, so a caller typo can't make filtering appear to "work" while wiring
+  everything). And `blib_selected_note` now **mirrors `blib_want`'s precedence**: since
+  `--only` is an allowlist that wins when set, a co-present `--skip` is ignored — the
+  note reports a single active mode (`only` when set, otherwise `skip`) rather than
+  appending a misleading `(skipped: …)` suffix that was never applied. **Backward
+  compatible** — the single-selector and no-selector paths are unchanged. `test-core.sh`
+  Section G gains an unknown-flag rejection case, a `--skip`/both-set precedence check on
+  the note, and a `BLIB_MODULES` drift guard pinning the production group list to the
+  tested oracle. `make audit` green.
 
 ### Added
 
