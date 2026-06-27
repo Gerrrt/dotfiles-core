@@ -265,6 +265,13 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   bumped without refreshing its checksum.
 - **`scripts/update-tool-checksums.sh`** (new) recomputes the pinned hashes from the
   exact assets the action downloads, so a version bump is a one-command checksum refresh.
+- **`setup-core-tools` skips only on its OWN verified binary, not any `command -v` match.**
+  The install steps short-circuited on `command -v <tool>`, which also matches a binary
+  preinstalled on the runner (`ubuntu-latest` ships shellcheck) — so the verified install
+  was silently skipped and the gate ran the unpinned, unverified system shellcheck. Each
+  step now skips only when the binary is already in the action's own `bindir` (a genuine
+  cache restore); the caller prepends `bindir` to `PATH`, so the verified binary always
+  shadows any preinstalled one. Restores the integrity + pinning guarantee for shellcheck.
 
 ## [v1.2.0] - 2026-06-21
 

@@ -40,7 +40,11 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        command -v shellcheck >/dev/null 2>&1 && { echo "shellcheck cached"; exit 0; }
+        # Skip only when OUR verified binary is already in bindir (a cache restore) —
+        # NOT on any `command -v` PATH match, which would let a preinstalled system
+        # shellcheck (ubuntu-latest ships one) bypass the pinned, SHA-256-verified
+        # install. The caller prepends bindir to PATH, so the verified binary wins.
+        [ -x "${{ inputs.bindir }}/shellcheck" ] && { echo "shellcheck already verified in bindir (cached)"; exit 0; }
         : "${SHELLCHECK_VERSION:?not loaded — caller must source tool-versions.env}"
         : "${SHELLCHECK_SHA256:?not loaded — caller must source tool-versions.env}"
         mkdir -p "${{ inputs.bindir }}"
@@ -57,7 +61,8 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        command -v actionlint >/dev/null 2>&1 && { echo "actionlint cached"; exit 0; }
+        # Skip only on OUR verified bindir binary (cache restore), not any PATH match.
+        [ -x "${{ inputs.bindir }}/actionlint" ] && { echo "actionlint already verified in bindir (cached)"; exit 0; }
         : "${ACTIONLINT_VERSION:?not loaded — caller must source tool-versions.env}"
         : "${ACTIONLINT_SHA256:?not loaded — caller must source tool-versions.env}"
         mkdir -p "${{ inputs.bindir }}"
@@ -74,7 +79,8 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        command -v gitleaks >/dev/null 2>&1 && { echo "gitleaks cached"; exit 0; }
+        # Skip only on OUR verified bindir binary (cache restore), not any PATH match.
+        [ -x "${{ inputs.bindir }}/gitleaks" ] && { echo "gitleaks already verified in bindir (cached)"; exit 0; }
         : "${GITLEAKS_VERSION:?not loaded — caller must source tool-versions.env}"
         : "${GITLEAKS_SHA256:?not loaded — caller must source tool-versions.env}"
         mkdir -p "${{ inputs.bindir }}"
@@ -91,7 +97,8 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        command -v shfmt >/dev/null 2>&1 && { echo "shfmt cached"; exit 0; }
+        # Skip only on OUR verified bindir binary (cache restore), not any PATH match.
+        [ -x "${{ inputs.bindir }}/shfmt" ] && { echo "shfmt already verified in bindir (cached)"; exit 0; }
         : "${SHFMT_VERSION:?not loaded — caller must source tool-versions.env}"
         : "${SHFMT_SHA256:?not loaded — caller must source tool-versions.env}"
         mkdir -p "${{ inputs.bindir }}"
@@ -106,7 +113,9 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        command -v nvim >/dev/null 2>&1 && { echo "nvim present"; exit 0; }
+        # Skip only when OUR verified nvim is already unpacked (a re-run), not on any
+        # preinstalled `nvim` on PATH — the symlink below puts ours ahead regardless.
+        [ -x /opt/nvim-linux-x86_64/bin/nvim ] && { echo "nvim already verified-installed"; exit 0; }
         : "${NVIM_VERSION:?not loaded — caller must source tool-versions.env}"
         : "${NVIM_SHA256:?not loaded — caller must source tool-versions.env}"
         ver="${NVIM_VERSION}"
