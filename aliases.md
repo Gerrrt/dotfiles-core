@@ -160,8 +160,8 @@ Source: `core/zsh/functions.zsh` · `core/zsh/maint.zsh` · `core/zsh/update.zsh
 | `maint-log [-f]` | View (or follow) the maintenance log |
 | `maint-status` | When the job next runs and whether it is enabled |
 | `maint-uninstall` | Remove the scheduled maintenance job |
-| `update-check` | Manually trigger a background package-update cache refresh (throttled to once per 24 h otherwise) |
-| `gsync [args]` | Sync this OS repo's vendored `core/` subtree back upstream to dotfiles-core; runs `.bin/sync-upstream.sh` with forwarded args. Source: `core/zsh/aliases.zsh` |
+| `update-check` | Force an immediate, synchronous package-update cache refresh and print the nudge — bypasses the 24 h startup throttle. Source: `core/zsh/update.zsh` |
+| `gsync` | Sync this OS repo's vendored `core/` subtree back upstream to dotfiles-core; runs `.bin/sync-upstream.sh`. Takes no arguments (configuration is hardcoded in the script). Source: `core/zsh/aliases.zsh` |
 
 ---
 
