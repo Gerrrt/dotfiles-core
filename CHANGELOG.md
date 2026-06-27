@@ -237,6 +237,24 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   Layout tree; completed the README tmux-scripts list (added `tmux-battery`/`tmux-cheat`);
   and attributed the `cheat` alias to `functions.zsh` (not `aliases.zsh`) in `aliases.md`.
 
+### Security
+
+- **CI tool downloads are now SHA-256 verified.** The `setup-core-tools` composite
+  action previously fetched its pinned gate binaries (shellcheck, actionlint, gitleaks,
+  neovim) with `curl … | tar` and **no integrity check** — a tampered or MITM'd release
+  asset would have executed inside the gate. Each install now downloads to a file,
+  verifies it against a pinned hash from `scripts/tool-versions.env`, and only then
+  installs; a mismatch fails the build. `shfmt` was folded into the action (it was the
+  last tool still installed via inline `curl` in the OS-repo lint workflows), so one
+  verified definition now covers every downloaded gate tool.
+- **`scripts/tool-versions.env`** gained a `*_SHA256` per downloaded tool (the single
+  source the action reads alongside each `*_VERSION`), plus `SHFMT_VERSION`.
+- **`scripts/audit-core.sh`** gained a "tool download integrity" section that fails the
+  audit if any pinned `*_VERSION` lacks a 64-hex `*_SHA256` — a version can no longer be
+  bumped without refreshing its checksum.
+- **`scripts/update-tool-checksums.sh`** (new) recomputes the pinned hashes from the
+  exact assets the action downloads, so a version bump is a one-command checksum refresh.
+
 ## [v1.2.0] - 2026-06-21
 
 ### Added
