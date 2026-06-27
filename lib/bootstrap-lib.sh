@@ -300,7 +300,9 @@ blib_install_core_guard() {
 # dotfiles-core instead. Legitimate sync writes set DOTFILES_ALLOW_CORE_EDIT=1; or
 # bypass once with `git commit --no-verify`.
 [ -n "${DOTFILES_ALLOW_CORE_EDIT:-}" ] && exit 0
-staged=$(git diff --cached --name-only --diff-filter=ACMR -- core/ 2>/dev/null) || exit 0
+# No --diff-filter: catch EVERY staged change under core/ — adds/mods/renames AND
+# deletions (git rm core/…) and type changes, which drift from canonical Core too.
+staged=$(git diff --cached --name-only -- core/ 2>/dev/null) || exit 0
 [ -z "$staged" ] && exit 0
 {
   printf 'dotfiles-core-guard: refusing to commit edits to the vendored core/ subtree:\n'

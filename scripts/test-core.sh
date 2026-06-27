@@ -473,6 +473,10 @@ if have git; then
   hdr "core/ pre-commit guard (blib_install_core_guard)"
   # shellcheck source=lib/bootstrap-lib.sh
   source "$HERE/lib/bootstrap-lib.sh"
+  # Pin git config to /dev/null (like the gcheck helper) so a host/CI global
+  # core.hooksPath would not make git ignore our per-repo hook, and a global
+  # commit.gpgsign can't break the non-core commit — keeps these assertions hermetic.
+  export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
   GREPO="$SANDBOX/guardrepo"
   _guard_fresh() { # fresh repo with the guard installed
     rm -rf "$GREPO"
@@ -507,6 +511,13 @@ if have git; then
 
   _guard_fresh
   if [[ "$(_guard_commit core/y.txt 1)" == ok ]]; then pass "guard: DOTFILES_ALLOW_CORE_EDIT exempts a sync write"; else fail "guard: escape hatch did not allow a core/ commit"; fi
+
+  # a pure DELETION of a vendored file (git rm core/…) drifts from Core too — must be blocked
+  _guard_fresh
+  printf 'seed' >"$GREPO/core/seed.txt"; git -C "$GREPO" add -A
+  DOTFILES_ALLOW_CORE_EDIT=1 git -C "$GREPO" commit -q -m seed >/dev/null 2>&1
+  git -C "$GREPO" rm -q core/seed.txt >/dev/null 2>&1
+  if git -C "$GREPO" commit -q -m del >/dev/null 2>&1; then fail "guard: did NOT block a core/ deletion"; else pass "guard: blocks a core/ deletion (git rm)"; fi
 
   # a pre-existing, unrelated pre-commit hook must be preserved (not clobbered)
   rm -rf "$GREPO"; mkdir -p "$GREPO/core"; git -C "$GREPO" init -q
