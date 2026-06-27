@@ -117,8 +117,13 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   manifest comments even spell out their destinations) yet reached no machine,
   inherited from the per-repo bootstraps this library consolidated. lazygit + vim
   symlink like starship; sesh is seeded (copied, never relinked) like the git
-  identity file. `bootstrap-test.yml` now asserts all three so the gap can't
-  silently reopen.
+  identity file. The matching `bootstrap-test.yml` assertions for these three are
+  **deferred** until the fix is vendored fleet-wide: that reusable test is referenced
+  `@main` by every adopter, so it must assert only what each adopter's CURRENT
+  vendored `core/` produces — asserting the new wiring before `make sync` propagates
+  it would red-flag repos (Fedora, Kali) that legitimately haven't pulled it yet.
+  Re-add them once the fleet's `core.lock`s have caught up (fleet-drift / freshness
+  report when).
 - **`freshness.yml` opens its pin-bump PRs against the default branch**, not the
   dispatched ref (`GITHUB_REF_NAME`), and uses a ref-independent concurrency group —
   so a manual run from a feature branch can't target the wrong base or race the cron.
