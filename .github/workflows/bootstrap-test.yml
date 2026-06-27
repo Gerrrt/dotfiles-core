@@ -88,12 +88,17 @@ jobs:
               "$HOME/.config/zsh/loader.zsh" \
               "$HOME/.config/zsh/os.zsh" \
               "$HOME/.config/starship.toml" \
+              "$HOME/.config/lazygit/config.yml" \
               "$HOME/.config/nvim" \
+              "$HOME/.vimrc" \
               "$HOME/.gitconfig"; do
               if [ ! -L "$link" ]; then echo "MISSING symlink: $link" >&2; exit 1; fi
             done
             # The vendored loader must resolve to the repo copy (not a dangling link).
             if [ ! -e "$HOME/.config/zsh/loader.zsh" ]; then echo "loader.zsh symlink is dangling" >&2; exit 1; fi
+            # sesh is SEEDED (copied, not symlinked) — assert the real file landed.
+            if [ ! -f "$HOME/.config/sesh/sesh.toml" ]; then echo "sesh.toml not seeded" >&2; exit 1; fi
+            if [ -L "$HOME/.config/sesh/sesh.toml" ]; then echo "sesh.toml should be a copy, not a symlink" >&2; exit 1; fi
 
             grep -q "dotfiles-managed v2" "$HOME/.zshrc" || { echo "~/.zshrc not managed" >&2; exit 1; }
             grep -q "_CORE_MODULES=(tools ui options" "$HOME/.zshrc" || { echo "~/.zshrc missing canonical module list" >&2; exit 1; }

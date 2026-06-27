@@ -109,6 +109,16 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Fixed
 
+- **`bootstrap-lib.sh` now wires three Core files it silently dropped.**
+  `blib_link_core` linked starship/nvim/mise/git/tmux/clip but omitted
+  `core/lazygit/config.yml` (→ `~/.config/lazygit/config.yml`), `core/vim/vimrc`
+  (→ `~/.vimrc`), and the `core/sesh/sesh.toml.example` seed
+  (→ `~/.config/sesh/sesh.toml`) — three files that are in `core.manifest` (the
+  manifest comments even spell out their destinations) yet reached no machine,
+  inherited from the per-repo bootstraps this library consolidated. lazygit + vim
+  symlink like starship; sesh is seeded (copied, never relinked) like the git
+  identity file. `bootstrap-test.yml` now asserts all three so the gap can't
+  silently reopen.
 - **`freshness.yml` opens its pin-bump PRs against the default branch**, not the
   dispatched ref (`GITHUB_REF_NAME`), and uses a ref-independent concurrency group —
   so a manual run from a feature branch can't target the wrong base or race the cron.

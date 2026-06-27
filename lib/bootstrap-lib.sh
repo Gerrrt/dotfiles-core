@@ -121,7 +121,12 @@ blib_link_core() {
   # starship prompt theme — symlink to the DEFAULT path (tools.zsh inits starship
   # against ~/.config/starship.toml with no STARSHIP_CONFIG).
   [[ -f "$dotfiles/core/starship/starship.toml" ]] && blib_link "$dotfiles/core/starship/starship.toml" "$config/starship.toml"
+  # lazygit tokyonight theme — DEFAULT path too (reached via the `lg` alias + the
+  # `prefix + g` tmux popup). In core.manifest, so it must wire like starship above.
+  [[ -f "$dotfiles/core/lazygit/config.yml" ]] && blib_link "$dotfiles/core/lazygit/config.yml" "$config/lazygit/config.yml"
   [[ -d "$dotfiles/core/nvim" ]] && blib_link "$dotfiles/core/nvim" "$config/nvim"
+  # stock-vim fallback for boxes with no nvim — core/vim/vimrc -> ~/.vimrc (in the manifest).
+  [[ -f "$dotfiles/core/vim/vimrc" ]] && blib_link "$dotfiles/core/vim/vimrc" "$HOME/.vimrc"
   [[ -f "$dotfiles/core/mise/config.toml" ]] && blib_link "$dotfiles/core/mise/config.toml" "$config/mise/config.toml"
   [[ -f "$dotfiles/core/git/gitconfig" ]] && blib_link "$dotfiles/core/git/gitconfig" "$HOME/.gitconfig"
 
@@ -130,6 +135,14 @@ blib_link_core() {
     mkdir -p "$config/git"
     cp "$dotfiles/core/git/local.gitconfig.example" "$config/git/local.gitconfig"
     blib_say "seeded ~/.config/git/local.gitconfig — FILL IN your name & email"
+  fi
+
+  # portable sesh session config, seeded ONCE (COPIED not symlinked — engagement layouts
+  # live in dotfiles-Kali; in core.manifest as SEEDED to ~/.config/sesh/sesh.toml).
+  if [[ ! -f "$config/sesh/sesh.toml" && -f "$dotfiles/core/sesh/sesh.toml.example" ]]; then
+    mkdir -p "$config/sesh"
+    cp "$dotfiles/core/sesh/sesh.toml.example" "$config/sesh/sesh.toml"
+    blib_say "seeded ~/.config/sesh/sesh.toml — edit freely; not tracked from here"
   fi
 
   # cross-OS helper scripts from Core onto PATH (~/.local/bin).
