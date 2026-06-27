@@ -39,6 +39,15 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **`parity-check` gate** (`scripts/parity-check.sh`, `make parity-check`, weekly
+  `.github/workflows/parity-check.yml`) — mechanises the `aligned` rows of `PARITY.md`:
+  asserts a distinctive needle (starship/zoxide/atuin init, the fzf tokyonight palette,
+  the `fd` default command) is present in **both** a zsh source and the pwsh source,
+  failing when one side drifts. Reads pwsh from a sibling `dotfiles-Windows` checkout
+  (skipped with a notice if absent, unless `--strict`; the workflow clones it and runs
+  `--strict`), the same cross-repo pattern as `fleet-drift.sh`. The fzf-palette row is
+  the regression guard for the parity fix just shipped; keybinding rows join the checker
+  as each open decision is made. `make audit` green.
 - **`PARITY.md` — the cross-shell parity contract** — the source of truth for what
   "the same on zsh and PowerShell" means, mapping every prompt/alias/keybinding/
   function capability to `aligned` (must stay in step), `deliberate` (intentional
