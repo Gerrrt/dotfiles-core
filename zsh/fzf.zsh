@@ -69,16 +69,16 @@ export FZF_CTRL_T_OPTS="--preview '$_FZF_PREVIEW_CMD'"
 export FZF_ALT_C_OPTS="--preview '$_FZF_DIR_PREVIEW'"
 
 # =========================================================
-# Widget: Ctrl+F — file picker (no hidden files)
+# Widget: Ctrl+T — file picker (no hidden files)
 # =========================================================
 _fzf_file_no_hidden() {
   local result
-  # Bound unconditionally in bindings.zsh (Ctrl-F), so guard here: on a box without
+  # Bound unconditionally in bindings.zsh (Ctrl-T), so guard here: on a box without
   # fzf/fd, warn in Core's voice and repaint the prompt instead of running an empty
   # "$FD_BIN" (unset on a bare box) piped into a missing fzf ("command not found").
   # Mirrors the Alt-Z (_fzf_zoxide_jump) guard below.
   if ! _core_have fzf || [[ -z ${FD_BIN:-} ]]; then
-    _core_warn "Ctrl-F: needs fzf + fd"
+    _core_warn "Ctrl-T: needs fzf + fd"
     zle reset-prompt
     return 1
   fi

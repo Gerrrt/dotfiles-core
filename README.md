@@ -100,7 +100,7 @@ zsh/                      sourced by each OS repo's .zshrc loader, IN THIS ORDER
   aliases.zsh             modern-CLI aliases, each guarded by tools.zsh detection
   git.zsh                 curated OMZ-style git aliases + git_main_branch helper
   functions.zsh           cross-OS shell functions (mkcd, extract, up, ...)
-  fzf.zsh                 fzf env + zle widgets (Ctrl-F/R, Alt-Z, Ctrl-G) + fif/fbr
+  fzf.zsh                 fzf env + zle widgets (Ctrl-T/R, Alt-Z, Ctrl-G) + fif/fbr
   bindings.zsh            vi-mode keybindings (zvm_after_init hook)
   plugins.zsh             lightweight plugin loader + plugin list
   op.zsh                  1Password CLI helpers

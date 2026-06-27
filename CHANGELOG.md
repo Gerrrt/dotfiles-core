@@ -20,10 +20,13 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   (zsh moved off `Ctrl+F`), **Ctrl+E** = atuin TUI / **Ctrl+R** = quick fzf history,
   **Ctrl+G** = jump-to-session everywhere (zsh sesh; the host gets a psmux sessionizer,
   with navi demoted from its Ctrl+G widget to the `navi` command), and **Alt+Z** = zoxide
-  jump + `gaf`/`grf`/`grsf` fuzzy git staging ported to pwsh. Core's side here is the one
-  zsh edit (`zsh/bindings.zsh`: `Ctrl+F`→`Ctrl+T`); the pwsh half lands in `dotfiles-Windows`.
-  All five rows are now `aligned` in `PARITY.md` and enforced by `scripts/parity-check.sh`
-  (which grew checks for each). `make audit` + `make parity-check` green.
+  jump + `gaf`/`grf`/`grsf` fuzzy git staging ported to pwsh. Core's functional change is
+  the file-picker rebind (`zsh/bindings.zsh`: `Ctrl+F`→`Ctrl+T`), with the announced key
+  updated everywhere it appears (`zsh/fzf.zsh` warning + comments, the `core-help` cheat
+  row in `zsh/functions.zsh`, `tmux/scripts/tmux-cheat.sh`, `README.md`, and the
+  `test-core.sh` assertions); the pwsh half lands in `dotfiles-Windows`. The six rows
+  moved to `aligned` (file-picker, atuin, dir-jump, session-picker, fuzzy-git, cheat) are
+  each enforced by a `scripts/parity-check.sh` needle. `make audit` + `make parity-check` green.
 - **De-forked `update.zsh`'s per-shell path** (`zsh/update.zsh`) — the throttle check
   and the upgrade nudge ran `date +%s` once and `sed -n Np` twice on **every**
   interactive shell, three subprocess spawns (~1.7 ms each, measured) on the critical

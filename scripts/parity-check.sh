@@ -59,8 +59,8 @@ WIN="$ROOT/dotfiles-Windows"
 
 # Each row: label | zsh-relpath | zsh-needle | pwsh-relpath | pwsh-needle.
 # Needles are FIXED strings (grep -F), chosen distinctive enough to avoid false hits.
-# Mirrors PARITY.md's `aligned` rows; the fzf-palette row guards the parity fix that
-# closed the first row. (Keybinding rows stay out until the open decisions are made.)
+# Mirrors PARITY.md's `aligned` rows one-to-one — every aligned row has a check here,
+# which is what makes the row "enforced" (PARITY.md's Enforcement section).
 CHECKS=(
   "prompt: starship|zsh/tools.zsh|starship init|powershell/core/10-tools.ps1|starship init"
   "smart cd: zoxide|zsh/tools.zsh|zoxide init|powershell/core/10-tools.ps1|zoxide init"
@@ -72,6 +72,7 @@ CHECKS=(
   "zoxide jump on Alt+Z|zsh/bindings.zsh|_fzf_zoxide_jump|powershell/core/10-tools.ps1|-Chord 'Alt+z'"
   "sessionizer on Ctrl+G|zsh/bindings.zsh|_tmux_sessionizer|powershell/core/10-tools.ps1|Invoke-DotfilesSessionizer"
   "fuzzy git stage/restore (gaf)|zsh/git.zsh|function gaf|powershell/core/20-functions.ps1|function gaf"
+  "cheat command|zsh/functions.zsh|alias cheat=|powershell/core/20-functions.ps1|function cheat"
 )
 
 # _has <file> <needle> — fixed-string presence test; non-zero if file missing too.

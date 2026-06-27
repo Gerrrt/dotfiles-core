@@ -240,7 +240,7 @@ if ((UPDATE_CHECK_ENABLED)); then
 fi
 
 # ── First-run hint: once per machine, point a new shell at the cheat sheet ──────
-# A brand-new clone gives no clue that `serve`, `extract`, `fif`, or the Ctrl-F/G
+# A brand-new clone gives no clue that `serve`, `extract`, `fif`, or the Ctrl-T/G
 # widgets exist. Print ONE unobtrusive line the first time, throttled by a sentinel
 # (like the nudge above), then never again. Set CORE_WELCOME=0 to silence entirely.
 #

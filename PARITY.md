@@ -87,6 +87,6 @@ exactly like `scripts/fleet-drift.sh`. The weekly `.github/workflows/parity-chec
 clones `dotfiles-Windows` and runs it `--strict`, failing red on drift.
 
 When a row here moves to `aligned`, add a matching check to `parity-check.sh` in the
-same change — the check is the enforcement. The keybinding rows under **Open
-decisions** are deliberately *not* enforced yet; they join the checker as each
-decision is made and implemented on both shells.
+same change — the check is the enforcement. Every `aligned` row above (including the
+keybindings settled in **Resolved decisions**) has a corresponding check today; a new
+alignment is not done until its needle is added.
