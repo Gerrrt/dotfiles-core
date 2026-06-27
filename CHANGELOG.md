@@ -28,6 +28,16 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **Fleet-drift check** (`scripts/fleet-drift.sh`, `make fleet-drift`, and a weekly
+  `.github/workflows/fleet-drift.yml`) — reads every OS repo's `core.lock`
+  (`core_sha=…`) plus `dotfiles-Windows`'s `nvim/.core-ref` (`commit = …`) and reports
+  which repos lag Core's tip (BEHIND/AHEAD/DIVERGED, quantified in commits). Closes the
+  gap where the per-repo provenance markers existed but nothing compared them, so a repo
+  could silently sit on a stale Core (how the nvim lockfile drifted). Read-only — the
+  fix is a human running `make sync`; a not-checked-out repo is skipped unless `--strict`.
+  The reference commit is `--ref`/`$CORE_REF_SHA` → `origin/main` → `main` → `HEAD`.
+  Fleet list is the same `scripts/os-repos.txt` `sync-core.sh` reads; the scheduled
+  workflow anonymously shallow-clones the public repos and fails red on drift.
 - **`.github/workflows/bootstrap-test.yml`** — a _reusable_ (`workflow_call`)
   bootstrap integration test, authored once here and called by a thin ~10-line
   stub in each OS repo, so the OS repos gain CI without each carrying a duplicated
