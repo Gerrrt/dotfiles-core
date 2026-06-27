@@ -39,6 +39,15 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **`gsync` upstream-sync shortcut** (`.bin/sync-upstream.sh`, `zsh/aliases.zsh`) —
+  a one-word alias that `git subtree push`es an OS repo's vendored `core/` subtree
+  back upstream to dotfiles-core (`main`) — the prefix that matches the registered
+  `core/` ⇄ root@main subtree boundary. The runner refuses to run unless a `core/`
+  subtree is present (so it no-ops in dotfiles-core, the source of truth) and bails
+  on a dirty working tree. The alias resolves the script relative to the sourced
+  module via the `${(%):-%x}` trick (the same one `maint.zsh` uses), so the
+  shortcut survives the `core/` subtree vendoring without putting `.bin` on `PATH`.
+  Registered in `core.manifest`.
 - **`ARCHITECTURE.md`** — a strategic architecture overview: the three-layer
   model and its boundary test, the full fleet map (which repos vendor `core/`
   and which don't), the one-directional subtree vendoring topology, the
