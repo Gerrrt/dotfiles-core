@@ -141,6 +141,64 @@ blib_read_pkgs() {
   done <"$1"
 }
 
+# ── module selection (Track B: --only / --skip) ───────────────────────────────
+# Optional filtering of the wiring GROUPS so a bootstrap can re-link a subset (e.g.
+# `--only zsh,nvim`). The groups and what each covers in the link helpers below:
+#   zsh    — core/zsh/*.zsh, os/<os>.zsh, the managed ~/.zshrc loader, login shell
+#   nvim   — core/nvim, the core/vim/vimrc fallback
+#   tmux   — tmux.conf/reset/scripts + tpm, os/<os>.conf
+#   git    — core gitconfig, os/<os>.gitconfig, the once-seeded local identity
+#   prompt — starship.toml
+#   tools  — lazygit, mise, bin/clip*, ssh client config, the seeded sesh config
+# Default (neither BLIB_ONLY nor BLIB_SKIP set) wires EVERYTHING, so every existing
+# caller is byte-for-byte unaffected. A bootstrap's arg loop routes its --only/--skip
+# to blib_select; the helpers consult blib_want. bash 3.2-safe (no arrays needed).
+BLIB_ONLY="" BLIB_SKIP=""
+BLIB_MODULES="zsh nvim tmux git prompt tools"
+
+# blib_select <--only|--skip> <csv> — validate VALUE (comma-separated group names with
+# no empty / leading / trailing / doubled commas and no whitespace, so `zsh,,nvim`,
+# `zsh,`, ``, `*` all abort) against BLIB_MODULES and record it. Aborts on a malformed
+# selector or an unknown group. Called (not in a subshell) from each bootstrap so its
+# `exit 1` aborts the bootstrap.
+blib_select() {
+  local flag="$1" csv="$2" out="" tok
+  [[ "$csv" =~ ^[A-Za-z]+(,[A-Za-z]+)*$ ]] || {
+    blib_warn "$flag needs comma-separated module names (no empty/extra commas), e.g. $flag zsh,nvim (valid: $BLIB_MODULES)"
+    exit 1
+  }
+  local IFS=,
+  for tok in $csv; do
+    case " $BLIB_MODULES " in
+      *" $tok "*) ;;
+      *) blib_warn "unknown module: $tok (valid: $BLIB_MODULES)"; exit 1 ;;
+    esac
+    out="${out:+$out }$tok"
+  done
+  case "$flag" in
+    --only) BLIB_ONLY="$out" ;;
+    --skip) BLIB_SKIP="$out" ;;
+  esac
+}
+
+# blib_want <group> — should GROUP be wired? --only is an allowlist (wins when set);
+# otherwise everything except the --skip names. Used as `if blib_want X; then …`.
+blib_want() {
+  if [[ -n "$BLIB_ONLY" ]]; then
+    case " $BLIB_ONLY " in *" $1 "*) return 0 ;; *) return 1 ;; esac
+  fi
+  case " $BLIB_SKIP " in *" $1 "*) return 1 ;; *) return 0 ;; esac
+}
+
+# blib_selected_note — " (only: …)" / " (skipped: …)" suffix for a final summary line,
+# empty when nothing was filtered. Lets a bootstrap's closing message reflect a subset.
+blib_selected_note() {
+  local n=""
+  [[ -n "$BLIB_ONLY" ]] && n=" (only: $BLIB_ONLY)"
+  [[ -n "$BLIB_SKIP" ]] && n="$n (skipped: $BLIB_SKIP)"
+  printf '%s' "$n"
+}
+
 # ── symlink the vendored Core surface ─────────────────────────────────────────
 # blib_link_core <dotfiles> <config> — link everything Core ships, identically on
 # every OS: the zsh modules, tmux base + reset + popup scripts, starship, nvim, mise,
@@ -150,75 +208,94 @@ blib_read_pkgs() {
 blib_link_core() {
   local dotfiles="$1" config="$2" f s
 
-  blib_say "symlinking Core"
-  for f in "$dotfiles"/core/zsh/*.zsh; do
-    blib_link "$f" "$config/zsh/$(basename "$f")"
-  done
-
-  [[ -f "$dotfiles/core/tmux/tmux.conf" ]] && blib_link "$dotfiles/core/tmux/tmux.conf" "$config/tmux/tmux.conf"
-  [[ -f "$dotfiles/core/tmux/tmux.reset.conf" ]] && blib_link "$dotfiles/core/tmux/tmux.reset.conf" "$config/tmux/tmux.reset.conf"
-  # tmux popup scripts (prefix w/T/f) — symlink the dir + ensure they're runnable.
-  if [[ -d "$dotfiles/core/tmux/scripts" ]]; then
-    blib_link "$dotfiles/core/tmux/scripts" "$config/tmux/scripts"
-    _blib_dry || chmod +x "$dotfiles"/core/tmux/scripts/*.sh 2>/dev/null || true
+  # ── zsh — the Core module chain (os/<os>.zsh comes from blib_link_os_layer) ──
+  if blib_want zsh; then
+    blib_say "symlinking Core zsh modules"
+    for f in "$dotfiles"/core/zsh/*.zsh; do
+      blib_link "$f" "$config/zsh/$(basename "$f")"
+    done
   fi
-  # tmux plugin manager (tpm) — clone once so the theme + resurrect/continuum load.
-  # Plugins still need one install pass: `prefix + I` in tmux.
-  if [[ ! -d "$config/tmux/plugins/tpm" ]]; then
-    if _blib_dry; then
-      blib_say "would clone tpm (tmux plugin manager)"
-    else
-      blib_say "cloning tpm (tmux plugin manager)"
-      if git clone --depth=1 https://github.com/tmux-plugins/tpm "$config/tmux/plugins/tpm" >/dev/null 2>&1; then
-        blib_ok "tpm cloned — run prefix + I in tmux to install plugins"
+
+  # ── nvim — the config tree + the stock-vim fallback (core/vim/vimrc -> ~/.vimrc) ─
+  if blib_want nvim; then
+    [[ -d "$dotfiles/core/nvim" ]] && blib_link "$dotfiles/core/nvim" "$config/nvim"
+    [[ -f "$dotfiles/core/vim/vimrc" ]] && blib_link "$dotfiles/core/vim/vimrc" "$HOME/.vimrc"
+  fi
+
+  # ── tmux — base + reset + popup scripts + a one-time tpm clone ────────────────
+  if blib_want tmux; then
+    [[ -f "$dotfiles/core/tmux/tmux.conf" ]] && blib_link "$dotfiles/core/tmux/tmux.conf" "$config/tmux/tmux.conf"
+    [[ -f "$dotfiles/core/tmux/tmux.reset.conf" ]] && blib_link "$dotfiles/core/tmux/tmux.reset.conf" "$config/tmux/tmux.reset.conf"
+    # tmux popup scripts (prefix w/T/f) — symlink the dir + ensure they're runnable.
+    if [[ -d "$dotfiles/core/tmux/scripts" ]]; then
+      blib_link "$dotfiles/core/tmux/scripts" "$config/tmux/scripts"
+      _blib_dry || chmod +x "$dotfiles"/core/tmux/scripts/*.sh 2>/dev/null || true
+    fi
+    # tmux plugin manager (tpm) — clone once so the theme + resurrect/continuum load.
+    # Plugins still need one install pass: `prefix + I` in tmux.
+    if [[ ! -d "$config/tmux/plugins/tpm" ]]; then
+      if _blib_dry; then
+        blib_say "would clone tpm (tmux plugin manager)"
       else
-        blib_say "tpm clone failed — clone it manually, then prefix + I"
+        blib_say "cloning tpm (tmux plugin manager)"
+        if git clone --depth=1 https://github.com/tmux-plugins/tpm "$config/tmux/plugins/tpm" >/dev/null 2>&1; then
+          blib_ok "tpm cloned — run prefix + I in tmux to install plugins"
+        else
+          blib_say "tpm clone failed — clone it manually, then prefix + I"
+        fi
       fi
     fi
   fi
 
-  # starship prompt theme — symlink to the DEFAULT path (tools.zsh inits starship
-  # against ~/.config/starship.toml with no STARSHIP_CONFIG).
-  [[ -f "$dotfiles/core/starship/starship.toml" ]] && blib_link "$dotfiles/core/starship/starship.toml" "$config/starship.toml"
-  # lazygit tokyonight theme — DEFAULT path too (reached via the `lg` alias + the
-  # `prefix + g` tmux popup). In core.manifest, so it must wire like starship above.
-  [[ -f "$dotfiles/core/lazygit/config.yml" ]] && blib_link "$dotfiles/core/lazygit/config.yml" "$config/lazygit/config.yml"
-  [[ -d "$dotfiles/core/nvim" ]] && blib_link "$dotfiles/core/nvim" "$config/nvim"
-  # stock-vim fallback for boxes with no nvim — core/vim/vimrc -> ~/.vimrc (in the manifest).
-  [[ -f "$dotfiles/core/vim/vimrc" ]] && blib_link "$dotfiles/core/vim/vimrc" "$HOME/.vimrc"
-  [[ -f "$dotfiles/core/mise/config.toml" ]] && blib_link "$dotfiles/core/mise/config.toml" "$config/mise/config.toml"
-  [[ -f "$dotfiles/core/git/gitconfig" ]] && blib_link "$dotfiles/core/git/gitconfig" "$HOME/.gitconfig"
-
-  # private identity file + portable sesh config, each seeded ONCE (copied, never tracked
-  # back, never relinked) via the shared blib_seed (dry-run + counter aware).
-  blib_seed "$dotfiles/core/git/local.gitconfig.example" "$config/git/local.gitconfig" \
-    "FILL IN your name & email"
-  blib_seed "$dotfiles/core/sesh/sesh.toml.example" "$config/sesh/sesh.toml" \
-    "edit freely; not tracked from here"
-
-  # cross-OS helper scripts from Core onto PATH (~/.local/bin).
-  if [[ -d "$dotfiles/core/bin" ]]; then
-    _blib_dry || mkdir -p "$HOME/.local/bin"
-    for s in clip clip-paste; do
-      if [[ -f "$dotfiles/core/bin/$s" ]]; then
-        blib_link "$dotfiles/core/bin/$s" "$HOME/.local/bin/$s"
-        _blib_dry || chmod +x "$dotfiles/core/bin/$s" 2>/dev/null || true
-      fi
-    done
+  # ── prompt — starship theme at the DEFAULT path (tools.zsh inits starship against
+  # ~/.config/starship.toml with no STARSHIP_CONFIG). ──────────────────────────
+  if blib_want prompt; then
+    [[ -f "$dotfiles/core/starship/starship.toml" ]] && blib_link "$dotfiles/core/starship/starship.toml" "$config/starship.toml"
   fi
 
-  # ssh client config (keys are NEVER tracked — only ssh/config). ssh is strict about
-  # permissions: ~/.ssh must be 0700, and ControlMaster needs the sockets dir to exist.
-  if [[ -f "$dotfiles/ssh/config" ]]; then
-    if _blib_dry; then
-      blib_say "would link ssh/config into ~/.ssh (0700 ~/.ssh + sockets, 0600 config)"
-    else
-      blib_say "symlinking ssh/config"
-      mkdir -p "$HOME/.ssh/sockets"
-      chmod 700 "$HOME/.ssh" "$HOME/.ssh/sockets"
-      chmod 600 "$dotfiles/ssh/config" 2>/dev/null || true
-      blib_link "$dotfiles/ssh/config" "$HOME/.ssh/config"
-      blib_ok "ssh/config linked into ~/.ssh (generate a key with: ssh-keygen -t ed25519)"
+  # ── git — Core gitconfig + the once-seeded local identity (os/<os>.gitconfig comes
+  # from blib_link_os_layer). ──────────────────────────────────────────────────
+  if blib_want git; then
+    [[ -f "$dotfiles/core/git/gitconfig" ]] && blib_link "$dotfiles/core/git/gitconfig" "$HOME/.gitconfig"
+    # seeded ONCE (copied, never tracked back, never relinked) via the shared blib_seed.
+    blib_seed "$dotfiles/core/git/local.gitconfig.example" "$config/git/local.gitconfig" \
+      "FILL IN your name & email"
+  fi
+
+  # ── tools — lazygit, mise, the cross-OS bin/clip* helpers, ssh, the sesh config ─
+  if blib_want tools; then
+    # lazygit tokyonight theme — DEFAULT path (reached via the `lg` alias + the
+    # `prefix + g` tmux popup). In core.manifest, so it wires like starship above.
+    [[ -f "$dotfiles/core/lazygit/config.yml" ]] && blib_link "$dotfiles/core/lazygit/config.yml" "$config/lazygit/config.yml"
+    [[ -f "$dotfiles/core/mise/config.toml" ]] && blib_link "$dotfiles/core/mise/config.toml" "$config/mise/config.toml"
+    # portable sesh config, seeded ONCE (edited locally, never tracked back).
+    blib_seed "$dotfiles/core/sesh/sesh.toml.example" "$config/sesh/sesh.toml" \
+      "edit freely; not tracked from here"
+
+    # cross-OS helper scripts from Core onto PATH (~/.local/bin).
+    if [[ -d "$dotfiles/core/bin" ]]; then
+      _blib_dry || mkdir -p "$HOME/.local/bin"
+      for s in clip clip-paste; do
+        if [[ -f "$dotfiles/core/bin/$s" ]]; then
+          blib_link "$dotfiles/core/bin/$s" "$HOME/.local/bin/$s"
+          _blib_dry || chmod +x "$dotfiles/core/bin/$s" 2>/dev/null || true
+        fi
+      done
+    fi
+
+    # ssh client config (keys are NEVER tracked — only ssh/config). ssh is strict about
+    # permissions: ~/.ssh must be 0700, and ControlMaster needs the sockets dir to exist.
+    if [[ -f "$dotfiles/ssh/config" ]]; then
+      if _blib_dry; then
+        blib_say "would link ssh/config into ~/.ssh (0700 ~/.ssh + sockets, 0600 config)"
+      else
+        blib_say "symlinking ssh/config"
+        mkdir -p "$HOME/.ssh/sockets"
+        chmod 700 "$HOME/.ssh" "$HOME/.ssh/sockets"
+        chmod 600 "$dotfiles/ssh/config" 2>/dev/null || true
+        blib_link "$dotfiles/ssh/config" "$HOME/.ssh/config"
+        blib_ok "ssh/config linked into ~/.ssh (generate a key with: ssh-keygen -t ed25519)"
+      fi
     fi
   fi
 }
@@ -229,9 +306,14 @@ blib_link_core() {
 # stage), os/<os>.gitconfig → git/os.gitconfig (included by Core's gitconfig).
 blib_link_os_layer() {
   local dotfiles="$1" config="$2" os="$3"
-  [[ -f "$dotfiles/os/$os.conf" ]] && blib_link "$dotfiles/os/$os.conf" "$config/tmux/os.conf"
-  [[ -f "$dotfiles/os/$os.gitconfig" ]] && blib_link "$dotfiles/os/$os.gitconfig" "$config/git/os.gitconfig"
-  if [[ -f "$dotfiles/os/$os.zsh" ]]; then
+  # Each overlay rides with its Core group: os.conf→tmux, os.gitconfig→git, os.zsh→zsh.
+  if blib_want tmux && [[ -f "$dotfiles/os/$os.conf" ]]; then
+    blib_link "$dotfiles/os/$os.conf" "$config/tmux/os.conf"
+  fi
+  if blib_want git && [[ -f "$dotfiles/os/$os.gitconfig" ]]; then
+    blib_link "$dotfiles/os/$os.gitconfig" "$config/git/os.gitconfig"
+  fi
+  if blib_want zsh && [[ -f "$dotfiles/os/$os.zsh" ]]; then
     blib_say "symlinking $os OS-native layer"
     blib_link "$dotfiles/os/$os.zsh" "$config/zsh/os.zsh"
   fi
@@ -257,6 +339,7 @@ blib_wire_summary() {
 # hand-rolled ~/.zshrc first. The heredocs are single-quoted, so $HOME/$ZDOTDIR/etc.
 # stay LITERAL in the written file (evaluated at shell start, not at write time).
 blib_write_zshrc_loader() {
+  blib_want zsh || return 0   # the .zshrc loader belongs to the zsh group
   local rc="$HOME/.zshrc"
   local modules="$*"
   [[ -n "$modules" ]] || modules="tools ui options history aliases git functions fzf bindings plugins op maint update os local"
@@ -323,6 +406,7 @@ _blib_priv() {
 # zsh. Reads the current shell via getent when present, else straight from /etc/passwd
 # (busybox/Alpine has no getent).
 blib_set_login_shell() {
+  blib_want zsh || return 0   # the default-login-shell switch belongs to the zsh group
   command -v zsh >/dev/null || return 0
   local zsh_path user current
   zsh_path="$(command -v zsh)"

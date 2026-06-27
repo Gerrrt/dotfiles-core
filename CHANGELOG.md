@@ -13,6 +13,20 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+### Added
+
+- **`bootstrap-lib.sh` gains `--only`/`--skip` module selection** (`lib/bootstrap-lib.sh`)
+  — the shared scaffold can now wire a SUBSET of the Core groups: `zsh nvim tmux git
+  prompt tools`. New `blib_select <--only|--skip> <csv>` (validates a comma-separated
+  selector — empty / leading / trailing / doubled commas and unknown groups all abort),
+  `blib_want <group>` (consulted by `blib_link_core`, `blib_link_os_layer`,
+  `blib_write_zshrc_loader`, `blib_set_login_shell`), and `blib_selected_note` for a
+  summary suffix. Each OS overlay rides with its Core group (`os.zsh`→zsh, `os.conf`→tmux,
+  `os.gitconfig`→git). This is the Core half of the dotfiles-web Bootstrap Command
+  Generator's "Track B"; each OS `bootstrap.sh` just routes its `--only`/`--skip` here.
+  **Backward compatible** — with neither selector set everything is wired exactly as
+  before, so every existing caller is unaffected. `make audit` green.
+
 ### Changed
 
 - **Cross-shell keybindings aligned (PARITY.md decisions resolved).** The four open
