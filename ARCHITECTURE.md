@@ -64,7 +64,8 @@ The canonical Core-vendoring fleet is `scripts/os-repos.txt` — seven repos.
 `dotfiles-Windows` is deliberately absent from it: its host layer is replicated
 from scratch in PowerShell rather than ported one-to-one from the Unix Core, so
 it carries no vendored `core/` subtree and `sync-core.sh` must never fan out into
-it. `dotfiles-Debian` is planned but not yet created.
+it. (`dotfiles-Debian` was once planned but is no longer pursued — the Debian
+family is covered by `dotfiles-Kali`'s apt OS layer.)
 
 ## Vendoring topology
 

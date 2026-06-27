@@ -1,0 +1,117 @@
+# .github/workflows/bootstrap-test.yml
+# ──────────────────────────────────────────────────────────────────────────────
+# REUSABLE bootstrap integration test — authored once here, called by a thin stub
+# in each OS repo (workflow_call) so the OS repos get CI WITHOUT each carrying a
+# duplicated copy of this logic (the same fan-out the Core layer exists to kill).
+#
+# Two jobs:
+#   1. lint        — shellcheck -x + bash -n + --help, on the runner (deterministic,
+#                    no container). Catches the syntax/guard class of bug directly.
+#   2. links-only  — run `bootstrap.sh --links-only` inside the target distro's
+#                    container and assert the symlink graph + the generated ~/.zshrc.
+#                    --links-only skips provision() (no package installs, no Gentoo
+#                    source builds); the tpm dir is pre-seeded so its first-run clone
+#                    is skipped (offline + deterministic). The actual zsh module LOAD
+#                    is already covered hermetically by dotfiles-core's test-core.sh,
+#                    so this asserts the part bootstrap.sh OWNS: the wiring it produces.
+#
+# A caller stub (in an OS repo) looks like:
+#   jobs:
+#     test:
+#       uses: Gerrrt/dotfiles-core/.github/workflows/bootstrap-test.yml@main
+#       with:
+#         image: alpine:3.20
+#         prep:  apk add --no-cache bash zsh
+#         offensive: false        # true only for dotfiles-Kali
+# ──────────────────────────────────────────────────────────────────────────────
+name: bootstrap-test
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        description: Container image for the target distro (matching /etc/os-release).
+        type: string
+        required: true
+      prep:
+        description: Shell run INSIDE the container to install bootstrap's deps (at least bash).
+        type: string
+        required: true
+      offensive:
+        description: Assert the Kali offensive role layer (offensive symlinks + loader stage).
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: shellcheck + syntax + --help
+        run: |
+          shellcheck -x bootstrap.sh
+          bash -n bootstrap.sh
+          bash bootstrap.sh --help >/dev/null
+
+  links-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: bootstrap --links-only (${{ inputs.image }})
+        env:
+          IMAGE: ${{ inputs.image }}
+          PREP: ${{ inputs.prep }}
+          OFFENSIVE: ${{ inputs.offensive }}
+        run: |
+          # BLIB_SU= : the container runs as root, so no privilege escalation is
+          # needed. Without this, blib_set_login_shell defaults BLIB_SU=sudo and a
+          # distro whose image HAS chsh but NOT sudo (Arch/openSUSE/Kali base images)
+          # would run `sudo chsh` and abort. Empty = run chsh/tee directly as root.
+          # (Alpine/Gentoo bootstraps already export their own BLIB_SU; this is a no-op
+          # there and the correct default for the rest.)
+          docker run --rm -e PREP -e OFFENSIVE -e BLIB_SU= -v "$PWD:/repo" -w /repo "$IMAGE" sh -euc '
+            eval "$PREP"
+            # Pre-seed the tpm dir so blib_link_core skips its network git clone — the
+            # same "seed the plugin dir to skip the first-run clone" trick test-core.sh
+            # uses to stay offline + deterministic.
+            mkdir -p "$HOME/.config/tmux/plugins/tpm"
+
+            ./bootstrap.sh --links-only
+
+            echo "── asserting symlink graph + generated ~/.zshrc ──"
+            for link in \
+              "$HOME/.config/zsh/loader.zsh" \
+              "$HOME/.config/zsh/os.zsh" \
+              "$HOME/.config/starship.toml" \
+              "$HOME/.config/nvim" \
+              "$HOME/.gitconfig"; do
+              if [ ! -L "$link" ]; then echo "MISSING symlink: $link" >&2; exit 1; fi
+            done
+            # The vendored loader must resolve to the repo copy (not a dangling link).
+            if [ ! -e "$HOME/.config/zsh/loader.zsh" ]; then echo "loader.zsh symlink is dangling" >&2; exit 1; fi
+            # DEFERRED: assertions for ~/.config/lazygit/config.yml, ~/.vimrc, and the seeded
+            # ~/.config/sesh/sesh.toml. blib_link_core only wires those as of the bootstrap-lib.sh
+            # fix that is on Core main but NOT yet vendored fleet-wide. This reusable test is
+            # referenced @main by every caller, so it must assert only what each caller CURRENT
+            # vendored core/ produces (asserting the new wiring before make sync propagates it
+            # would red-flag repos like Fedora/Kali that legitimately have not pulled it yet).
+            # Re-add these once the fleet core.lock files catch up (fleet-drift / freshness say when).
+            # NOTE: keep this block apostrophe-free — it lives inside the single-quoted sh -euc script.
+
+            grep -q "dotfiles-managed v2" "$HOME/.zshrc" || { echo "~/.zshrc not managed" >&2; exit 1; }
+            grep -q "_CORE_MODULES=(tools ui options" "$HOME/.zshrc" || { echo "~/.zshrc missing canonical module list" >&2; exit 1; }
+
+            if [ "$OFFENSIVE" = "true" ]; then
+              grep -q " os offensive local)" "$HOME/.zshrc" || { echo "offensive stage missing from loader" >&2; exit 1; }
+              for link in "$HOME/.config/zsh/offensive.zsh" "$HOME/hacktheplanet"; do
+                if [ ! -L "$link" ]; then echo "MISSING offensive symlink: $link" >&2; exit 1; fi
+              done
+            fi
+
+            echo "bootstrap --links-only OK"
+          '

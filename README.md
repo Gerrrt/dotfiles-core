@@ -16,7 +16,7 @@ is OS-specific or offensive.
 | Layer                | Lives in                                                               | Examples                                        |
 | -------------------- | ---------------------------------------------------------------------- | ----------------------------------------------- |
 | **Core**             | **this repo**, vendored into each OS repo via `git subtree`            | zsh modules, tmux base, nvim, git/delta         |
-| **OS-native**        | `dotfiles-{MacBook,Windows,Debian,Fedora,Arch,openSUSE,Alpine,Gentoo}` | package manager, clipboard shim, paths          |
+| **OS-native**        | `dotfiles-{MacBook,Windows,Fedora,Arch,openSUSE,Alpine,Gentoo}`        | package manager, clipboard shim, paths          |
 | **Role / offensive** | `dotfiles-Kali`                                                        | engagement scaffolding, C2, Impacket, wordlists |
 
 Previously each repo carried its **own copy** of Core, and drift was caught
