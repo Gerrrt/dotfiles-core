@@ -48,6 +48,13 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   module via the `${(%):-%x}` trick (the same one `maint.zsh` uses), so the
   shortcut survives the `core/` subtree vendoring without putting `.bin` on `PATH`.
   Registered in `core.manifest`.
+- **`ARCHITECTURE.md`** — a strategic architecture overview: the three-layer
+  model and its boundary test, the full fleet map (which repos vendor `core/`
+  and which don't), the one-directional subtree vendoring topology, the
+  load-bearing zsh load order, the audit gate, and the rationale for the model.
+  Sits above `README.md`/`CONTRIBUTING.md` (which stay operational) and
+  cross-references them. Added to the audit's repo-meta allowlist; it is docs,
+  not shipped Core.
 - **`parity-check` gate** (`scripts/parity-check.sh`, `make parity-check`, weekly
   `.github/workflows/parity-check.yml`) — mechanises the `aligned` rows of `PARITY.md`:
   asserts a distinctive needle (starship/zoxide/atuin init, the fzf tokyonight palette,
