@@ -524,6 +524,38 @@ if have git; then
   printf '#!/bin/sh\nexit 0\n' >"$GREPO/.git/hooks/pre-commit"; chmod +x "$GREPO/.git/hooks/pre-commit"
   blib_install_core_guard "$GREPO" >/dev/null 2>&1
   if grep -q 'dotfiles-core-guard' "$GREPO/.git/hooks/pre-commit"; then fail "guard: clobbered a pre-existing custom hook"; else pass "guard: preserves a pre-existing custom pre-commit hook"; fi
+
+  # core.hooksPath set → git ignores .git/hooks, so installing there is false
+  # protection. The installer must skip rather than write an ignored hook.
+  rm -rf "$GREPO"; mkdir -p "$GREPO/core"; git -C "$GREPO" init -q
+  git -C "$GREPO" config core.hooksPath .githooks
+  blib_install_core_guard "$GREPO" >/dev/null 2>&1
+  if [[ -e "$GREPO/.git/hooks/pre-commit" ]] && grep -q 'dotfiles-core-guard' "$GREPO/.git/hooks/pre-commit" 2>/dev/null; then
+    fail "guard: wrote into the ignored .git/hooks despite core.hooksPath"
+  else
+    pass "guard: skips when core.hooksPath is set (no false protection)"
+  fi
+
+  # worktree support (the reason the installer asks git instead of testing for a `.git`
+  # DIR): in a linked worktree `.git` is a FILE, and hooks live in the shared common dir.
+  # Install into the worktree and assert the guard actually blocks a core/ commit there.
+  rm -rf "$GREPO"; mkdir -p "$GREPO/core"; git -C "$GREPO" init -q
+  git -C "$GREPO" config user.email t@example.com; git -C "$GREPO" config user.name tester
+  printf 'seed' >"$GREPO/seed.txt"; git -C "$GREPO" add -A
+  git -C "$GREPO" commit -q -m seed >/dev/null 2>&1   # a worktree needs a commit to branch from
+  GWT="$SANDBOX/guardwt"; rm -rf "$GWT"
+  if git -C "$GREPO" worktree add -q "$GWT" -b wt >/dev/null 2>&1; then
+    mkdir -p "$GWT/core"
+    blib_install_core_guard "$GWT" >/dev/null 2>&1
+    printf 'edit' >"$GWT/core/wt.txt"; git -C "$GWT" add -A
+    if git -C "$GWT" commit -q -m x >/dev/null 2>&1; then
+      fail "guard: did NOT block a core/ edit in a worktree (.git is a file)"
+    else
+      pass "guard: blocks a core/ edit in a linked worktree"
+    fi
+  else
+    skip "guard: worktree case (git worktree unavailable)"
+  fi
 fi
 
 # ── zsh-gated sections (A load-order, B function units) ───────────────────────

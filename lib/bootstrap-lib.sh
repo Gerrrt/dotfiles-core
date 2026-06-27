@@ -283,15 +283,31 @@ blib_set_login_shell() {
 # Legitimate subtree writes are exempt via $DOTFILES_ALLOW_CORE_EDIT (set by
 # sync-core.sh) or the standard `git commit --no-verify`.
 blib_install_core_guard() {
-  local root="${1:-.}" hooks hook marker='dotfiles-core-guard'
-  [[ -d "$root/.git" ]] || { blib_warn "core-guard: $root is not a git working tree — skipped"; return 0; }
-  hooks="$root/.git/hooks"
+  local root="${1:-.}" hooks hook hookspath marker='dotfiles-core-guard'
+  # Ask git, not a literal `.git`-dir test: in worktrees and submodules `.git` is a
+  # FILE, not a directory, so `[[ -d $root/.git ]]` would wrongly skip the install.
+  git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+    blib_warn "core-guard: $root is not a git working tree — skipped"; return 0; }
+  # A configured core.hooksPath makes git IGNORE the per-repo hooks dir, so writing
+  # into .git/hooks would be a silent no-op (false protection). Warn and skip.
+  hookspath="$(git -C "$root" config --get core.hooksPath 2>/dev/null || true)"
+  if [[ -n "$hookspath" ]]; then
+    blib_warn "core-guard: $root sets core.hooksPath ($hookspath) — skipped; install the guard there yourself"
+    return 0
+  fi
+  # Resolve the real hooks dir (handles worktrees/submodules, where it lives in the
+  # common git dir). --git-path returns a path relative to $root, so absolutize it.
+  hooks="$(git -C "$root" rev-parse --git-path hooks 2>/dev/null)" || {
+    blib_warn "core-guard: $root — could not resolve the git hooks dir — skipped"; return 1; }
+  [[ "$hooks" = /* ]] || hooks="$root/$hooks"
   hook="$hooks/pre-commit"
   if [[ -e "$hook" ]] && ! grep -q "$marker" "$hook" 2>/dev/null; then
     blib_warn "core-guard: $root already has a custom pre-commit hook — left as-is"
     return 0
   fi
-  mkdir -p "$hooks" || return 0
+  # Surface a failure to create the hooks dir instead of silently returning success
+  # (a returned 0 would leave the guard uninstalled with no signal to the caller).
+  mkdir -p "$hooks" || { blib_warn "core-guard: $root — could not create $hooks — skipped"; return 1; }
   cat >"$hook" <<'HOOK'
 #!/usr/bin/env bash
 # dotfiles-core-guard — installed by dotfiles-core; do not edit by hand.
