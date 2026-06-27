@@ -558,6 +558,46 @@ if have git; then
   fi
 fi
 
+# ── G. module selection (lib/bootstrap-lib.sh blib_select / blib_want) ─────────
+# Track B's --only/--skip gate. blib_select VALIDATES a comma-separated selector and
+# records BLIB_ONLY/BLIB_SKIP; blib_want is the allowlist/skiplist predicate the link
+# helpers consult; blib_selected_note is the summary suffix. Pure bash (no git/zsh),
+# so it runs everywhere: assert the regex rejects empty/leading/trailing/doubled
+# commas + non-letters + spaces + unknown groups, accepts + normalises a clean
+# selector, and that blib_want honours only-wins-over-skip precedence.
+hdr "module selection (blib_select / blib_want)"
+# shellcheck source=lib/bootstrap-lib.sh
+source "$HERE/lib/bootstrap-lib.sh"
+
+# blib_select aborts (exit 1) on bad input — drive it in a subshell and read the rc.
+_sel_rc() { ( blib_select "$1" "$2" ) >/dev/null 2>&1; }
+for _bad in 'zsh,,nvim' 'zsh,' ',zsh' '' '*' 'a b' 'bogus' 'zsh nvim'; do
+  if _sel_rc --only "$_bad"; then fail "blib_select accepted a bad selector: '$_bad'"; else pass "blib_select rejects '$_bad'"; fi
+done
+
+# a clean selector is accepted and normalised to space-separated (subshell: blib_select
+# would mutate the suite's own BLIB_ONLY otherwise).
+_only_norm="$( blib_select --only 'zsh,nvim'; printf '%s' "$BLIB_ONLY" )"
+if [[ "$_only_norm" == "zsh nvim" ]]; then pass "blib_select accepts zsh,nvim → 'zsh nvim'"; else fail "blib_select did not normalise zsh,nvim (got '$_only_norm')"; fi
+
+# blib_want over the six groups under each mode. Dynamic scope: the `local` BLIB_ONLY/
+# BLIB_SKIP here is exactly what blib_want reads.
+_want_set() {
+  local BLIB_ONLY="$1" BLIB_SKIP="$2" g w=""
+  for g in zsh nvim tmux git prompt tools; do
+    if blib_want "$g"; then w+="$g "; fi
+  done
+  printf '%s' "${w% }"
+}
+if [[ "$(_want_set '' '')" == "zsh nvim tmux git prompt tools" ]]; then pass "blib_want: default wires every group"; else fail "blib_want: default did not wire all groups"; fi
+if [[ "$(_want_set 'zsh nvim' '')" == "zsh nvim" ]]; then pass "blib_want: --only is an allowlist"; else fail "blib_want: --only allowlist wrong"; fi
+if [[ "$(_want_set '' 'tmux')" == "zsh nvim git prompt tools" ]]; then pass "blib_want: --skip drops the named group"; else fail "blib_want: --skip wrong"; fi
+if [[ "$(_want_set 'zsh' 'zsh')" == "zsh" ]]; then pass "blib_want: --only wins over --skip"; else fail "blib_want: precedence wrong (only should win)"; fi
+
+# blib_selected_note — empty when unfiltered, reflects the active selection otherwise.
+if [[ -z "$( blib_selected_note )" ]]; then pass "blib_selected_note: empty when nothing is filtered"; else fail "blib_selected_note: not empty by default"; fi
+if [[ "$( blib_select --only zsh,nvim; blib_selected_note )" == " (only: zsh nvim)" ]]; then pass "blib_selected_note: shows the --only suffix"; else fail "blib_selected_note: --only suffix wrong"; fi
+
 # ── zsh-gated sections (A load-order, B function units) ───────────────────────
 # Everything below needs a real zsh. On a bare box we SKIP it (not fail) and fall
 # through to the shared summary, so a Section-C failure still surfaces as exit 1.
