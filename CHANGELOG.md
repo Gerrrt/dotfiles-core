@@ -15,6 +15,17 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Changed
 
+- **De-forked `update.zsh`'s per-shell path** (`zsh/update.zsh`) — the throttle check
+  and the upgrade nudge ran `date +%s` once and `sed -n Np` twice on **every**
+  interactive shell, three subprocess spawns (~1.7 ms each, measured) on the critical
+  path before the first prompt — the exact fork tax this stack's cached inits + deferred
+  plugins exist to avoid. Replaced with zsh builtins: `$EPOCHSECONDS` (a `zsh/datetime`
+  param) for the clock and `$(<file)` + `${(f)…}` for the two-line cache read, removing
+  all three forks (~5 ms off a warm shell) with byte-identical behaviour and a `date`
+  fallback if the module is unavailable. Profiled with `make profile`; the `_pkgup_*`
+  parse + nudge unit tests are unchanged and green. (A profile-led pivot: caching
+  `tools.zsh`'s `command -v` probes — only ~1.8 ms total, and a stale cache could hide a
+  newly-installed tool — was measured and rejected as not worth the footgun.)
 - **Dropped `dotfiles-Debian` from the documented fleet.** The Debian OS-native
   repo was only ever planned, never created, and is no longer being pursued — so
   the fleet docs that named it as a real target were ahead of reality. Removed it
