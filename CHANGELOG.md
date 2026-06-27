@@ -15,6 +15,15 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Changed
 
+- **Cross-shell keybindings aligned (PARITY.md decisions resolved).** The four open
+  parity decisions are settled and implemented on both shells: **Ctrl+T** = file picker
+  (zsh moved off `Ctrl+F`), **Ctrl+E** = atuin TUI / **Ctrl+R** = quick fzf history,
+  **Ctrl+G** = jump-to-session everywhere (zsh sesh; the host gets a psmux sessionizer,
+  with navi demoted from its Ctrl+G widget to the `navi` command), and **Alt+Z** = zoxide
+  jump + `gaf`/`grf`/`grsf` fuzzy git staging ported to pwsh. Core's side here is the one
+  zsh edit (`zsh/bindings.zsh`: `Ctrl+F`→`Ctrl+T`); the pwsh half lands in `dotfiles-Windows`.
+  All five rows are now `aligned` in `PARITY.md` and enforced by `scripts/parity-check.sh`
+  (which grew checks for each). `make audit` + `make parity-check` green.
 - **De-forked `update.zsh`'s per-shell path** (`zsh/update.zsh`) — the throttle check
   and the upgrade nudge ran `date +%s` once and `sed -n Np` twice on **every**
   interactive shell, three subprocess spawns (~1.7 ms each, measured) on the critical

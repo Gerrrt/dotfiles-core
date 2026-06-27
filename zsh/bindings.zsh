@@ -21,7 +21,7 @@ zvm_after_init() {
   # --- Insert mode ---
   bindkey -M viins '^[[1;5C' forward-word   # Ctrl+Right
   bindkey -M viins '^[[1;5D' backward-word  # Ctrl+Left
-  bindkey -M viins '^F' _fzf_file_no_hidden # Ctrl+F  → file picker
+  bindkey -M viins '^T' _fzf_file_no_hidden # Ctrl+T  → file picker (parity w/ pwsh PSFzf)
   bindkey -M viins '^R' _fzf_history_clean  # Ctrl+R  → history
   # Ctrl+E → Atuin TUI. GUARDED: atuin registers _atuin_search_widget only when
   # it's installed (tools.zsh runs `atuin init zsh` earlier in load order).

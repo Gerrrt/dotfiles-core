@@ -67,6 +67,11 @@ CHECKS=(
   "history: atuin|zsh/tools.zsh|atuin init|powershell/core/10-tools.ps1|atuin init"
   "fzf tokyonight palette|zsh/fzf.zsh|query:#c0caf5:regular|powershell/core/10-tools.ps1|query:#c0caf5:regular"
   "fzf default command (fd)|zsh/fzf.zsh|fd --type f|powershell/core/10-tools.ps1|fd --type f"
+  "file picker on Ctrl+T|zsh/bindings.zsh|'^T' _fzf_file_no_hidden|powershell/core/10-tools.ps1|PSReadlineChordProvider 'Ctrl+t'"
+  "atuin on Ctrl+E|zsh/bindings.zsh|'^E' _atuin_search_widget|powershell/core/10-tools.ps1|-Chord 'Ctrl+e'"
+  "zoxide jump on Alt+Z|zsh/bindings.zsh|_fzf_zoxide_jump|powershell/core/10-tools.ps1|-Chord 'Alt+z'"
+  "sessionizer on Ctrl+G|zsh/bindings.zsh|_tmux_sessionizer|powershell/core/10-tools.ps1|Invoke-DotfilesSessionizer"
+  "fuzzy git stage/restore (gaf)|zsh/git.zsh|function gaf|powershell/core/20-functions.ps1|function gaf"
 )
 
 # _has <file> <needle> — fixed-string presence test; non-zero if file missing too.
