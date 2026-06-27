@@ -168,6 +168,21 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Fixed
 
+- **`gsync` runner + core-guard installer hardening** (review follow-up to the
+  fan-out PRs). `.bin/sync-upstream.sh`: normalize to the git toplevel first so
+  `gsync` works from any subdirectory (it is an absolute-path runner); use
+  `git status --porcelain` for the clean-tree check so untracked files also block
+  (`git diff-index HEAD` missed them); and reword the failure hint to be
+  auth-agnostic (the remote is HTTPS, not SSH) and point at the right re-pull
+  command for an OS repo. `zsh/aliases.zsh`: `gsync` is now a wrapper function,
+  not an alias, so a dotfiles path containing whitespace stays one word and args
+  pass through — with a matching `_gsync` completion and `core-help` row.
+  `lib/bootstrap-lib.sh` `blib_install_core_guard`: detect the git work tree and
+  hooks dir via `git rev-parse` (so worktrees/submodules, where `.git` is a file,
+  get the guard too), skip with a warning when `core.hooksPath` is set (installing
+  into the ignored `.git/hooks` was false protection), and return non-zero instead
+  of silently succeeding if the hooks dir can't be created. New hermetic test
+  covers the `core.hooksPath` skip.
 - **`bootstrap-lib.sh` now wires three Core files it silently dropped.**
   `blib_link_core` linked starship/nvim/mise/git/tmux/clip but omitted
   `core/lazygit/config.yml` (→ `~/.config/lazygit/config.yml`), `core/vim/vimrc`

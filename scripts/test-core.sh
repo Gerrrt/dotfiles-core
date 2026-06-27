@@ -524,6 +524,17 @@ if have git; then
   printf '#!/bin/sh\nexit 0\n' >"$GREPO/.git/hooks/pre-commit"; chmod +x "$GREPO/.git/hooks/pre-commit"
   blib_install_core_guard "$GREPO" >/dev/null 2>&1
   if grep -q 'dotfiles-core-guard' "$GREPO/.git/hooks/pre-commit"; then fail "guard: clobbered a pre-existing custom hook"; else pass "guard: preserves a pre-existing custom pre-commit hook"; fi
+
+  # core.hooksPath set → git ignores .git/hooks, so installing there is false
+  # protection. The installer must skip rather than write an ignored hook.
+  rm -rf "$GREPO"; mkdir -p "$GREPO/core"; git -C "$GREPO" init -q
+  git -C "$GREPO" config core.hooksPath .githooks
+  blib_install_core_guard "$GREPO" >/dev/null 2>&1
+  if [[ -e "$GREPO/.git/hooks/pre-commit" ]] && grep -q 'dotfiles-core-guard' "$GREPO/.git/hooks/pre-commit" 2>/dev/null; then
+    fail "guard: wrote into the ignored .git/hooks despite core.hooksPath"
+  else
+    pass "guard: skips when core.hooksPath is set (no false protection)"
+  fi
 fi
 
 # ── zsh-gated sections (A load-order, B function units) ───────────────────────
