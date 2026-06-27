@@ -228,7 +228,7 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   ("dotfiles Core loaded — run \`core\`…") rendered their hints with `print -P` and wrapped
   the verb in **backticks**. Under `setopt prompt_subst` — which starship and any
   substitution prompt enable — `print -P` performs command substitution, so the backtick'd
-  word was *executed* rather than printed: the update nudge fires from a precmd hook before
+  word was _executed_ rather than printed: the update nudge fires from a precmd hook before
   `up()` is defined, surfacing as `command not found: up` on every package-manager box (and,
   once defined, silently triggering a privileged upgrade). Both hints now use single quotes
   (`'up'` / `'core'`), which are literal under prompt expansion; the `NO_COLOR` branch already
