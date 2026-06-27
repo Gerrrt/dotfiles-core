@@ -1,6 +1,6 @@
 # Aliases Cheat Sheet
 
-> Last updated: 2026-06-26.
+> Last updated: 2026-06-27.
 > Sources (repo-qualified — most live in sibling repos, not here): `core/zsh/aliases.zsh` ·
 > `core/zsh/git.zsh` · `dotfiles-MacBook/os/macos.zsh` · `dotfiles-Kali/os/kali.zsh` ·
 > `dotfiles-Kali/offensive/offensive.zsh` · `dotfiles-Fedora/os/fedora.zsh` ·
@@ -160,6 +160,8 @@ Source: `core/zsh/functions.zsh` · `core/zsh/maint.zsh` · `core/zsh/update.zsh
 | `maint-log [-f]` | View (or follow) the maintenance log |
 | `maint-status` | When the job next runs and whether it is enabled |
 | `maint-uninstall` | Remove the scheduled maintenance job |
+| `update-check` | Force an immediate, synchronous package-update cache refresh and print the nudge — bypasses the 24 h startup throttle. Source: `core/zsh/update.zsh` |
+| `gsync` | Sync this OS repo's vendored `core/` subtree back upstream to dotfiles-core; runs `.bin/sync-upstream.sh`. Takes no arguments (configuration is hardcoded in the script). Source: `core/zsh/aliases.zsh` |
 
 ---
 
@@ -368,6 +370,7 @@ Source: `dotfiles-Kali/offensive/offensive.zsh`
 | `lhost [iface]` | Print attacker IP — prefers VPN tun (tun0/wg0), falls back to default-route source; pass iface to force one |
 | `ttyup` | Print the IppSec TTY-upgrade sequence (python pty → Ctrl-Z → `stty raw -echo; fg`) with your terminal rows/cols filled in |
 | `rocks <keyword…>` | Open ippsec.rocks search in the browser for a technique or keyword |
+| `htpx [args]` | Structured companion browser: fzf-pick an ATT&CK-tagged red attack, preview it side-by-side with its paired blue detection, fill `{{slots}}` from `$RHOST`/`$LHOST`, copy to clipboard. ⚠ guarded: `~/companion/htpx` must exist (bootstrap.sh symlinks `offensive/companion/`). Source: `dotfiles-Kali/offensive/offensive.zsh` |
 
 ### Key Environment Variables
 
@@ -735,4 +738,4 @@ The following inconsistencies were identified during this audit:
 
 ---
 
-Generated 2026-06-26 by `claude/alias-sync`.
+Generated 2026-06-27 by `claude/alias-sync`.
