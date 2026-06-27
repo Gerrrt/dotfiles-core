@@ -101,7 +101,7 @@ jobs:
             # vendored core/ produces (asserting the new wiring before make sync propagates it
             # would red-flag repos like Fedora/Kali that legitimately have not pulled it yet).
             # Re-add these once the fleet core.lock files catch up (fleet-drift / freshness say when).
-            # NOTE: keep this block apostrophe-free — it lives inside the sh -euc '...' string.
+            # NOTE: keep this block apostrophe-free — it lives inside the single-quoted sh -euc script.
 
             grep -q "dotfiles-managed v2" "$HOME/.zshrc" || { echo "~/.zshrc not managed" >&2; exit 1; }
             grep -q "_CORE_MODULES=(tools ui options" "$HOME/.zshrc" || { echo "~/.zshrc missing canonical module list" >&2; exit 1; }
