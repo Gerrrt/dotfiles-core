@@ -235,6 +235,14 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   used the safe `print -r`. Surfaced by a `make sync` audit failing on a starship MacBook. A
   new `test-core.sh` regression seeds a cached count under `prompt_subst` with an `up()`
   sentinel and asserts the nudge mentions `up` but never runs it.
+- **`dotfiles-Defense-PLAN.md` scaffold: `bootstrap.sh` `--links-only` was dead.** The
+  reproduced `bootstrap.sh` set `LINKS_ONLY` but never read it, so `--links-only` still ran
+  the host-tool/docker probe (and shellcheck flagged the unused var). Guard the probe with
+  `(( DO_CHECK && ! LINKS_ONLY ))` so `--links-only` truly just wires symlinks, and rewrite
+  the `(( missing == 0 )) && ok || warn` line as if/then/else. The scaffold is now
+  shellcheck-clean and was exercised end-to-end in a sandbox (`--links-only` wires Core +
+  the defense stage); the "validated" note now says so. Planning doc only (allowlisted
+  repo-meta) — nothing shipped/vendored.
 - **`gsync` runner + core-guard installer hardening** (review follow-up to the
   fan-out PRs). `.bin/sync-upstream.sh`: normalize to the git toplevel first so
   `gsync` works from any subdirectory (it is an absolute-path runner); use

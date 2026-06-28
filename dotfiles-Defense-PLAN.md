@@ -102,9 +102,12 @@ git subtree add --prefix=core <dotfiles-core remote> main --squash   # vendor Co
 
 ## The files
 
-Each file below is reproduced verbatim from the validated scaffold (bash syntax
-and compose YAML both checked). Markdown files are shown in four-backtick fences
-so their own code blocks render intact.
+Each file below is reproduced verbatim from the validated scaffold: `bootstrap.sh`
+is **shellcheck-clean** (+ `bash -n`), `defense.zsh` passes `zsh -n` and loads its
+helpers under an interactive shell, and the compose YAML parses. The stand-up was
+exercised end-to-end in a sandbox (`bootstrap.sh --links-only` wires Core + the
+defense stage). Markdown files are shown in four-backtick fences so their own code
+blocks render intact.
 
 ### README.md
 
@@ -309,7 +312,8 @@ check_tools(){
       ok "docker compose available — \`siemup\` will work"
     else warn "docker present but compose plugin missing — siemup needs it"; fi
   fi
-  (( missing == 0 )) && ok "all probed tools present" || warn "$missing tool(s) missing (optional — install what you need)"
+  if (( missing == 0 )); then ok "all probed tools present"
+  else warn "$missing tool(s) missing (optional — install what you need)"; fi
 }
 
 wire_links(){
@@ -352,7 +356,10 @@ ZRC
   ok "symlinks wired"
 }
 
-(( DO_CHECK )) && check_tools
+# --links-only skips the host-tool/docker probe too (it's the "just wire symlinks" path);
+# without consulting LINKS_ONLY here, --links-only would still run the probe and the flag
+# would be dead. --no-check skips it independently.
+(( DO_CHECK && ! LINKS_ONLY )) && check_tools
 wire_links
 say "case data lives in ~/cases (outside this repo) — run \`mkcase <name>\` to start one"
 ok "Defense bootstrap complete — open a new shell, or: exec zsh"
