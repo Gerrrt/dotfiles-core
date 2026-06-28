@@ -3,7 +3,7 @@
 All notable changes to **dotfiles-core** are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-Core is the single source of truth vendored into seven OS repos via
+Core is the single source of truth vendored into eight OS repos via
 `git subtree pull --prefix=core <core-remote> main --squash` (see `scripts/sync-core.sh`).
 Every entry below is therefore a change those repos receive on their next sync —
 this file is the human-readable record of _what_ a sync will bring, complementing
@@ -83,6 +83,18 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **`dotfiles-Defense` joins the fleet as the defensive (blue) Role.** The
+  three-layer model always had room for a second Role beside `dotfiles-Kali`;
+  defender-authored capability (Sigma rules, Sysmon baselines, Zeek/Suricata
+  tuning, SIEM content, the hunt/triage workflow, a Dockerized detection lab) now
+  has its own repo instead of living as attack-paired notes in Kali's
+  `PURPLE-TEAM.md`. Core is vendored into it like any OS/Role repo, so the fleet
+  grows: **nine → ten** config repos, **eight → nine** machine repos, **seven →
+  eight** Core-vendoring targets. This sync carries the count + Role-layer wording
+  updates fleet-wide (`README.md`, `CLAUDE.md`, `ARCHITECTURE.md`, `SECURITY.md`,
+  `CONTRIBUTING.md`, the issue templates) and adds `dotfiles-Defense` to
+  `scripts/os-repos.txt` so `sync-core.sh` fans Core into it. Docs/data only; no
+  behavioral change to Core.
 - **`bootstrap-lib.sh` gains `--only`/`--skip` module selection** (`lib/bootstrap-lib.sh`)
   — the shared scaffold can now wire a SUBSET of the Core groups: `zsh nvim tmux git
   prompt tools`. New `blib_select <--only|--skip> <csv>` (validates a comma-separated

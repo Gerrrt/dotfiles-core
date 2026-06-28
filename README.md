@@ -1,7 +1,7 @@
 # dotfiles-core
 
 **Single source of truth for the Core layer** shared across every machine repo.
-This is the keystone of a nine-repo dotfiles system. It holds the config that is
+This is the keystone of a ten-repo dotfiles system. It holds the config that is
 identical everywhere — shell modules, tmux base, Neovim, git — and nothing that
 is OS-specific or offensive.
 
@@ -13,14 +13,14 @@ is OS-specific or offensive.
 
 ## The three-layer model (unchanged, now centralized)
 
-| Layer                | Lives in                                                               | Examples                                        |
-| -------------------- | ---------------------------------------------------------------------- | ----------------------------------------------- |
-| **Core**             | **this repo**, vendored into each OS repo via `git subtree`            | zsh modules, tmux base, nvim, git/delta         |
-| **OS-native**        | `dotfiles-{MacBook,Windows,Fedora,Arch,openSUSE,Alpine,Gentoo}`        | package manager, clipboard shim, paths          |
-| **Role / offensive** | `dotfiles-Kali`                                                        | engagement scaffolding, C2, Impacket, wordlists |
+| Layer         | Lives in                                                        | Examples                                                                                 |
+| ------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **Core**      | **this repo**, vendored into each OS repo via `git subtree`     | zsh modules, tmux base, nvim, git/delta                                                  |
+| **OS-native** | `dotfiles-{MacBook,Windows,Fedora,Arch,openSUSE,Alpine,Gentoo}` | package manager, clipboard shim, paths                                                   |
+| **Role**      | `dotfiles-Kali` (offensive) · `dotfiles-Defense` (defensive)    | offensive: engagement scaffolding, C2, Impacket; defensive: detections, hunt/triage, lab |
 
 Previously each repo carried its **own copy** of Core, and drift was caught
-after the fact with `core-diff.sh`. That works at 4 repos. At 9 it doesn't.
+after the fact with `core-diff.sh`. That works at 4 repos. At 10 it doesn't.
 This repo flips it: Core is authored **once, here**, then pulled into each OS
 repo as a vendored `core/` subtree. No more N-way reconciliation.
 
@@ -42,7 +42,7 @@ showcase repos people will browse.
 To update every OS repo after a Core change, run the loop helper from this repo:
 
 ```bash
-./scripts/sync-core.sh          # subtree-pulls main into all 9 OS repos
+./scripts/sync-core.sh          # subtree-pulls main into all 8 OS repos
 ./scripts/sync-core.sh --dry-run
 ```
 
@@ -65,8 +65,8 @@ now — the dev scripts in `core/scripts/` are repo tooling and aren't symlinked
   until `git submodule update --init`. Subtree vendors the actual files, so
   every repo is self-contained and clone-and-go. Better for portfolio repos.
 - **vs chezmoi** — chezmoi (one repo + per-OS templates) is the most DRY answer
-  and is the right move if you ever want to collapse nine repos into one. It
-  trades the nine-repo breadth-portfolio for minimalism. This system keeps the
+  and is the right move if you ever want to collapse ten repos into one. It
+  trades the ten-repo breadth-portfolio for minimalism. This system keeps the
   portfolio; switching to chezmoi later is a content migration, not a rewrite,
   because the Core files here are already plain and OS-agnostic.
 
@@ -171,13 +171,13 @@ Scheduled bots now cover the chores you used to have to _remember to check_. The
 **report first** (PR or deduped issue) and never vendor anything out on their own —
 your job is to glance at what they open and merge or act:
 
-| Bot (workflow) | Repo | Cadence | Opens |
-| --- | --- | --- | --- |
-| `/doc-audit` + `/tool-scout` (`claude-routines.yml`) | core | weekly + on demand | findings **issue** |
-| pin freshness (`freshness.yml`) | core | weekly | **PR** (rolls zsh-plugin + nvim pins forward) |
-| `fleet-sync.yml` | web | weekly | **PR** (regenerated site data) |
-| `nvim-sync.yml` | Windows | weekly | **PR** when `nvim/` drifts |
-| `package-freshness.yml` | Windows | weekly | scoop/winget **issue** |
+| Bot (workflow)                                       | Repo    | Cadence            | Opens                                         |
+| ---------------------------------------------------- | ------- | ------------------ | --------------------------------------------- |
+| `/doc-audit` + `/tool-scout` (`claude-routines.yml`) | core    | weekly + on demand | findings **issue**                            |
+| pin freshness (`freshness.yml`)                      | core    | weekly             | **PR** (rolls zsh-plugin + nvim pins forward) |
+| `fleet-sync.yml`                                     | web     | weekly             | **PR** (regenerated site data)                |
+| `nvim-sync.yml`                                      | Windows | weekly             | **PR** when `nvim/` drifts                    |
+| `package-freshness.yml`                              | Windows | weekly             | scoop/winget **issue**                        |
 
 A quiet week (no bot PR/issue) means nothing needs doing. Every bot is
 `workflow_dispatch`-able to run on demand.
