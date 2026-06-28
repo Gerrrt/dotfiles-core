@@ -13,11 +13,11 @@ is OS-specific or offensive.
 
 ## The three-layer model (unchanged, now centralized)
 
-| Layer                | Lives in                                                               | Examples                                        |
-| -------------------- | ---------------------------------------------------------------------- | ----------------------------------------------- |
-| **Core**             | **this repo**, vendored into each OS repo via `git subtree`            | zsh modules, tmux base, nvim, git/delta         |
-| **OS-native**        | `dotfiles-{MacBook,Windows,Fedora,Arch,openSUSE,Alpine,Gentoo}`        | package manager, clipboard shim, paths          |
-| **Role**             | `dotfiles-Kali` (offensive) · `dotfiles-Defense` (defensive)           | offensive: engagement scaffolding, C2, Impacket; defensive: detections, hunt/triage, lab |
+| Layer         | Lives in                                                        | Examples                                                                                 |
+| ------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **Core**      | **this repo**, vendored into each OS repo via `git subtree`     | zsh modules, tmux base, nvim, git/delta                                                  |
+| **OS-native** | `dotfiles-{MacBook,Windows,Fedora,Arch,openSUSE,Alpine,Gentoo}` | package manager, clipboard shim, paths                                                   |
+| **Role**      | `dotfiles-Kali` (offensive) · `dotfiles-Defense` (defensive)    | offensive: engagement scaffolding, C2, Impacket; defensive: detections, hunt/triage, lab |
 
 Previously each repo carried its **own copy** of Core, and drift was caught
 after the fact with `core-diff.sh`. That works at 4 repos. At 10 it doesn't.
@@ -171,13 +171,13 @@ Scheduled bots now cover the chores you used to have to _remember to check_. The
 **report first** (PR or deduped issue) and never vendor anything out on their own —
 your job is to glance at what they open and merge or act:
 
-| Bot (workflow) | Repo | Cadence | Opens |
-| --- | --- | --- | --- |
-| `/doc-audit` + `/tool-scout` (`claude-routines.yml`) | core | weekly + on demand | findings **issue** |
-| pin freshness (`freshness.yml`) | core | weekly | **PR** (rolls zsh-plugin + nvim pins forward) |
-| `fleet-sync.yml` | web | weekly | **PR** (regenerated site data) |
-| `nvim-sync.yml` | Windows | weekly | **PR** when `nvim/` drifts |
-| `package-freshness.yml` | Windows | weekly | scoop/winget **issue** |
+| Bot (workflow)                                       | Repo    | Cadence            | Opens                                         |
+| ---------------------------------------------------- | ------- | ------------------ | --------------------------------------------- |
+| `/doc-audit` + `/tool-scout` (`claude-routines.yml`) | core    | weekly + on demand | findings **issue**                            |
+| pin freshness (`freshness.yml`)                      | core    | weekly             | **PR** (rolls zsh-plugin + nvim pins forward) |
+| `fleet-sync.yml`                                     | web     | weekly             | **PR** (regenerated site data)                |
+| `nvim-sync.yml`                                      | Windows | weekly             | **PR** when `nvim/` drifts                    |
+| `package-freshness.yml`                              | Windows | weekly             | scoop/winget **issue**                        |
 
 A quiet week (no bot PR/issue) means nothing needs doing. Every bot is
 `workflow_dispatch`-able to run on demand.

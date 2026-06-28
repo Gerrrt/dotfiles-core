@@ -23,11 +23,11 @@ into each machine repo via `git subtree`. There is no N-way reconciliation, no
 Every file in the fleet has exactly one home, decided by a single question: what
 does this change *with*?
 
-| Layer                | Lives in                                              | Changes with         | Examples                                            |
-| -------------------- | ----------------------------------------------------- | -------------------- | --------------------------------------------------- |
-| **Core**             | `dotfiles-core`, vendored into each OS repo's `core/` | nothing — identical  | zsh modules, tmux base, Neovim, git, starship, mise |
-| **OS-native**        | one repo per platform                                 | the operating system | package manager, paths, clipboard backend           |
-| **Role**             | `dotfiles-Kali` (red) · `dotfiles-Defense` (blue)     | you as an operator   | offensive engagement tooling · defensive detection/hunt tooling |
+| Layer         | Lives in                                              | Changes with         | Examples                                                        |
+| ------------- | ----------------------------------------------------- | -------------------- | --------------------------------------------------------------- |
+| **Core**      | `dotfiles-core`, vendored into each OS repo's `core/` | nothing — identical  | zsh modules, tmux base, Neovim, git, starship, mise             |
+| **OS-native** | one repo per platform                                 | the operating system | package manager, paths, clipboard backend                       |
+| **Role**      | `dotfiles-Kali` (red) · `dotfiles-Defense` (blue)     | you as an operator   | offensive engagement tooling · defensive detection/hunt tooling |
 
 The boundary rule, stated as a test:
 
@@ -47,19 +47,19 @@ Ten repositories make up the configuration system (one Core plus nine machine
 repos), with `dotfiles-web` as an eleventh public repo that documents the system
 rather than configuring a machine.
 
-| Repository          | Layer            | Vendors `core/`? | Notes                                                     |
-| ------------------- | ---------------- | ---------------- | --------------------------------------------------------- |
-| `dotfiles-core`     | Core             | n/a (source)     | Single source of truth; fanned out to the rest.           |
-| `dotfiles-MacBook`  | OS-native        | yes              | Homebrew; reference implementation, synced first.         |
-| `dotfiles-Fedora`   | OS-native        | yes              | dnf; the template the other Linux repos stamp from.       |
-| `dotfiles-Arch`     | OS-native        | yes              | pacman + AUR, rolling release.                            |
-| `dotfiles-openSUSE` | OS-native        | yes              | zypper; Tumbleweed (`dup`) + Leap (`up`) aware.           |
-| `dotfiles-Alpine`   | OS-native        | yes              | musl + busybox + doas; the lean outlier.                  |
-| `dotfiles-Gentoo`   | OS-native        | yes              | emerge from source; USE flags, full atoms.                |
-| `dotfiles-Kali`     | Role / offensive | yes              | Core + apt OS layer + the offensive role layer.           |
-| `dotfiles-Defense`  | Role / defensive | yes              | Core + OS layer + the defensive detection/hunt role layer.|
-| `dotfiles-Windows`  | Native host      | no               | pwsh / scoop / winget; Core is reimplemented, not ported. |
-| `dotfiles-web`      | Showcase (none)  | no               | Astro docs site; the system's public face.                |
+| Repository          | Layer            | Vendors `core/`? | Notes                                                      |
+| ------------------- | ---------------- | ---------------- | ---------------------------------------------------------- |
+| `dotfiles-core`     | Core             | n/a (source)     | Single source of truth; fanned out to the rest.            |
+| `dotfiles-MacBook`  | OS-native        | yes              | Homebrew; reference implementation, synced first.          |
+| `dotfiles-Fedora`   | OS-native        | yes              | dnf; the template the other Linux repos stamp from.        |
+| `dotfiles-Arch`     | OS-native        | yes              | pacman + AUR, rolling release.                             |
+| `dotfiles-openSUSE` | OS-native        | yes              | zypper; Tumbleweed (`dup`) + Leap (`up`) aware.            |
+| `dotfiles-Alpine`   | OS-native        | yes              | musl + busybox + doas; the lean outlier.                   |
+| `dotfiles-Gentoo`   | OS-native        | yes              | emerge from source; USE flags, full atoms.                 |
+| `dotfiles-Kali`     | Role / offensive | yes              | Core + apt OS layer + the offensive role layer.            |
+| `dotfiles-Defense`  | Role / defensive | yes              | Core + OS layer + the defensive detection/hunt role layer. |
+| `dotfiles-Windows`  | Native host      | no               | pwsh / scoop / winget; Core is reimplemented, not ported.  |
+| `dotfiles-web`      | Showcase (none)  | no               | Astro docs site; the system's public face.                 |
 
 The canonical Core-vendoring fleet is `scripts/os-repos.txt` — eight repos.
 `dotfiles-Windows` is deliberately absent from it: its host layer is replicated
