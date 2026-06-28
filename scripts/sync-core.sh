@@ -148,7 +148,17 @@ if [[ "$CORE_SHA_FULL" == unknown ]]; then CORE_SHA=unknown; else CORE_SHA="${CO
 CORE_VERSION="$(tr -d '[:space:]' <"$HERE/core.version" 2>/dev/null || echo unknown)"
 [[ -n "$CORE_VERSION" ]] || CORE_VERSION=unknown
 
-echo ":: core version = $CORE_VERSION"
+# Nearest release tag describing the vendored commit — e.g. "v1.2.0" when synced
+# exactly at a tag, or "v1.2.0-5-gabc1234" when Core is 5 commits past it. Best-effort
+# and annotated-tag-aware: empty when Core carries no tags yet, or when the resolved
+# commit/tags aren't in the local object store (a failed $() leaves it empty, which does
+# NOT trip `set -e`). Stamped into core.lock so fleet-drift can speak in NAMED releases,
+# not just SHAs (RELEASE-STRATEGY.md gap 1). Describe the resolved SHA first, falling
+# back to the branch tip when that object is local.
+CORE_TAG="$(git -C "$HERE" describe --tags "$CORE_SHA_FULL" 2>/dev/null \
+  || git -C "$HERE" describe --tags "$CORE_BRANCH" 2>/dev/null || echo '')"
+
+echo ":: core version = $CORE_VERSION${CORE_TAG:+  (tag $CORE_TAG)}"
 echo ":: core remote  = $CORE_REMOTE  (branch $CORE_BRANCH @ $CORE_SHA)"
 echo ":: repos root   = $REPOS_ROOT"
 echo
@@ -242,6 +252,10 @@ for repo in "${TARGETS[@]}"; do
         echo "core_version=$CORE_VERSION"
         echo "core_sha=$CORE_SHA_FULL"
         echo "core_branch=$CORE_BRANCH"
+        # Only emit core_tag once Core actually carries a tag — keeps core.lock
+        # byte-identical to the pre-tagging format until the first release, so the
+        # idempotency check below still skips a no-op re-sync (no spurious commit).
+        [[ -n "$CORE_TAG" ]] && echo "core_tag=$CORE_TAG"
       } >"$path/core.lock"
       # COMMIT it (as a follow-up to the subtree-pull commit) so the tree is clean for the
       # NEXT run — otherwise the dirty-tree guard above would see the uncommitted core.lock

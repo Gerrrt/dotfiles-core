@@ -132,7 +132,7 @@ printf '%-22s %-14s %s\n' "REPO" "RECORDED" "STATUS"
 printf '%-22s %-14s %s\n' "----" "--------" "------"
 
 _check_repo() { # _check_repo <repo-dir-name> <marker-relative-path> <key>
-  local name="$1" marker="$2" key="$3" dir="$ROOT/$1" file rec status
+  local name="$1" marker="$2" key="$3" dir="$ROOT/$1" file rec status tag shown
   if [[ ! -d "$dir" ]]; then
     if ((STRICT)); then fail "$(printf '%-22s %-14s %s' "$name" "-" "NOT CHECKED OUT")"
     else skip "$(printf '%-22s %-14s %s' "$name" "-" "not checked out")"; fi
@@ -143,11 +143,17 @@ _check_repo() { # _check_repo <repo-dir-name> <marker-relative-path> <key>
     fail "$(printf '%-22s %-14s %s' "$name" "-" "missing $marker")"; DRIFT=1; return
   fi
   rec="$(_read_kv "$file" "$key")"
+  # Prefer the human-readable release tag in the RECORDED column when the marker
+  # carries one (core.lock's core_tag, RELEASE-STRATEGY.md gap 1); fall back to the
+  # short sha otherwise (always, for Windows' tag-less nvim/.core-ref). The drift
+  # VERDICT stays sha-based via _classify — the tag is display only.
+  tag="$(_read_kv "$file" core_tag)"
+  shown="${tag:-${rec:0:12}}"
   status="$(_classify "$rec")"
   if [[ "$status" == "current" ]]; then
-    pass "$(printf '%-22s %-14s %s' "$name" "${rec:0:12}" "$status")"
+    pass "$(printf '%-22s %-14s %s' "$name" "$shown" "$status")"
   else
-    fail "$(printf '%-22s %-14s %s' "$name" "${rec:0:12}" "$status")"
+    fail "$(printf '%-22s %-14s %s' "$name" "$shown" "$status")"
     DRIFT=1
   fi
 }

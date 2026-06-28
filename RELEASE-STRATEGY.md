@@ -186,9 +186,10 @@ git subtree pull --prefix=core <core-remote> v1.3.0 --squash
 ```
 
 Now "what Alpine runs" is a frozen, named version, and rolling one OS back is
-just pulling the previous tag there — it touches no other repo. Until the
-tooling stamps a `core_tag` automatically, record the tag in the sync commit
-message.
+just pulling the previous tag there — it touches no other repo. `sync-core.sh`
+stamps the release into each `core.lock` as a `core_tag` field (`git describe`
+of the vendored commit), so the named version is recorded automatically and
+`make fleet-drift` reports against it, not just the SHA.
 
 ### The staged rollout for a Core release
 
@@ -209,15 +210,15 @@ message.
 The pre-tag gate is already most of the way there and should be treated as
 release-blocking:
 
-- `ci.yml` runs the full audit on push and PR, including the **macOS bash 3.2**
-  leg — so a Bashism that would break the Mac is caught before a tag.
+- `ci.yml` runs the full audit on push and PR across four userlands: the
+  **Ubuntu** (glibc) and **macOS bash 3.2** matrix legs, plus container legs for
+  **Alpine** (`audit-alpine` — musl + busybox) and **Arch** (`audit-arch` — the
+  rolling GNU toolchain, newer than Ubuntu LTS). So a Bashism that breaks the
+  Mac, a busybox-applet assumption that breaks Alpine, or a coreutils deprecation
+  that will bite Arch first is all caught before a tag.
 - `bootstrap-test.yml` exercises the bootstrap path.
 - The behavioral suite (`test-core.sh`) checks load order and function units
   cross-shell.
-
-The one gap worth closing: a **per-OS container smoke** (Alpine `musl`/`doas`,
-Arch rolling) in CI as an explicit pre-tag step, so "works on Fedora" never
-silently means "assumed to work on Alpine."
 
 ## 5. Checklists
 
@@ -226,21 +227,19 @@ silently means "assumed to work on Alpine."
 ```sh
 make release VERSION=X.Y.Z   # bumps core.version, promotes CHANGELOG, runs the audit
 git diff                     # review the two-file change
-git add core.version CHANGELOG.md && git commit -m "release vX.Y.Z"
-git tag -a vX.Y.Z -m vX.Y.Z  # the tag this fleet has never had — start here
-git push && git push --tags
+make tag                     # commit + annotated tag vX.Y.Z, re-runs the audit gate
+                             #   add PUSH=1 to also push the branch and tag to origin
 make release-notes           # optional: draft the GitHub Release body (git-cliff)
 ```
 
-### Adopt tagging (one-time)
+### Tag baseline
 
-The repo has the release machinery but **no tags yet**. Bless the current tip as
-the baseline so every future release has a `git describe`-able predecessor:
-
-```sh
-git tag -a v1.2.0 -m v1.2.0   # match the existing core.version stamp
-git push --tags
-```
+The fleet already carries annotated tags `v1.0.0`–`v1.2.0`, so there is no
+one-time adoption step — `core.version` (`1.2.0`) matches the latest tag, and the
+next release just runs the checklist above to cut `v1.2.1` / `v1.3.0`. The
+`core_tag` provenance only appears in each `core.lock` on the next `make sync`,
+which is when `git describe` first has a tag to resolve against the vendored
+commit.
 
 ### Fan out and verify
 
@@ -256,11 +255,25 @@ make fleet-drift   # confirm no repo lags the new tag
 git subtree pull --prefix=core <core-remote> v<previous> --squash
 ```
 
-## 6. Gaps worth automating next
+## 6. Tooling that backs this policy
 
-- **Stamp the tag in `core.lock`.** Add a `core_tag` field so `fleet-drift.sh`
-  reports drift against named releases, not just SHAs.
-- **Per-OS container smoke in CI** (Alpine musl, Arch rolling) as a pre-tag
-  gate, closing the "passed on Fedora, assumed on Alpine" gap.
-- **A `make tag` step** that runs the commit + tag + push after `release.sh`,
-  so cutting a release is one command end to end rather than a printed recipe.
+The three pieces this policy leaned on are now wired:
+
+- **`core_tag` in `core.lock`.** `sync-core.sh` stamps `git describe` of the
+  vendored commit into each repo's `core.lock`, and `make fleet-drift` surfaces
+  it — so the dashboard reports drift against named releases, not just SHAs.
+- **Per-OS container smoke in CI.** `ci.yml` runs the shell-scope audit on
+  **Alpine** (`audit-alpine`, musl + busybox) and **Arch** (`audit-arch`, the
+  rolling GNU toolchain) on top of the Ubuntu + macOS matrix — closing the
+  "passed on Fedora, assumed elsewhere" gap before a tag.
+- **`make tag`.** `scripts/tag-release.sh` commits `core.version` + `CHANGELOG`
+  and creates the annotated `vX.Y.Z` tag (re-running the audit gate), so
+  `make release VERSION=X.Y.Z && make tag` is the whole cut end to end. Pushing
+  stays opt-in (`make tag PUSH=1`).
+
+### Still worth doing
+
+- **Promote `audit-arch`/`audit-alpine` to required checks** in branch
+  protection so a Core tag can't be cut while either is red.
+- **Auto-publish the GitHub Release** from `make release-notes` on tag push,
+  rather than running it by hand.
