@@ -411,14 +411,18 @@ _blib_priv() {
 # (busybox/Alpine has no getent).
 blib_set_login_shell() {
   blib_want zsh || return 0   # the default-login-shell switch belongs to the zsh group
-  command -v zsh >/dev/null || return 0
   local zsh_path user current
+  # command -v also resolves aliases/functions; require a real executable path
+  # before we hand it to chsh/usermod (an alias body is not a valid login shell).
   zsh_path="$(command -v zsh)"
+  [[ -n "$zsh_path" && -x "$zsh_path" ]] || return 0
   user="$(id -un)"
   if command -v getent >/dev/null 2>&1; then
     current="$(getent passwd "$user" | cut -d: -f7)"
   else
-    current="$(grep "^$user:" /etc/passwd | cut -d: -f7)"
+    # awk with the user as data, not a grep regex — a username containing a regex
+    # metacharacter (legal under some NSS setups) would otherwise mis-match.
+    current="$(awk -F: -v u="$user" '$1 == u { print $7 }' /etc/passwd)"
   fi
   [[ "$current" == "$zsh_path" ]] && return 0
 
