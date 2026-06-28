@@ -56,12 +56,19 @@ lets you commit freely without fear of breaking a live machine.
 
 ### Routine (weekly, automated)
 
-The Monday 06:00 UTC bots (`freshness.yml`, `fleet-drift.yml`, and the
-`/doc-audit` + `/tool-scout` routines) **report first** — they open a PR or a
-deduped issue and never vendor anything on their own. Plugin and nvim pin bumps
-are batched into the weekly freshness PR, never landed per-tool, so the fleet
-sees one reviewed step a week rather than a trickle of unaudited churn. A quiet
-week means nothing needs doing.
+The weekly bots **report first** — they open a PR or a deduped issue and never
+vendor anything on their own. They run on two offset slots so the reviews don't
+all land at once:
+
+- **Mondays 06:00 UTC** — `freshness.yml` (rolls the zsh-plugin + nvim pins
+  forward as a PR) and `fleet-drift.yml` (flags any OS repo lagging Core's tip).
+- **Tuesdays 07:00 UTC** — `claude-routines.yml` (`/doc-audit` + `/tool-scout`),
+  deliberately offset a day behind freshness so its findings issue lands after
+  that week's pin PR.
+
+Plugin and nvim pin bumps are batched into the weekly freshness PR, never landed
+per-tool, so the fleet sees one reviewed step a week rather than a trickle of
+unaudited churn. A quiet week means nothing needs doing.
 
 ### Tagged releases (monthly + security)
 
