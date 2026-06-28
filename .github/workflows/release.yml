@@ -62,17 +62,22 @@ jobs:
             exit 1
           fi
 
-          # Body = the CHANGELOG block under '## [vX.Y.Z]' up to the next '## [' heading.
-          # The heading line itself is dropped (the Release title carries the version).
+          # Body = the CHANGELOG block under '## [vX.Y.Z]' up to the next '## [' heading,
+          # with leading AND trailing blank lines trimmed so the Release notes are tight
+          # (interior blanks between subsections are kept). The heading line itself is
+          # dropped — the Release title carries the version. One awk pass: `p` flips on the
+          # first non-blank line (skipping leading blanks), `buf` collects from there, and
+          # END strips any trailing blanks the next-heading lookahead left behind.
           awk -v ver="$ver" '
             $0 ~ "^## +\\[v?" ver "\\]" { f = 1; next }
             f && /^## +\[/ { exit }
-            f { print }
+            f && NF { p = 1 }
+            f && p { buf[++n] = $0 }
+            END { while (n > 0 && buf[n] ~ /^[[:space:]]*$/) n--; for (i = 1; i <= n; i++) print buf[i] }
           ' CHANGELOG.md >release-body.md
 
-          # Trim leading/trailing blank lines; fail loudly if the section is missing or
-          # empty (release.sh should have promoted it — an empty body means it didn't).
-          sed -i -e '/./,$!d' release-body.md
+          # Fail loudly if the section is missing or empty (release.sh should have
+          # promoted it — an empty body means it didn't).
           if [ ! -s release-body.md ]; then
             echo "::error::no CHANGELOG.md section found for $TAG — was 'make release VERSION=$ver' run?"
             exit 1
