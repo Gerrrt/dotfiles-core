@@ -100,12 +100,11 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 - **`RELEASE-STRATEGY.md` — the cadence, tagging, and rollout policy.** The repo
   shipped all the release _machinery_ (`core.version`, `scripts/release.sh`, the
   `sync-core.sh` fan-out gate, `core.lock` provenance, the Monday freshness/drift
-  bots) but no documented _policy_ tying it together — and the fleet has never
-  carried a single git tag. The new doc fixes that: Core as the sole versioned
-  unit, a three-track cadence (continuous / weekly pin bumps / monthly + security
-  tags), SemVer mapped to host blast-radius, why the three-layer subtree model
-  beats `common/`-plus-conditionals, and a canary-first staged rollout so a Core
-  release reaches one OS before all eight. Registered in the audit's
+  bots) but no documented _policy_ tying it together. The new doc adds that: Core
+  as the sole versioned unit, a three-track cadence (continuous / weekly pin bumps
+  / monthly + security tags), SemVer mapped to host blast-radius, why the
+  three-layer subtree model beats `common/`-plus-conditionals, and a canary-first
+  staged rollout so a Core release reaches one OS before all eight. Registered in the audit's
   `META_ALLOWLIST`. Docs-only; no behavioral change.
 - **`dotfiles-Defense` joins the fleet as the defensive (blue) Role.** The
   three-layer model always had room for a second Role beside `dotfiles-Kali`;
