@@ -83,6 +83,16 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **Auto-published GitHub Releases on tag push** (`.github/workflows/release.yml`).
+  Pushing a `vX.Y.Z` tag now publishes the GitHub Release automatically, finishing
+  the `make release … && make tag PUSH=1` path. The Release body is the curated
+  `CHANGELOG.md` section for that version (not a git-cliff commit digest — CHANGELOG
+  is the source-of-truth prose), and the job refuses to publish unless the tag is a
+  clean SemVer that matches `core.version` at the tagged commit and the section
+  exists. Uses the built-in `GITHUB_TOKEN` via the preinstalled `gh` CLI — no PAT,
+  no third-party action. Re-running updates the existing Release's notes idempotently.
+  Also refreshed `cliff.toml`'s header (the repo DOES git-tag now) and
+  `RELEASE-STRATEGY.md` (§5 checklist + §6) to match.
 - **Release-automation: the three gaps `RELEASE-STRATEGY.md` flagged are now
   wired.** (1) `sync-core.sh` stamps a `core_tag` field (`git describe` of the
   vendored commit) into each OS repo's `core.lock`, and `fleet-drift.sh` shows it

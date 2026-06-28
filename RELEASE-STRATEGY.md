@@ -227,10 +227,14 @@ release-blocking:
 ```sh
 make release VERSION=X.Y.Z   # bumps core.version, promotes CHANGELOG, runs the audit
 git diff                     # review the two-file change
-make tag                     # commit + annotated tag vX.Y.Z, re-runs the audit gate
-                             #   add PUSH=1 to also push the branch and tag to origin
-make release-notes           # optional: draft the GitHub Release body (git-cliff)
+make tag PUSH=1              # commit + annotated tag vX.Y.Z, re-run the audit, push
 ```
+
+Pushing the tag triggers `.github/workflows/release.yml`, which publishes the
+**GitHub Release** automatically — its body is the curated `CHANGELOG.md` section
+for `vX.Y.Z` (the workflow refuses to publish if the tag doesn't match
+`core.version` or the section is missing). `make release-notes` (git-cliff) stays
+available for drafting a body by hand if you want to edit it before publishing.
 
 ### Tag baseline
 
@@ -257,7 +261,7 @@ git subtree pull --prefix=core <core-remote> v<previous> --squash
 
 ## 6. Tooling that backs this policy
 
-The three pieces this policy leaned on are now wired:
+The pieces this policy leaned on are now wired:
 
 - **`core_tag` in `core.lock`.** `sync-core.sh` stamps `git describe` of the
   vendored commit into each repo's `core.lock`, and `make fleet-drift` surfaces
@@ -270,10 +274,13 @@ The three pieces this policy leaned on are now wired:
   and creates the annotated `vX.Y.Z` tag (re-running the audit gate), so
   `make release VERSION=X.Y.Z && make tag` is the whole cut end to end. Pushing
   stays opt-in (`make tag PUSH=1`).
+- **Auto-published GitHub Release.** `.github/workflows/release.yml` fires on a
+  `vX.Y.Z` tag push and publishes the Release, its body taken from the curated
+  `CHANGELOG.md` section — gated on the tag matching `core.version`.
 
 ### Still worth doing
 
 - **Promote `audit-arch`/`audit-alpine` to required checks** in branch
-  protection so a Core tag can't be cut while either is red.
-- **Auto-publish the GitHub Release** from `make release-notes` on tag push,
-  rather than running it by hand.
+  protection so a regression on either userland blocks a merge to `main`. This is
+  a GitHub **repo setting**, not a file: Settings → Branches → the `main` rule →
+  *Require status checks to pass* → add `audit-arch` and `audit-alpine`.

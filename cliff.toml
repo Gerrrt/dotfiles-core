@@ -5,9 +5,11 @@
 #   • NOT a CHANGELOG generator. CHANGELOG.md is hand-curated prose (rationale, not
 #     commit subjects) and is promoted [Unreleased] → dated heading by
 #     scripts/release.sh. git-cliff is never wired to write or overwrite it.
-#   • This repo does NOT git-tag releases (it versions via core.version + CHANGELOG
-#     headings), so `make release-notes` hands git-cliff an explicit commit RANGE
-#     (since the last `release vX` commit) instead of relying on tags to delimit.
+#   • `make release-notes` hands git-cliff an explicit commit RANGE (since the last
+#     `release vX` commit) rather than letting it delimit by tag — so it stays useful
+#     between tags and for an unreleased draft. (Releases ARE git-tagged now — see
+#     scripts/tag-release.sh — and the PUBLISHED Release body comes from the curated
+#     CHANGELOG section via .github/workflows/release.yml, not from this template.)
 #   • Dev-tooling only: no runtime/per-shell cost, not a Core module, not in
 #     core.manifest (it lives in the audit's repo-meta allowlist). https://git-cliff.org
 

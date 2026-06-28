@@ -1,0 +1,94 @@
+# .github/workflows/release.yml
+# ──────────────────────────────────────────────────────────────────────────────
+# Publishes a GitHub Release when a vX.Y.Z tag is pushed — the last hand step in
+# the release path. `make release VERSION=X.Y.Z` promotes the CHANGELOG and bumps
+# core.version; `make tag [PUSH=1]` commits + annotated-tags + pushes; this turns
+# that tag push into a published Release automatically (RELEASE-STRATEGY.md §6).
+#
+# The Release BODY is the curated CHANGELOG.md section for the tag — NOT git-cliff's
+# commit-subject digest. CHANGELOG.md is the hand-written source of truth (rationale,
+# not subjects) that scripts/release.sh promotes [Unreleased] → ## [vX.Y.Z]; reusing it
+# means the Release reads like the changelog and needs no extra tool in CI. `make
+# release-notes` (git-cliff) stays available for manually drafting a body.
+#
+# Two coherence guards refuse to publish junk: the tag must be a clean SemVer, and it
+# must equal core.version at the tagged commit (a mis-tag — vX on the wrong version — is
+# the exact incoherence the audit's version/CHANGELOG gate exists to catch).
+#
+# Auth: the built-in GITHUB_TOKEN (contents: write) via the preinstalled `gh` CLI — no
+# PAT, no third-party action to pin.
+# ──────────────────────────────────────────────────────────────────────────────
+name: release
+
+on:
+  push:
+    tags: ["v[0-9]*.[0-9]*.[0-9]*"] # vX.Y.Z; the SemVer guard below is authoritative
+
+permissions:
+  contents: write # create the GitHub Release
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false # never interrupt a publish mid-flight
+
+jobs:
+  publish:
+    if: github.repository_owner == 'Gerrrt'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Publish GitHub Release from the CHANGELOG section
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          # Guard 1: clean SemVer release tag (the tags: filter is a coarse glob; this
+          # is the real gate). A prerelease/odd tag publishes nothing.
+          ver="${TAG#v}"
+          if ! printf '%s' "$ver" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::tag '$TAG' is not a clean vX.Y.Z release tag"
+            exit 1
+          fi
+
+          # Guard 2: the tag must match the version stamped at this commit. Catches a
+          # tag cut against the wrong core.version.
+          cv="$(tr -d '[:space:]' <core.version)"
+          if [ "$cv" != "$ver" ]; then
+            echo "::error::tag '$TAG' != core.version '$cv' at the tagged commit"
+            exit 1
+          fi
+
+          # Body = the CHANGELOG block under '## [vX.Y.Z]' up to the next '## [' heading,
+          # with leading AND trailing blank lines trimmed so the Release notes are tight
+          # (interior blanks between subsections are kept). The heading line itself is
+          # dropped — the Release title carries the version. One awk pass: `p` flips on the
+          # first non-blank line (skipping leading blanks), `buf` collects from there, and
+          # END strips any trailing blanks the next-heading lookahead left behind.
+          awk -v ver="$ver" '
+            $0 ~ "^## +\\[v?" ver "\\]" { f = 1; next }
+            f && /^## +\[/ { exit }
+            f && NF { p = 1 }
+            f && p { buf[++n] = $0 }
+            END { while (n > 0 && buf[n] ~ /^[[:space:]]*$/) n--; for (i = 1; i <= n; i++) print buf[i] }
+          ' CHANGELOG.md >release-body.md
+
+          # Fail loudly if the section is missing or empty (release.sh should have
+          # promoted it — an empty body means it didn't).
+          if [ ! -s release-body.md ]; then
+            echo "::error::no CHANGELOG.md section found for $TAG — was 'make release VERSION=$ver' run?"
+            exit 1
+          fi
+
+          # Idempotent: if a Release already exists for this tag (a re-run), update its
+          # notes instead of failing the workflow.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists — updating notes"
+            gh release edit "$TAG" --notes-file release-body.md
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file release-body.md
+          fi
+          echo "Published release $TAG"
