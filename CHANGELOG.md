@@ -235,6 +235,13 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Fixed
 
+- **`blib_set_login_shell` no longer trusts a non-executable `command -v zsh`.**
+  `command -v` also resolves aliases/functions, so a shadowed `zsh` could yield an
+  alias body rather than a path; it's now required to resolve to a real executable
+  (`[[ -x ]]`) before being handed to `chsh`/`usermod`. The `/etc/passwd` fallback
+  (used when `getent` is absent, e.g. busybox/Alpine) switched from a `grep "^$user:"`
+  regex to `awk -F: -v u="$user"`, so a username containing a regex metacharacter
+  can't mis-match. Robustness only; no behavior change for normal setups.
 - **Startup nudges no longer execute under a substitution prompt** (`zsh/update.zsh`).
   `_pkgup_notice` ("N updates available — run \`up\` to apply") and `_core_welcome`
   ("dotfiles Core loaded — run \`core\`…") rendered their hints with `print -P` and wrapped
