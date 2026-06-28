@@ -232,16 +232,14 @@ make tag                     # commit + annotated tag vX.Y.Z, re-runs the audit 
 make release-notes           # optional: draft the GitHub Release body (git-cliff)
 ```
 
-### Adopt tagging (one-time)
+### Tag baseline
 
-The repo has the release machinery but **no tags yet**. Bless the current tip as
-the baseline so every future release has a `git describe`-able predecessor.
-`core.version` is already `1.2.0` with a matching CHANGELOG heading, so `make
-tag` tags in place (it commits nothing when the files already match `HEAD`):
-
-```sh
-make tag PUSH=1   # tag v1.2.0 at the current tip and push it
-```
+The fleet already carries annotated tags `v1.0.0`–`v1.2.0`, so there is no
+one-time adoption step — `core.version` (`1.2.0`) matches the latest tag, and the
+next release just runs the checklist above to cut `v1.2.1` / `v1.3.0`. The
+`core_tag` provenance only appears in each `core.lock` on the next `make sync`,
+which is when `git describe` first has a tag to resolve against the vendored
+commit.
 
 ### Fan out and verify
 
