@@ -278,6 +278,39 @@ jobs:
             ./scripts/audit-core.sh --scope shell
           '
 
+  # Arch (glibc, ROLLING release) is a named target repo, and the Alpine leg above
+  # only proves musl/busybox while the matrix proves Ubuntu LTS + BSD macOS — none of
+  # which surface the BLEEDING-EDGE GNU toolchain Arch actually runs. Arch ships newer
+  # zsh/bash/coreutils/git than Ubuntu LTS, so a deprecation or behavior change lands
+  # here MONTHS before an LTS bump would catch it — the early-warning a rolling target
+  # is supposed to give. Mirrors audit-alpine: check out on the host, then run the SAME
+  # scripts/audit-core.sh inside an Arch container with the workspace bind-mounted (no
+  # `container: archlinux` — same uniform pattern; only the image + package step differ).
+  audit-arch:
+    needs: changes
+    # Arch re-validates the SHELL layer against the rolling GNU toolchain; a docs- or
+    # nvim-only change can't affect that, so skip the container spin unless shell changed.
+    if: needs.changes.outputs.shell == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Audit on Arch (rolling glibc toolchain)
+        run: |
+          docker run --rm -v "$PWD:/core" -w /core archlinux:latest sh -euc '
+            # -Syu (not bare -Sy): a partial upgrade is unsupported on Arch and can pull
+            # mismatched libs. The container is ephemeral, so the full sync+upgrade is the
+            # correct AND safe idiom here — the same rule dotfiles-Arch ships to real hosts.
+            pacman -Syu --noconfirm --needed bash zsh git shellcheck python python-yaml
+            # Same "dubious ownership" fix as the Alpine leg: repo is host-uid-owned but
+            # the container runs as root, so git 2.35+ would refuse ls-files/ls-tree.
+            git config --global --add safe.directory /core
+            # Shell scope only: this leg re-validates zsh/bash against the rolling
+            # toolchain; nvim/lua tooling is not installed here (skips out-of-scope) and
+            # is already covered on the glibc Ubuntu leg.
+            ./scripts/audit-core.sh --scope shell
+          '
+
   # Author-time hygiene gate. The .pre-commit-config.yaml hooks only fire for
   # contributors who ran `pre-commit install`; without this job a push carrying
   # trailing whitespace, a missing final newline, a stray `<<<<<<<` conflict marker,

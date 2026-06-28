@@ -83,6 +83,20 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **Release-automation: the three gaps `RELEASE-STRATEGY.md` flagged are now
+  wired.** (1) `sync-core.sh` stamps a `core_tag` field (`git describe` of the
+  vendored commit) into each OS repo's `core.lock`, and `fleet-drift.sh` shows it
+  in the `RECORDED` column — so the drift dashboard speaks in named releases, not
+  just SHAs (the SHA still drives the verdict; the tag is display only, and the
+  line is emitted only once Core actually carries a tag, keeping `core.lock`
+  byte-identical to today until the first release). (2) A new `audit-arch` leg in
+  `ci.yml` runs the shell-scope audit inside `archlinux:latest` (rolling glibc
+  toolchain, newer than Ubuntu LTS), mirroring the existing `audit-alpine`
+  (musl/busybox) leg — so Core is proven on both named container userlands before
+  a tag. (3) `scripts/tag-release.sh` + `make tag` finish a release: commit
+  `core.version` + `CHANGELOG`, create the annotated `vX.Y.Z` tag, re-run the
+  audit gate; pushing is opt-in (`make tag PUSH=1`). `make release VERSION=X.Y.Z
+  && make tag` is now the whole cut end to end.
 - **`RELEASE-STRATEGY.md` — the cadence, tagging, and rollout policy.** The repo
   shipped all the release _machinery_ (`core.version`, `scripts/release.sh`, the
   `sync-core.sh` fan-out gate, `core.lock` provenance, the Monday freshness/drift
