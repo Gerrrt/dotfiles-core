@@ -1,6 +1,6 @@
 # Aliases Cheat Sheet
 
-> Last updated: 2026-06-27.
+> Last updated: 2026-06-28.
 > Sources (repo-qualified — most live in sibling repos, not here): `core/zsh/aliases.zsh` ·
 > `core/zsh/git.zsh` · `dotfiles-MacBook/os/macos.zsh` · `dotfiles-Kali/os/kali.zsh` ·
 > `dotfiles-Kali/offensive/offensive.zsh` · `dotfiles-Fedora/os/fedora.zsh` ·
@@ -728,14 +728,6 @@ The following inconsistencies were identified during this audit:
    on Leap performs a dist-upgrade that may be unexpected. No guard exists — relies on
    user knowing their flavor.
 
-6. **`cdwin` missing from `dotfiles-Kali/os/kali.zsh`**: Every other Linux OS repo
-   (Fedora, Arch, Alpine, openSUSE, Gentoo) defines `cdwin` inside the WSL detection
-   block, guarded on `WINHOME`: `[[ -n "${WINHOME:-}" ]] && alias cdwin='cd "$WINHOME"'`.
-   `kali.zsh` omits it — likely an oversight since Kali is the primary WSL distro
-   where this is most useful. Add the same guarded form inside `kali.zsh`'s
-   `if (( _IS_WSL ))` block to keep parity; the guard ensures `cdwin` is inert
-   when `WINHOME` is not set (e.g. bare-metal Kali).
-
 ---
 
-Generated 2026-06-27 by `claude/alias-sync`.
+Generated 2026-06-28 by `claude/alias-sync`.
