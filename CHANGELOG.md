@@ -13,6 +13,16 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+## [v2.0.0] - 2026-06-28
+
+> **Breaking — keybindings realigned.** The zsh file-picker moved off `Ctrl+F` to
+> **`Ctrl+T`**, and the cross-shell keys were settled fleet-wide: **`Ctrl+E`** atuin
+> TUI, **`Ctrl+R`** quick fzf history, **`Ctrl+G`** jump-to-session (navi dropped its
+> `Ctrl+G` widget for the `navi` command), **`Alt+Z`** zoxide jump. Update muscle
+> memory and re-source your shell (or restart it) after the next `make sync`. This is
+> the breaking change that makes this release **2.0.0** rather than a 1.x bump;
+> everything else below is additive or a fix.
+
 ### Changed
 
 - **`/freshness-triage` now covers the CLI tool pins.** The routine reviewed zsh/nvim/
