@@ -199,7 +199,10 @@ _pkgup_notice() {
   _l=(${(f)"$(<"$_PKGUP_CACHE")"})
   local count=${_l[1]:-}
   [[ "$count" == <1-> ]] || return 0 # zsh numeric-range glob: only positive ints
-  print -P "%F{$_PKGUP_ACCENT}󰚰 ${count} update$([[ $count -ne 1 ]] && print s) available%f %F{$_PKGUP_MUTED}— run \`up\` to apply%f"
+  # NOTE: no backticks in a `print -P` string — under PROMPT_SUBST (which starship and
+  # any prompt-substitution prompt enable) print -P command-substitutes them, so
+  # `\`up\`` would actually RUN `up`. Single quotes are literal under prompt expansion.
+  print -P "%F{$_PKGUP_ACCENT}󰚰 ${count} update$([[ $count -ne 1 ]] && print s) available%f %F{$_PKGUP_MUTED}— run 'up' to apply%f"
 }
 
 # ── Startup hook: throttle + background the check, then show cached nudge ──────
@@ -257,9 +260,11 @@ _core_welcome() {
   # NO_CLOBBER; `|| return` bails (no greet) when we can't remember we did.
   mkdir -p "${stamp:h}" 2>/dev/null && : >|"$stamp" 2>/dev/null || return 0
   if [[ -z ${NO_COLOR:-} ]]; then
-    print -P "%F{$_PKGUP_ACCENT}👋 dotfiles Core loaded%f %F{$_PKGUP_MUTED}— run \`core\` for functions, keys & maintenance%f"
+    # Single quotes, not backticks: print -P command-substitutes backticks under
+    # PROMPT_SUBST (it would RUN `core`). The raw fallback below is print -r (safe).
+    print -P "%F{$_PKGUP_ACCENT}👋 dotfiles Core loaded%f %F{$_PKGUP_MUTED}— run 'core' for functions, keys & maintenance%f"
   else
-    print -r -- "👋 dotfiles Core loaded — run \`core\` for functions, keys & maintenance"
+    print -r -- "👋 dotfiles Core loaded — run 'core' for functions, keys & maintenance"
   fi
 }
 # Greet only an interactive TERMINAL — a redirected/captured stdout (or the load-order

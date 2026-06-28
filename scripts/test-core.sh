@@ -1085,6 +1085,17 @@ ln -s "$(command -v awk)" "$PMBIN/awk"
 ucheck "update: _pkgup_list surfaces upgradable package names (apt)" \
   "source '$UPD'; out=\$(_pkgup_list); [[ \$out == *foo* && \$out == *bar* ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# REGRESSION (prompt_subst): _pkgup_notice prints its 'run up to apply' nudge via
+# `print -P`. Under `setopt prompt_subst` (starship and any substitution prompt enable
+# it) print -P performs command substitution on a backtick'd word — so a literal \`up\`
+# in the string would RUN the up function at prompt-paint time. The nudge fires from a
+# precmd hook BEFORE up() is even defined, surfacing as "command not found: up" (and, once
+# defined, silently triggering a privileged upgrade prompt every shell). Define an up()
+# sentinel, enable prompt_subst, seed a positive cached count, and assert the rendered
+# nudge MENTIONS up but never EXECUTED it.
+ucheck "update: _pkgup_notice nudge is prompt_subst-safe (mentions up, never runs it)" \
+  "source '$UPD'; setopt prompt_subst; up(){ print RAN_UP }; mkdir -p \${_PKGUP_CACHE:h}; print -rl -- 3 \$EPOCHSECONDS >| \$_PKGUP_CACHE; out=\$(_pkgup_notice); [[ \$out == *\"run 'up'\"* && \$out != *RAN_UP* ]]" \
+  XDG_CACHE_HOME="$SANDBOX/psubst-notice" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 # up --dry-run (#8): the non-destructive inspect — list what WOULD upgrade and exit 0,
 # applying nothing. Same apt stub as above; assert the names print and the rc is 0.
 ucheck "update: up --dry-run lists pending packages and exits 0 (applies nothing)" \
@@ -1236,7 +1247,7 @@ fi
 # prints the `core` front-door pointer and persists the sentinel; a second call is silent.
 # An isolated XDG_STATE_HOME keeps the sentinel out of the shared sandbox.
 ucheck "update: _core_welcome greets once, then the sentinel silences it" \
-  "source '$UPD'; o1=\$(_core_welcome); [[ \$o1 == *'run \`core\`'* ]] || exit 1; [[ -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]] || exit 1; o2=\$(_core_welcome); [[ -z \$o2 ]]" \
+  "source '$UPD'; o1=\$(_core_welcome); [[ \$o1 == *\"run 'core'\"* ]] || exit 1; [[ -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]] || exit 1; o2=\$(_core_welcome); [[ -z \$o2 ]]" \
   XDG_STATE_HOME="$SANDBOX/welcome-once" NO_COLOR=1 UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
 # …and the startup hook stays SILENT without an interactive tty (captured/piped/CI):
 # sourcing update.zsh prints no greet and writes no sentinel, so it never spams logs.
