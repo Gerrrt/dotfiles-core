@@ -13,6 +13,19 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+### Added
+
+- **OS-repo / Windows auto-tags now publish a GitHub Release too (`auto-tag.sh
+  --release`).** Core releases already become Releases on tag push (`release.yml`), but the
+  OS-repo tags `auto-tag.sh` cuts in CI were bare — no Releases page entry. A token-pushed
+  tag can't trigger a separate `on: push: tags` workflow (GitHub anti-recursion), so the
+  Release is now created in the SAME job: `auto-tag.sh --release` runs `gh release create
+  <tag> --generate-notes` right after pushing (idempotent — a no-op if the Release exists;
+  a missing `gh` just leaves the tag, never fails). `auto-tag-call.yml` gained a `release`
+  input (default `true`) and passes `--release`, so every consumer of `@v2` gets Releases
+  on its next fan-out. Reusable beyond `core/` consumers: any repo (e.g. dotfiles-Windows
+  on an `nvim/`/`starship/` sync) can call the workflow to self-tag-and-release.
+
 ## [v2.3.0] - 2026-06-29
 
 ### Fixed

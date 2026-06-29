@@ -32,6 +32,11 @@ on:
         type: string
         required: false
         default: patch
+      release:
+        description: "Also create a GitHub Release for the cut tag (auto-generated notes)."
+        type: boolean
+        required: false
+        default: true
 
 permissions:
   contents: write
@@ -65,4 +70,6 @@ jobs:
           path: dotfiles-core
           fetch-depth: 1
       - name: Cut the next release tag (idempotent)
-        run: ./dotfiles-core/scripts/auto-tag.sh "$GITHUB_WORKSPACE/osrepo" --push --bump "${{ inputs.bump }}" --color never
+        env:
+          GH_TOKEN: ${{ github.token }} # gh release create (when release=true) needs a token
+        run: ./dotfiles-core/scripts/auto-tag.sh "$GITHUB_WORKSPACE/osrepo" --push --bump "${{ inputs.bump }}" ${{ inputs.release && '--release' || '' }} --color never
