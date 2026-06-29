@@ -305,6 +305,23 @@ The pieces this policy leaned on are now wired:
   `vX.Y.Z` tag push and publishes the Release, its body taken from the curated
   `CHANGELOG.md` section — gated on the tag matching `core.version`.
 
+### Where GitHub Releases come from (three paths)
+
+Every repo's tags become **Releases** automatically, but by one of three routes —
+the split is forced by GitHub's rule that **a tag pushed by `GITHUB_TOKEN` cannot
+trigger another workflow** (anti-recursion), so a CI-cut tag can't rely on a
+separate `on: push: tags` workflow:
+
+| Repo | Tag cut by | Release created by | Notes source |
+| ---- | ---------- | ------------------ | ------------ |
+| **dotfiles-core** | you (`make tag` → push) | `release.yml` (`on: push: tags`) — fires because *you* pushed the tag | curated `CHANGELOG.md` section |
+| **OS repos** (×8) | `auto-tag.sh` in CI on a `core/**` fan-out | `auto-tag.sh --release`, **in the same job** (the token-pushed tag can't trigger `release.yml`) | `gh release create --generate-notes` |
+| **dotfiles-Windows** | `auto-tag.sh` in CI on an `nvim/`/`starship/` sync | same as OS repos (calls `auto-tag-call.yml@v2`) | `gh release create --generate-notes` |
+
+So: Core releases read like the changelog; OS-repo and Windows releases get
+GitHub's auto-generated notes (they carry no per-tag CHANGELOG of their own). All
+three are idempotent and need no manual tag/Release push.
+
 ### Still worth doing
 
 - **Promote `audit-arch`/`audit-alpine` to required checks** in branch

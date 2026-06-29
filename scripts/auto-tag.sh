@@ -45,6 +45,7 @@ if HEAD is already tagged vX.Y.Z. Without --push it only prints the tag it would
 
   --bump <patch|minor|major>   component to advance              (default: patch)
   --push                       create + push the tag to origin   (default: print only)
+  --release                    also create a GitHub Release for the tag (needs --push + gh)
   --initial <vX.Y.Z>           tag when the repo has none         (default: v0.1.0)
   --color <auto|always|never>  palette control                    (default: auto)
   -h, --help                   show this help and exit
@@ -54,6 +55,7 @@ EOF
 REPO=""
 BUMP="patch"
 PUSH=0
+RELEASE=0
 INITIAL=v0.1.0
 while (($#)); do
   case "$1" in
@@ -62,6 +64,7 @@ while (($#)); do
     exit 0
     ;;
   --push) PUSH=1 ;;
+  --release) RELEASE=1 ;;
   --bump)
     (($# >= 2)) || {
       fail "auto-tag.sh: --bump needs a value (patch|minor|major)"
@@ -112,6 +115,12 @@ case "$BUMP" in patch | minor | major) ;; *)
 esac
 [[ "$INITIAL" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
   fail "auto-tag.sh: --initial must be vX.Y.Z (got '$INITIAL')"
+  exit 2
+}
+# --release creates a GitHub Release for the tag just cut — only meaningful once the tag
+# is on origin, so it requires --push (you can't release a tag you didn't push).
+((!RELEASE || PUSH)) || {
+  fail "auto-tag.sh: --release requires --push (a Release needs the tag on origin)"
   exit 2
 }
 [[ -n "$REPO" ]] || {
@@ -219,5 +228,22 @@ if git -C "$REPO" push origin "$NEXT"; then
 else
   fail "auto-tag.sh: push failed — re-push manually: git -C \"$REPO\" push origin \"$NEXT\""
   exit 1
+fi
+
+# Optional GitHub Release for the freshly-pushed tag. Auto-generated notes (the repo has
+# no per-tag CHANGELOG section of its own — that's the Core-side release.yml's job). Runs
+# `gh` from inside $REPO so it infers the right repo from origin; GH_TOKEN comes from the
+# workflow env. Best-effort + idempotent: a missing gh just leaves the tag (not fatal —
+# the push already succeeded), and an existing Release is a no-op, never an error.
+if ((RELEASE)); then
+  if ! have gh; then
+    skip "GitHub Release for $NEXT (gh not found — tag is pushed)"
+  elif (cd "$REPO" && gh release view "$NEXT" >/dev/null 2>&1); then
+    pass "GitHub Release $NEXT already exists — nothing to do"
+  elif (cd "$REPO" && gh release create "$NEXT" --verify-tag --title "$NEXT" --generate-notes); then
+    pass "created GitHub Release $NEXT"
+  else
+    fail "auto-tag.sh: 'gh release create $NEXT' failed (tag is pushed; create the Release manually)"
+  fi
 fi
 printf '\n%s──────── %s released ────────%s\n' "$c_blu" "$NEXT" "$c_rst"

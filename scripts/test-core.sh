@@ -617,6 +617,13 @@ if have git; then
   _at_assert "auto-tag: no-op when HEAD already carries a release" noop
 
   _at_assert "auto-tag: rejects an invalid --bump" err bogus
+
+  _at_fresh # --release is meaningless without --push (can't release an unpushed tag)
+  if "$AT" "$ATR" --release --color never >/dev/null 2>&1; then
+    fail "auto-tag: --release without --push should error"
+  else
+    pass "auto-tag: --release requires --push"
+  fi
 else
   skip "auto-tag version math (git unavailable)"
 fi
