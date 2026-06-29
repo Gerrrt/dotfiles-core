@@ -23,12 +23,14 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   without zsh preinstalled (`gentoo/stage3`). Now `command -v zsh || true`, so the
   guard decides, not errexit. No behavior change where zsh is present.
 - **`tag-release.sh --push` no longer pushes the protected `main` branch.** `main`
-  enforces required status checks (GH013), so a direct branch push is rejected and a
-  release that relied on it would half-land — tag pushed, commit stranded. The push
-  step now pushes the immutable `vX.Y.Z` tag and force-moves the `vN` major alias
-  ONLY (tags aren't branch-protected), then prints the PR recipe to land the release
-  commit on `main` (`HEAD:release/vX.Y.Z` → PR → merge commit), matching how releases
-  actually ship (e.g. #95). The non-push recipe block was corrected the same way.
+  enforces required status checks (GH013), so the old step — `git push origin "$BRANCH"
+  && git push origin "$TAG" && git push -f origin "$MAJOR"`, branch FIRST — had its
+  branch push rejected, which short-circuited the `&&` chain so the tags never pushed
+  either: `--push` failed outright and could never complete a release through the push
+  path. The step now pushes the immutable `vX.Y.Z` tag and force-moves the `vN` major
+  alias ONLY (tags aren't branch-protected), then prints the PR recipe to land the
+  release commit on `main` (`HEAD:release/vX.Y.Z` → PR → merge commit), matching how
+  releases actually ship (e.g. #95). The non-push recipe block was corrected the same way.
 
 ## [v2.1.0] - 2026-06-29
 

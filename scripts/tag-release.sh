@@ -17,7 +17,7 @@
 #
 # Usage:
 #   ./scripts/tag-release.sh            # commit + annotated tag for core.version's value
-#   ./scripts/tag-release.sh --push     # …then push the branch and the tag to origin
+#   ./scripts/tag-release.sh --push     # …then push the tags (vX.Y.Z + vN) to origin
 #   make tag                            # same, via the Makefile façade (PUSH=1 to push)
 #
 # Env:
@@ -39,7 +39,9 @@ Finish the release that release.sh staged: commit core.version + CHANGELOG.md,
 create the annotated tag vX.Y.Z (X.Y.Z = the current core.version), after proving
 the tree green. Pushing is opt-in:
 
-  --push        push the current branch and the new tag to origin
+  --push        push the release tags (vX.Y.Z + the moved vN alias) to origin;
+                main is protected, so the release commit lands via a PR (the script
+                prints the recipe) — --push never touches the branch
   -h, --help    show this help and exit
 
 Env: TAG_SKIP_AUDIT=1 skips the audit gate (use only on a tree you just audited).
