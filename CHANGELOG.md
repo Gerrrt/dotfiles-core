@@ -21,6 +21,12 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   diverges the hash). Replaces the local-only `.git/hooks` core-guard, which couldn't
   run on a fresh clone or in CI. Companion to `fleet-drift` (integrity vs staleness) —
   both run weekly and on demand.
+- **Per-repo core-guard (`core-integrity-call.yml` + `core-integrity.sh --self`).**
+  A reusable `workflow_call` an OS repo invokes from its own CI to BLOCK a hand-edit
+  to its vendored `core/` at PR time (prevention), where the central sweep only
+  DETECTS one after the fact. Runs the same tree-SHA comparison via a new `--self`
+  mode that checks exactly one repo against its `core.lock`. Each OS repo adds a
+  three-line caller.
 
 ### Changed
 

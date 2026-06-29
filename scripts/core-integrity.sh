@@ -29,10 +29,11 @@
 # Usage:
 #   ./scripts/core-integrity.sh                 # check siblings of this repo
 #   ./scripts/core-integrity.sh --root ~/src    # fleet lives elsewhere
+#   ./scripts/core-integrity.sh --self ../dotfiles-Kali   # check just ONE repo (per-repo CI guard)
 #   ./scripts/core-integrity.sh --strict        # a not-checked-out repo FAILS, not skips
 #   ./scripts/core-integrity.sh --quiet         # suppress the ✓ rows; show only problems + summary
 #
-# Flags: [--root DIR] [--strict] [--quiet] [--color auto|always|never]
+# Flags: [--root DIR] [--self REPO-DIR] [--strict] [--quiet] [--color auto|always|never]
 #   (--color defaults to auto and honours NO_COLOR, like the sibling gate scripts.)
 #
 # Exit: 0 = every present repo is pristine; 1 = tamper/unverifiable found; 2 = usage error.
@@ -45,12 +46,17 @@ source "$HERE/scripts/lib/common.sh"
 
 ROOT="$(cd "$HERE/.." && pwd)" # siblings of dotfiles-core by default
 STRICT=0
+SELF_DIR="" # --self: check exactly ONE repo (the per-repo PR-time guard)
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --root)
     ROOT="${2:-}"
     shift 2 || { fail "--root needs a directory"; exit 2; }
+    ;;
+  --self)
+    SELF_DIR="${2:-}"
+    shift 2 || { fail "--self needs a repo directory"; exit 2; }
     ;;
   --strict) STRICT=1; shift ;;
   --quiet) QUIET=1; shift ;;
@@ -66,27 +72,37 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -d "$ROOT" ]] || { fail "fleet root not found: $ROOT"; exit 2; }
+# --self <dir> checks exactly ONE repo against its own core.lock (the per-repo
+# PR-time guard); otherwise we sweep the whole fleet. Either way the SAME _check_repo
+# path runs — --self just narrows ROOT + the target list to that one repo, so the
+# comparison logic has a single definition.
+if [[ -n "$SELF_DIR" ]]; then
+  [[ -d "$SELF_DIR" ]] || { fail "--self repo dir not found: $SELF_DIR"; exit 2; }
+  ROOT="$(cd "$SELF_DIR/.." && pwd)"
+  OS_REPOS=("$(basename "$SELF_DIR")")
+else
+  [[ -d "$ROOT" ]] || { fail "fleet root not found: $ROOT"; exit 2; }
 
-# The fleet that vendors the full core/ subtree. SINGLE SOURCE: scripts/os-repos.txt
-# (same data file sync-core.sh + fleet-drift.sh read), with the inline list as a hard
-# fallback so a missing/corrupt file degrades to the last-known fleet, not nothing.
-# NB: dotfiles-Windows is intentionally absent — it vendors only nvim/, no core/
-# subtree, so there is no tree to integrity-check here (fleet-drift covers its nvim ref).
-OS_REPOS=()
-_OS_REPOS_FILE="$HERE/scripts/os-repos.txt"
-if [[ -r "$_OS_REPOS_FILE" ]]; then
-  while IFS= read -r _line || [[ -n "$_line" ]]; do
-    _line="${_line%%#*}"                       # strip trailing comments
-    _line="${_line#"${_line%%[![:space:]]*}"}" # ltrim
-    _line="${_line%"${_line##*[![:space:]]}"}" # rtrim
-    [[ -n "$_line" ]] && OS_REPOS+=("$_line")
-  done <"$_OS_REPOS_FILE"
+  # The fleet that vendors the full core/ subtree. SINGLE SOURCE: scripts/os-repos.txt
+  # (same data file sync-core.sh + fleet-drift.sh read), with the inline list as a hard
+  # fallback so a missing/corrupt file degrades to the last-known fleet, not nothing.
+  # NB: dotfiles-Windows is intentionally absent — it vendors only nvim/, no core/
+  # subtree, so there is no tree to integrity-check here (fleet-drift covers its nvim ref).
+  OS_REPOS=()
+  _OS_REPOS_FILE="$HERE/scripts/os-repos.txt"
+  if [[ -r "$_OS_REPOS_FILE" ]]; then
+    while IFS= read -r _line || [[ -n "$_line" ]]; do
+      _line="${_line%%#*}"                       # strip trailing comments
+      _line="${_line#"${_line%%[![:space:]]*}"}" # ltrim
+      _line="${_line%"${_line##*[![:space:]]}"}" # rtrim
+      [[ -n "$_line" ]] && OS_REPOS+=("$_line")
+    done <"$_OS_REPOS_FILE"
+  fi
+  ((${#OS_REPOS[@]})) || OS_REPOS=(
+    dotfiles-MacBook dotfiles-Alpine dotfiles-Arch dotfiles-Defense
+    dotfiles-Fedora dotfiles-Gentoo dotfiles-Kali dotfiles-openSUSE
+  )
 fi
-((${#OS_REPOS[@]})) || OS_REPOS=(
-  dotfiles-MacBook dotfiles-Alpine dotfiles-Arch dotfiles-Defense
-  dotfiles-Fedora dotfiles-Gentoo dotfiles-Kali dotfiles-openSUSE
-)
 
 # Read a `key=value` (core.lock) value from a file.
 _read_kv() { # _read_kv <file> <key>
