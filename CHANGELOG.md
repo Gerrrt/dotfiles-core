@@ -13,6 +13,8 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+## [v2.1.0] - 2026-06-29
+
 ### Fixed
 
 - **`starship.toml` VPN segment no longer spams on Windows.** The `[custom.vpn]`
