@@ -13,6 +13,30 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+### Added
+
+- **Core-integrity CI guard (`make core-integrity` + `core-integrity.yml`).** A
+  durable, CI-runnable tamper check: it compares each OS repo's vendored `core/` tree
+  object against the commit its `core.lock` pins (content-addressed, so any hand-edit
+  diverges the hash). Replaces the local-only `.git/hooks` core-guard, which couldn't
+  run on a fresh clone or in CI. Companion to `fleet-drift` (integrity vs staleness) —
+  both run weekly and on demand.
+
+### Changed
+
+- **`tools.zsh` caches the tool-detection map.** The ~30 `command -v` probes that set
+  `HAVE_*` / `FD_BIN` / `BAT_BIN` were the biggest cost on the shell-startup hot path
+  (heaviest for absent tools, which walk all of `$PATH`). The resolved map is now
+  memoised to `${XDG_CACHE_HOME:-~/.cache}/zsh/tools-have.zsh` and re-probed only when
+  a `$PATH` dir (tool installed/removed) or `tools.zsh` itself (a probe changed) is
+  newer — the same mtime bargain as the existing `_cache_eval`. Falls through to a live
+  probe when the cache is stale, so it is only ever faster or identical, never wrong.
+- **`starship.toml` is now cross-shell (one canonical file).** Added
+  `powershell_indicator` to `[shell]` so the single Core `starship.toml` renders under
+  both zsh and PowerShell, and dotfiles-Windows now syncs this file verbatim (its new
+  `starship-sync.ps1`) instead of carrying a drifted copy. Benign on zsh — starship
+  only renders the active shell's indicator.
+
 ## [v2.0.0] - 2026-06-28
 
 > **Breaking — keybindings realigned.** The zsh file-picker moved off `Ctrl+F` to
