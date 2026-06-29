@@ -357,6 +357,10 @@ format = '[ $time ]($style)'
 disabled = false
 style = "fg:color_comment bg:color_srf1"
 zsh_indicator = "zsh"
+# Cross-shell: zsh is the daily driver, but dotfiles-Windows syncs THIS file verbatim
+# (see its starship-sync.ps1) and runs starship under PowerShell — so label that shell
+# too. Benign on zsh: starship only renders the indicator matching the active shell.
+powershell_indicator = "_"
 format = '[ $indicator ]($style)'
 
 [memory_usage]
