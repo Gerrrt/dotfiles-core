@@ -13,6 +13,8 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+## [v2.1.1] - 2026-06-29
+
 ### Fixed
 
 - **`bootstrap.sh --links-only` no longer aborts when zsh isn't installed.**
