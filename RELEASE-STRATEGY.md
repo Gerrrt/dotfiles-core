@@ -220,7 +220,7 @@ hand-bumping N callers).
 
 The policy resolves both with a **moving major tag**: callers pin to **`@vN`** (e.g.
 `@v2`), and `tag-release.sh` force-advances `vN` to each new `vN.x` at release time
-(alongside the immutable `vX.Y.Z` tag). So a caller's behaviour can change **only via a
+(alongside the immutable `vX.Y.Z` tag). So a caller's behavior can change **only via a
 Core release** (deterministic between releases), yet patch/minor guard fixes still fan
 out automatically; a major bump is the one intentional, reviewed caller edit. This is
 GitHub's own recommended pattern for reusable workflows.
