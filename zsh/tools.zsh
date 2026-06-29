@@ -65,50 +65,96 @@ _cache_eval() { # _cache_eval [--salt <sig>] <name> <command...>
   source "$cache"
 }
 
-# ── Resolve binaries that ship under alternate names on some distros ──────────
-# Debian/Ubuntu ship fd as `fdfind` and bat as `batcat` to avoid name clashes.
-if _have fd; then
-  FD_BIN=fd
-elif _have fdfind; then FD_BIN=fdfind; fi
+# ── Tool detection (CACHED) ───────────────────────────────────────────────────
+# The ~30 probes below are the single biggest cost on this hot path — each `_have`
+# is a $PATH walk, heaviest for ABSENT tools (those walk EVERY $PATH entry before
+# concluding "no"). Their result only changes when a tool is installed or removed,
+# and that always bumps the mtime of the bin dir it lands in. So memoise the resolved
+# map and re-probe only when a $PATH entry (a tool (un)installed) or this module
+# itself (a probe added/removed) is newer than the cache — turning ~30 PATH walks
+# into one `source`. Same bargain as _cache_eval above; and if ANYTHING about the
+# cache looks stale we fall through to a live probe, so it is only ever faster or
+# identical, never wrong.
+typeset -g _TOOLS_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/tools-have.zsh"
 
-if _have bat; then
-  BAT_BIN=bat
-elif _have batcat; then BAT_BIN=batcat; fi
+# The probe body the cache memoises: resolve the distro-renamed binaries (Debian/
+# Ubuntu ship fd as `fdfind`, bat as `batcat`) into canonical FD_BIN/BAT_BIN, then
+# set the HAVE_* flags aliases.zsh / functions.zsh / fzf.zsh key off. Assignments
+# are bare (global) exactly as the inline block was — the loader sources at global
+# scope, so HAVE_* outlive this function.
+_tools_detect() {
+  if _have fd; then FD_BIN=fd; elif _have fdfind; then FD_BIN=fdfind; fi
+  if _have bat; then BAT_BIN=bat; elif _have batcat; then BAT_BIN=batcat; fi
 
-# ── HAVE_* flags consumed by aliases.zsh / functions.zsh / fzf.zsh ────────────
-_have eza && HAVE_EZA=1
-_have rg && HAVE_RG=1
-_have zoxide && HAVE_ZOXIDE=1
-_have fzf && HAVE_FZF=1
-_have starship && HAVE_STARSHIP=1
-_have atuin && HAVE_ATUIN=1
-_have delta && HAVE_DELTA=1
-_have yazi && HAVE_YAZI=1
-_have btop && HAVE_BTOP=1
-_have dust && HAVE_DUST=1
-_have procs && HAVE_PROCS=1
-_have mise && HAVE_MISE=1
-_have carapace && HAVE_CARAPACE=1 # completion engine — init in plugins.zsh
-# 2026 additions (aliases.zsh guards each):
-_have xh && HAVE_XH=1
-_have glow && HAVE_GLOW=1
-_have doggo && HAVE_DOGGO=1
-_have gron && HAVE_GRON=1
-_have sd && HAVE_SD=1
-_have gum && HAVE_GUM=1
-_have viddy && HAVE_VIDDY=1         # modern watch (aliases.zsh: watch → viddy)
-_have gping && HAVE_GPING=1         # graphical ping (aliases.zsh: ping → gping)
-_have tldr  && HAVE_TLDR=1          # tealdeer binary (aliases.zsh: help → tldr)
-# mid-2026 additions — data / disk / dev tooling (see PORTING-MATRIX package table):
-_have jq && HAVE_JQ=1               # JSON processor (gron greps; jq transforms — complements)
-_have yq && HAVE_YQ=1              # YAML/JSON/XML processor (the jq of YAML)
-_have duf && HAVE_DUF=1             # modern df (aliases.zsh: df → duf, with df -h fallback)
-_have ouch && HAVE_OUCH=1          # one-binary archive (un)packer (functions.zsh: extract prefers it)
-_have hyperfine && HAVE_HYPERFINE=1 # benchmarking (the perf note at the top of this file uses it)
-_have shellcheck && HAVE_SHELLCHECK=1 # shell linter (own command — no alias)
-_have shfmt && HAVE_SHFMT=1        # shell formatter (own command — no alias)
-[[ -n ${FD_BIN:-} ]] && HAVE_FD=1
-[[ -n ${BAT_BIN:-} ]] && HAVE_BAT=1
+  _have eza && HAVE_EZA=1
+  _have rg && HAVE_RG=1
+  _have zoxide && HAVE_ZOXIDE=1
+  _have fzf && HAVE_FZF=1
+  _have starship && HAVE_STARSHIP=1
+  _have atuin && HAVE_ATUIN=1
+  _have delta && HAVE_DELTA=1
+  _have yazi && HAVE_YAZI=1
+  _have btop && HAVE_BTOP=1
+  _have dust && HAVE_DUST=1
+  _have procs && HAVE_PROCS=1
+  _have mise && HAVE_MISE=1
+  _have carapace && HAVE_CARAPACE=1 # completion engine — init in plugins.zsh
+  # 2026 additions (aliases.zsh guards each):
+  _have xh && HAVE_XH=1
+  _have glow && HAVE_GLOW=1
+  _have doggo && HAVE_DOGGO=1
+  _have gron && HAVE_GRON=1
+  _have sd && HAVE_SD=1
+  _have gum && HAVE_GUM=1
+  _have viddy && HAVE_VIDDY=1         # modern watch (aliases.zsh: watch → viddy)
+  _have gping && HAVE_GPING=1         # graphical ping (aliases.zsh: ping → gping)
+  _have tldr  && HAVE_TLDR=1          # tealdeer binary (aliases.zsh: help → tldr)
+  # mid-2026 additions — data / disk / dev tooling (see PORTING-MATRIX package table):
+  _have jq && HAVE_JQ=1               # JSON processor (gron greps; jq transforms — complements)
+  _have yq && HAVE_YQ=1              # YAML/JSON/XML processor (the jq of YAML)
+  _have duf && HAVE_DUF=1             # modern df (aliases.zsh: df → duf, with df -h fallback)
+  _have ouch && HAVE_OUCH=1          # one-binary archive (un)packer (functions.zsh: extract prefers it)
+  _have hyperfine && HAVE_HYPERFINE=1 # benchmarking (the perf note at the top of this file uses it)
+  _have shellcheck && HAVE_SHELLCHECK=1 # shell linter (own command — no alias)
+  _have shfmt && HAVE_SHFMT=1        # shell formatter (own command — no alias)
+  [[ -n ${FD_BIN:-} ]] && HAVE_FD=1
+  [[ -n ${BAT_BIN:-} ]] && HAVE_BAT=1
+}
+
+# Fresh iff the cache exists and nothing that could change the tool set is newer:
+# this module (a probe added/removed) or any $PATH entry (a tool (un)installed).
+# A removed $PATH dir simply fails the -e test and is ignored — its disappearance
+# can't add a tool, and a real removal bumps the surviving dirs / busts on next add.
+_tools_cache_fresh() {
+  [[ -s "$_TOOLS_CACHE" ]] || return 1
+  [[ "${(%):-%x}" -nt "$_TOOLS_CACHE" ]] && return 1
+  local d
+  for d in $path; do
+    [[ -e "$d" && "$d" -nt "$_TOOLS_CACHE" ]] && return 1
+  done
+  return 0
+}
+
+if _tools_cache_fresh; then
+  source "$_TOOLS_CACHE"
+else
+  _tools_detect
+  # Serialise the resolved map for the next shell. `typeset -p` emits reusable
+  # assignments; HAVE_* is matched by PATTERN so adding a probe above never needs a
+  # second edit here. Best-effort in an anonymous function (auto-scoped locals, no
+  # leak): a write failure just means the next shell probes live again. `>|` overrides
+  # NO_CLOBBER (options.zsh sets it, but loads AFTER this file).
+  () {
+    local dir="${_TOOLS_CACHE:h}"
+    [[ -d "$dir" ]] || mkdir -p "$dir" 2>/dev/null || return
+    {
+      print -r -- '# GENERATED by core/zsh/tools.zsh — cached tool-detection map.'
+      print -r -- '# Rebuilt automatically when a $PATH dir or tools.zsh is newer.'
+      typeset -p FD_BIN BAT_BIN 2>/dev/null
+      typeset -pm 'HAVE_*' 2>/dev/null
+    } >| "$_TOOLS_CACHE" 2>/dev/null
+  }
+fi
 
 # ── Tool env — set BEFORE the init evals below ────────────────────────────────
 # starship reads its theme from the default ~/.config/starship.toml (bootstrap
@@ -165,4 +211,4 @@ fi
 # salt the cache on it — flipping ATUIN_NOBIND now busts the cache instead of serving stale.
 [[ -n ${HAVE_ATUIN:-} ]] && _cache_eval --salt "${ATUIN_NOBIND:-}" atuin atuin init zsh
 
-unfunction _have 2>/dev/null
+unfunction _have _tools_detect _tools_cache_fresh 2>/dev/null
