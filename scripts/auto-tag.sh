@@ -155,7 +155,7 @@ _next_version() {
 
 hdr "auto-tag $(basename "$REPO") (bump $BUMP)"
 
-# _first_strict_semver — read tags on FD 3 (one per line) and echo the first that is a
+# _first_strict_semver — read tags on stdin (one per line) and echo the first that is a
 # strict vX.Y.Z. git's `--list` takes a GLOB, not a regex, so a pattern like
 # 'v[0-9]*.[0-9]*.[0-9]*' also matches pre-release/suffixed tags (v1.2.3-rc1) and a
 # zero-pad — and would feed a non-numeric component into _next_version. It also can't
