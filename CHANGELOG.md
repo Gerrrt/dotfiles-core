@@ -13,6 +13,15 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+### Added
+
+- **Core-integrity CI guard (`make core-integrity` + `core-integrity.yml`).** A
+  durable, CI-runnable tamper check: it compares each OS repo's vendored `core/` tree
+  object against the commit its `core.lock` pins (content-addressed, so any hand-edit
+  diverges the hash). Replaces the local-only `.git/hooks` core-guard, which couldn't
+  run on a fresh clone or in CI. Companion to `fleet-drift` (integrity vs staleness) —
+  both run weekly and on demand.
+
 ### Changed
 
 - **`fleet-drift.sh` labels the Windows row by release tag too.** `_check_repo`
@@ -22,6 +31,11 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   for Windows instead of the bare SHA — all nine rows now speak in release names.
   Backward compatible: with no tag recorded it still falls back to the short SHA,
   and the drift verdict stays SHA-based. Verified both paths against a fixture.
+- **`starship.toml` is now cross-shell (one canonical file).** Added
+  `powershell_indicator` to `[shell]` so the single Core `starship.toml` renders under
+  both zsh and PowerShell, and dotfiles-Windows now syncs this file verbatim (its new
+  `starship-sync.ps1`) instead of carrying a drifted copy. Benign on zsh — starship
+  only renders the active shell's indicator.
 
 ## [v2.0.0] - 2026-06-28
 
