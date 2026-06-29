@@ -135,15 +135,21 @@ hdr "auto-tag $(basename "$REPO") (bump $BUMP)"
 
 # Guard 1 — idempotency: never double-tag a commit. If HEAD is already a release, this
 # run is a no-op (a re-trigger, or an operator who hand-cut the tag for this commit).
-if existing="$(git -C "$REPO" tag --points-at HEAD --list 'v[0-9]*.[0-9]*.[0-9]*' | head -1)" \
-  && [[ -n "$existing" ]]; then
+# Take the first line via parameter expansion, NOT `| head -1`: under `pipefail` (set on
+# line 32) git can get SIGPIPE when head exits early, making the pipeline — and so the
+# `existing=` assignment — non-zero, which would short-circuit the `&&` and skip this
+# guard even when HEAD really is tagged. No pipe, no such race.
+existing="$(git -C "$REPO" tag --points-at HEAD --list 'v[0-9]*.[0-9]*.[0-9]*')"
+existing="${existing%%$'\n'*}"
+if [[ -n "$existing" ]]; then
   pass "HEAD already tagged $existing — nothing to do"
   exit 0
 fi
 
 # Latest existing release tag (highest SemVer), or the configured initial when the repo
-# has never been tagged. `|| true` keeps the empty case from tripping set -e.
-latest="$(git -C "$REPO" tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1 || true)"
+# has never been tagged. Same no-`head` reason as above: avoid a pipefail/SIGPIPE race.
+latest="$(git -C "$REPO" tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname)"
+latest="${latest%%$'\n'*}"
 if [[ -z "$latest" ]]; then
   NEXT="$INITIAL"
   pass "no existing tag — seeding $NEXT"
