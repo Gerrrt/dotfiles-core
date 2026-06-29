@@ -209,6 +209,29 @@ of the vendored commit), so the named version is recorded automatically and
    repo. Alpine rolling back to `v1.2.0` does not touch macOS on `v1.3.0` — the
    repos are independent consumers.
 
+### Pinning reusable workflows (the `@vN` policy)
+
+The fleet's reusable workflows (`bootstrap-test.yml`, `core-integrity-call.yml`) are
+called cross-repo from each OS repo. Pinning the caller's `uses:` ref trades off two
+things: **determinism** (a mutable `@main` can change a repo's CI with zero diff in
+that repo — a real supply-chain concern for an *integrity* guard) against
+**auto-propagation** (a guard/bootstrap improvement should reach every repo without
+hand-bumping N callers).
+
+The policy resolves both with a **moving major tag**: callers pin to **`@vN`** (e.g.
+`@v2`), and `tag-release.sh` force-advances `vN` to each new `vN.x` at release time
+(alongside the immutable `vX.Y.Z` tag). So a caller's behavior can change **only via a
+Core release** (deterministic between releases), yet patch/minor guard fixes still fan
+out automatically; a major bump is the one intentional, reviewed caller edit. This is
+GitHub's own recommended pattern for reusable workflows.
+
+- **Authoring:** new callers use `@vN` for the current major (not `@main`, not a bare SHA).
+- **Bootstrapping a major:** `vN` is created/advanced by `make tag PUSH=1`; the very first
+  `vN` can also be stamped by hand (`git tag -f vN vN.0.0 && git push -f origin vN`).
+- **Trade vs. exact-SHA pinning:** a SHA is maximally deterministic but needs a manual
+  caller bump fleet-wide on every change — rejected as too high-churn for a first-party,
+  same-owner reusable workflow.
+
 ### What CI must prove before a tag
 
 The pre-tag gate is already most of the way there and should be treated as
