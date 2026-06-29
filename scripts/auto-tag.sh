@@ -36,11 +36,18 @@ source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
 usage() {
   cat <<'EOF'
-usage: auto-tag.sh <repo-path> [--bump patch|minor|major] [--push] [--initial vX.Y.Z]
+usage: auto-tag.sh <repo-path> [--bump patch|minor|major] [--push]
+                   [--initial vX.Y.Z] [--color auto|always|never]
 
 Compute (and with --push, cut) the next vX.Y.Z release tag for an OS repo whose
 vendored core/ just advanced. PATCH-bumps the repo's latest tag by default. A no-op
 if HEAD is already tagged vX.Y.Z. Without --push it only prints the tag it would cut.
+
+  --bump <patch|minor|major>   component to advance              (default: patch)
+  --push                       create + push the tag to origin   (default: print only)
+  --initial <vX.Y.Z>           tag when the repo has none         (default: v0.1.0)
+  --color <auto|always|never>  palette control                    (default: auto)
+  -h, --help                   show this help and exit
 EOF
 }
 
@@ -56,15 +63,27 @@ while (($#)); do
     ;;
   --push) PUSH=1 ;;
   --bump)
-    BUMP="${2:-}"
+    (($# >= 2)) || {
+      fail "auto-tag.sh: --bump needs a value (patch|minor|major)"
+      exit 2
+    }
+    BUMP="$2"
     shift
     ;;
   --initial)
-    INITIAL="${2:-}"
+    (($# >= 2)) || {
+      fail "auto-tag.sh: --initial needs a vX.Y.Z value"
+      exit 2
+    }
+    INITIAL="$2"
     shift
     ;;
   --color)
-    _core_set_color "${2:-}" || {
+    (($# >= 2)) || {
+      fail "auto-tag.sh: --color needs auto|always|never"
+      exit 2
+    }
+    _core_set_color "$2" || {
       fail "auto-tag.sh: --color wants auto|always|never"
       exit 2
     }
@@ -114,6 +133,9 @@ git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || {
 _next_version() {
   local cur="$1" level="$2" major minor patch
   IFS=. read -r major minor patch <<<"$cur"
+  # Force base-10: a zero-padded component (e.g. 08) is read as octal by $(( )) and
+  # `08`/`09` would error. Callers only pass strict X.Y.Z (digits), so 10# is safe.
+  major=$((10#$major)) minor=$((10#$minor)) patch=$((10#$patch))
   case "$level" in
   major)
     major=$((major + 1))
@@ -133,23 +155,36 @@ _next_version() {
 
 hdr "auto-tag $(basename "$REPO") (bump $BUMP)"
 
-# Guard 1 — idempotency: never double-tag a commit. If HEAD is already a release, this
-# run is a no-op (a re-trigger, or an operator who hand-cut the tag for this commit).
-# Take the first line via parameter expansion, NOT `| head -1`: under `pipefail` (set on
-# line 32) git can get SIGPIPE when head exits early, making the pipeline — and so the
-# `existing=` assignment — non-zero, which would short-circuit the `&&` and skip this
-# guard even when HEAD really is tagged. No pipe, no such race.
-existing="$(git -C "$REPO" tag --points-at HEAD --list 'v[0-9]*.[0-9]*.[0-9]*')"
-existing="${existing%%$'\n'*}"
+# _first_strict_semver — read tags on stdin (one per line) and echo the first that is a
+# strict vX.Y.Z. git's `--list` takes a GLOB, not a regex, so a pattern like
+# 'v[0-9]*.[0-9]*.[0-9]*' also matches pre-release/suffixed tags (v1.2.3-rc1) and a
+# zero-pad — and would feed a non-numeric component into _next_version. It also can't
+# exclude a moving major alias (v2). So we list ALL tags and filter here with an EXACT
+# regex. A read loop (process substitution, not `| head`) sidesteps the pipefail/SIGPIPE
+# race a pipe to head would introduce under `set -o pipefail`.
+_first_strict_semver() {
+  local t
+  while IFS= read -r t; do
+    [[ "$t" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && {
+      printf '%s' "$t"
+      return 0
+    }
+  done
+  return 0
+}
+
+# Guard 1 — idempotency: never double-tag a commit. If HEAD already carries a strict
+# vX.Y.Z release, this run is a no-op (a re-trigger, or an operator who hand-cut it).
+existing="$(_first_strict_semver < <(git -C "$REPO" tag --points-at HEAD))"
 if [[ -n "$existing" ]]; then
   pass "HEAD already tagged $existing — nothing to do"
   exit 0
 fi
 
-# Latest existing release tag (highest SemVer), or the configured initial when the repo
-# has never been tagged. Same no-`head` reason as above: avoid a pipefail/SIGPIPE race.
-latest="$(git -C "$REPO" tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname)"
-latest="${latest%%$'\n'*}"
+# Latest existing release tag (highest strict SemVer), or the configured initial when
+# the repo has never been tagged. --sort orders by version desc; the filter drops any
+# non-vX.Y.Z (prerelease, suffix, or a vN major alias) so the FIRST kept line is the top.
+latest="$(_first_strict_semver < <(git -C "$REPO" tag --sort=-v:refname))"
 if [[ -z "$latest" ]]; then
   NEXT="$INITIAL"
   pass "no existing tag — seeding $NEXT"
@@ -182,7 +217,7 @@ fi
 if git -C "$REPO" push origin "$NEXT"; then
   pass "pushed $NEXT → origin"
 else
-  fail "auto-tag.sh: push failed — re-push manually: git -C $REPO push origin $NEXT"
+  fail "auto-tag.sh: push failed — re-push manually: git -C \"$REPO\" push origin \"$NEXT\""
   exit 1
 fi
 printf '\n%s──────── %s released ────────%s\n' "$c_blu" "$NEXT" "$c_rst"

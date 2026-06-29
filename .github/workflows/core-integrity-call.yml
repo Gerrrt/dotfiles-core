@@ -39,6 +39,14 @@ jobs:
           fetch-depth: 1
       # dotfiles-core is the reference: full history (fetch-depth 0) so the caller's
       # locked core_sha resolves to a tree object here, and it carries the script.
+      #
+      # DELIBERATELY UNPINNED (default branch), unlike auto-tag-call.yml which pins
+      # dotfiles-core to @v2. Here the checkout is also the OBJECT DATABASE the check
+      # resolves core.lock's core_sha against — and a repo synced from `main` between
+      # releases pins a core_sha NEWER than the latest vN tag. Pinning to @v2 would make
+      # that object absent and the integrity check FALSE-FAIL. The reference must track
+      # main (the most complete history); the script it carries is a stable comparison,
+      # so reproducibility is a non-issue. Do not "fix" this by adding `ref: v2`.
       - name: Check out dotfiles-core (reference)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
