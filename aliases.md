@@ -666,7 +666,7 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 | ---------- | ------------ |
 | `..` | `Set-Location ..` |
 | `...` | `Set-Location ..\..'` |
-| `....` | `Set-Location ..\..\..'` |
+| `....` | `Set-Location ..\..\..` |
 | `~` | `Set-Location $HOME` |
 | `mkcd <path>` | `New-Item -ItemType Directory -Force` then `Set-Location` |
 
