@@ -13,6 +13,16 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+### Changed
+
+- **`tag-release.sh` recipe spells out the land-then-tag order.** The printed next-steps
+  now make the sequence explicit — land the release commit via PR (a merge commit), *then*
+  tag `origin/main` (the merged tip) so the tag sits on `main`'s HEAD and `git describe`
+  stays clean — instead of tagging the pre-merge commit and re-pointing. The two tag
+  pushes use `;`, not `&&` (an "already exists" on the first must not skip the second —
+  the `vN` move). `PUSH=1` now warns that it tags the pre-merge commit and prints the
+  re-point steps.
+
 ## [v2.4.0] - 2026-06-29
 
 ### Added

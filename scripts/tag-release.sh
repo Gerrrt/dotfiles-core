@@ -172,19 +172,41 @@ if ((PUSH)); then
   fi
   printf '\n%s──────── %s released (tags pushed) ────────%s\n' "$c_blu" "$TAG" "$c_rst"
   cat <<EOF
-  land the release commit on main via PR (main is protected — no direct push):
-    git push origin HEAD:release/$TAG
-    gh pr create --base main --head release/$TAG --title "release $TAG"
-    # merge with a MERGE commit (not squash) so $TAG / $MAJOR stay in main's history
-  fan out: ./scripts/sync-core.sh        # after the release PR merges
+  NOTE: --push tagged the PRE-merge commit. main is protected, so the commit lands via a
+  PR — which adds a merge commit, leaving these tags one behind main's HEAD ('git describe'
+  shows $TAG-1-g…). After the PR merges, RE-POINT both at the merged tip for a clean tag:
+
+  1. land the commit:  git push origin HEAD:release/$TAG
+       gh pr create --base main --head release/$TAG --title "release $TAG"
+       # merge with a MERGE commit (not squash)
+  2. re-point AFTER it merges:
+       git fetch origin
+       git tag -fa $TAG origin/main -m $TAG && git tag -f $MAJOR origin/main
+       git push -f origin $TAG ; git push -f origin $MAJOR   # ';' not '&&' — independent
+  3. fan out: ./scripts/sync-core.sh     # or let sync-fanout.yml open the PRs on release
+
+  (Tip: skip PUSH=1 and follow the 'make tag' recipe below — it tags the merged tip from
+  the start, so there's nothing to re-point.)
 EOF
 else
   printf '\n%s──────── %s tagged locally ────────%s\n' "$c_blu" "$TAG" "$c_rst"
   cat <<EOF
   review:  git show $TAG
-  push:    git push origin $TAG && git push -f origin $MAJOR     # tags only — main is protected
-  land:    git push origin HEAD:release/$TAG   # then open a PR → main (merge commit, not squash)
-           (or re-run: make tag PUSH=1)
-  fan out: ./scripts/sync-core.sh        # after the release PR merges
+
+  Ship IN THIS ORDER — land the commit FIRST, then tag the MERGED tip. main is protected,
+  so the commit lands via a PR (a merge commit); tagging only AFTER that, at origin/main,
+  keeps the tag on main's HEAD and 'git describe' clean. (Tagging before the merge leaves
+  the tag one commit behind and needs a re-point — the trap PUSH=1 falls into.)
+
+  1. land the commit:
+       git push origin HEAD:release/$TAG
+       gh pr create --base main --head release/$TAG --title "release $TAG"
+       # merge with a MERGE commit (not squash)
+  2. tag the merged tip AFTER the PR merges:
+       git fetch origin
+       git tag -fa $TAG origin/main -m $TAG
+       git tag -f  $MAJOR origin/main
+       git push origin $TAG ; git push -f origin $MAJOR   # ';' not '&&' — independent pushes
+  3. fan out: ./scripts/sync-core.sh     # or let sync-fanout.yml open the PRs on release
 EOF
 fi
