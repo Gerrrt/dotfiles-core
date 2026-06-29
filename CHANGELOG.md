@@ -24,13 +24,6 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Changed
 
-- **`tools.zsh` caches the tool-detection map.** The ~30 `command -v` probes that set
-  `HAVE_*` / `FD_BIN` / `BAT_BIN` were the biggest cost on the shell-startup hot path
-  (heaviest for absent tools, which walk all of `$PATH`). The resolved map is now
-  memoised to `${XDG_CACHE_HOME:-~/.cache}/zsh/tools-have.zsh` and re-probed only when
-  a `$PATH` dir (tool installed/removed) or `tools.zsh` itself (a probe changed) is
-  newer — the same mtime bargain as the existing `_cache_eval`. Falls through to a live
-  probe when the cache is stale, so it is only ever faster or identical, never wrong.
 - **`starship.toml` is now cross-shell (one canonical file).** Added
   `powershell_indicator` to `[shell]` so the single Core `starship.toml` renders under
   both zsh and PowerShell, and dotfiles-Windows now syncs this file verbatim (its new
