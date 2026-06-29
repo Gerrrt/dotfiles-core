@@ -13,6 +13,8 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+## [v2.4.0] - 2026-06-29
+
 ### Added
 
 - **OS-repo / Windows auto-tags now publish a GitHub Release too (`auto-tag.sh
