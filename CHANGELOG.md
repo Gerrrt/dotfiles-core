@@ -13,6 +13,8 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+## [v2.2.0] - 2026-06-29
+
 ### Added
 
 - **Automatic OS-repo release tagging on Core fan-out (`auto-tag-call.yml` +
