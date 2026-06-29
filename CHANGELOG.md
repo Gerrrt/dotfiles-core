@@ -13,6 +13,20 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+### Added
+
+- **Automatic OS-repo release tagging on Core fan-out (`auto-tag-call.yml` +
+  `scripts/auto-tag.sh`).** An OS repo carries two version lines — the Core it vendors
+  (`core.lock`, advanced by `sync-core.sh` on every sync) and its OWN `vX.Y.Z` tag, which
+  used to move only by hand and so drifted (most repos froze at an old tag; the newest had
+  none). A new reusable `workflow_call` lets each OS repo cut its next tag automatically
+  when a fan-out lands new `core/` on its `main`: PATCH-bump by default (a new Core is a
+  maintenance bump of the consumer), `bump: minor|major` for a deliberate release. The
+  version math lives in `scripts/auto-tag.sh` (shellcheck-clean, dry-run by default), is idempotent
+  (a no-op when HEAD is already a `vX.Y.Z` release), and tags in CI — so no operator
+  round-trip and no reliance on a local tag push. Each OS repo adds a three-line caller
+  (`on: push` to `main`, `paths: ['core/**']`).
+
 ## [v2.1.1] - 2026-06-29
 
 ### Fixed
