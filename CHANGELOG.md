@@ -15,6 +15,13 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Fixed
 
+- **`bootstrap.sh --links-only` no longer aborts when zsh isn't installed.**
+  `blib_set_login_shell` did `zsh_path="$(command -v zsh)"`; with zsh absent that
+  substitution exits non-zero, and under the bootstrap's `set -e` it aborted the run
+  _before_ the `[[ -n "$zsh_path" ]] || return 0` guard that was meant to handle the
+  missing-zsh case — surfacing as a links-only CI failure in the one base image
+  without zsh preinstalled (`gentoo/stage3`). Now `command -v zsh || true`, so the
+  guard decides, not errexit. No behavior change where zsh is present.
 - **`tag-release.sh --push` no longer pushes the protected `main` branch.** `main`
   enforces required status checks (GH013), so a direct branch push is rejected and a
   release that relied on it would half-land — tag pushed, commit stranded. The push

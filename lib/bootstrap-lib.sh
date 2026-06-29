@@ -414,7 +414,11 @@ blib_set_login_shell() {
   local zsh_path user current
   # command -v also resolves aliases/functions; require a real executable path
   # before we hand it to chsh/usermod (an alias body is not a valid login shell).
-  zsh_path="$(command -v zsh)"
+  # `|| true`: when zsh is ABSENT (e.g. a links-only run in a bare container with no
+  # zsh installed), command -v exits non-zero — and under the caller's `set -e` that
+  # failing substitution aborts bootstrap BEFORE the guard below can handle it. Swallow
+  # the rc so the empty-path guard is what decides, not errexit.
+  zsh_path="$(command -v zsh || true)"
   [[ -n "$zsh_path" && -x "$zsh_path" ]] || return 0
   user="$(id -un)"
   if command -v getent >/dev/null 2>&1; then
