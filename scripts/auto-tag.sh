@@ -240,7 +240,7 @@ if ((RELEASE)); then
     skip "GitHub Release for $NEXT (gh not found — tag is pushed)"
   elif (cd "$REPO" && gh release view "$NEXT" >/dev/null 2>&1); then
     pass "GitHub Release $NEXT already exists — nothing to do"
-  elif (cd "$REPO" && gh release create "$NEXT" --title "$NEXT" --generate-notes); then
+  elif (cd "$REPO" && gh release create "$NEXT" --verify-tag --title "$NEXT" --generate-notes); then
     pass "created GitHub Release $NEXT"
   else
     fail "auto-tag.sh: 'gh release create $NEXT' failed (tag is pushed; create the Release manually)"
