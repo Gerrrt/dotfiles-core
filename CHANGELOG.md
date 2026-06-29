@@ -39,6 +39,14 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Changed
 
+- **Reusable-workflow pin policy: `@vN` moving major tag.** `tag-release.sh` now
+  force-advances a `vN` major tag (e.g. `v2`) to each `vN.x` release, alongside the
+  immutable `vX.Y.Z` tag. Cross-repo callers of the fleet's reusable workflows
+  (`bootstrap-test.yml`, `core-integrity-call.yml`) pin to `@vN` instead of `@main`:
+  deterministic between releases (a caller's CI can't change with zero diff in its
+  repo) yet still auto-propagating patch/minor guard fixes. Documented in
+  `RELEASE-STRATEGY.md`. (Foundation only — re-pinning the existing `@main` callers
+  fleet-wide is a follow-up once a `v2` tag is published.)
 - **`fleet-drift.sh` labels the Windows row by release tag too.** `_check_repo`
   gained a fourth `tag-key` argument (default `core_tag`); the Windows row passes
   `tag`, so once `dotfiles-Windows`'s `nvim-sync.ps1` stamps a `tag = <release>`

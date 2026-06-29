@@ -143,12 +143,27 @@ else
   exit 1
 fi
 
+# Moving MAJOR tag (vN) — the ref reusable-workflow callers pin to (RELEASE-STRATEGY.md
+# §"Pinning reusable workflows"). Lightweight and FORCE-moved to each new vN.x so callers
+# get patch/minor guard improvements without a manual bump, while staying deterministic
+# between releases (unlike @main). Advancing it here, in the one release step, is what
+# keeps it from ever drifting from the release it should point at.
+MAJOR="v${VERSION%%.*}"
+if git tag -f "$MAJOR" "$TAG^{commit}" >/dev/null; then
+  pass "moved major tag $MAJOR → $TAG"
+else
+  fail "tag-release.sh: could not move major tag $MAJOR"
+  exit 1
+fi
+
 BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
 
 if ((PUSH)); then
   hdr "push $BRANCH + $TAG → origin"
-  if git push origin "$BRANCH" && git push origin "$TAG"; then
-    pass "pushed $BRANCH and $TAG"
+  # Force-push the major tag too (-f: it moves every release). Branch + exact tag are
+  # plain pushes; the exact vX.Y.Z tag is immutable, the vN tag is the moving alias.
+  if git push origin "$BRANCH" && git push origin "$TAG" && git push -f origin "$MAJOR"; then
+    pass "pushed $BRANCH, $TAG, and moved $MAJOR"
   else
     fail "tag-release.sh: push failed — the local commit+tag stand; re-push manually"
     exit 1
@@ -161,7 +176,7 @@ else
   printf '\n%s──────── %s tagged locally ────────%s\n' "$c_blu" "$TAG" "$c_rst"
   cat <<EOF
   review:  git show $TAG
-  push:    git push origin $BRANCH && git push origin $TAG
+  push:    git push origin $BRANCH && git push origin $TAG && git push -f origin $MAJOR
            (or re-run: make tag PUSH=1)
   fan out: ./scripts/sync-core.sh        # vendor $TAG into the OS repos
 EOF
