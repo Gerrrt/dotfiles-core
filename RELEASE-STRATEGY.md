@@ -199,8 +199,12 @@ of the vendored commit), so the named version is recorded automatically and
    implementation) or a throwaway Alpine/Arch container. Bootstrap it and smoke
    test: shell starts, load order intact, no broken bindings.
 3. **Bake** on the canary for a few days. Real use surfaces what CI cannot.
-4. **Fan out** with `make sync` to the rest; `make fleet-drift` confirms every
-   repo converged on the new tag.
+4. **Fan out**: on release, the `sync-fanout` workflow
+   (`.github/workflows/sync-fanout.yml`) opens a `core.lock`-bump PR against every
+   repo in `scripts/os-repos.txt`, pinned to the released commit — so the fan-out is
+   now "merge the PRs," canary first, instead of a remembered `make sync` (which
+   still works locally). `make fleet-drift` confirms every repo converged on the new
+   tag. The PRs are opened, never auto-merged — the opt-in gates above are intact.
 5. **Roll back per OS** if needed: re-pull the previous tag in just the affected
    repo. Alpine rolling back to `v1.2.0` does not touch macOS on `v1.3.0` — the
    repos are independent consumers.
