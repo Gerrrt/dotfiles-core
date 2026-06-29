@@ -1,6 +1,6 @@
 # Aliases Cheat Sheet
 
-> Last updated: 2026-06-28.
+> Last updated: 2026-06-29.
 > Sources (repo-qualified — most live in sibling repos, not here): `core/zsh/aliases.zsh` ·
 > `core/zsh/git.zsh` · `dotfiles-MacBook/os/macos.zsh` · `dotfiles-Kali/os/kali.zsh` ·
 > `dotfiles-Kali/offensive/offensive.zsh` · `dotfiles-Fedora/os/fedora.zsh` ·
@@ -701,7 +701,7 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 
 ## Issues & Notes
 
-The following inconsistencies were identified during this audit:
+The following inconsistencies were identified during audits:
 
 1. **All Linux OS layers use `attach || new-session` (no `exec`) in tmux auto-start**
    (`os/kali.zsh`, `os/fedora.zsh`, `os/arch.zsh`, `os/alpine.zsh`, `os/gentoo.zsh`,
@@ -728,6 +728,30 @@ The following inconsistencies were identified during this audit:
    on Leap performs a dist-upgrade that may be unexpected. No guard exists — relies on
    user knowing their flavor.
 
+6. **`DOTFILES_NO_AUTOTMUX` opt-out not honored on any Linux OS layer** *(found
+   2026-06-29)*: `os/macos.zsh` checks `&& -z "${DOTFILES_NO_AUTOTMUX:-}"` in its
+   tmux auto-start guard and documents "Export it in `~/.config/zsh/local.zsh` to opt
+   out on a given box." None of the Linux OS layers (`kali.zsh`, `fedora.zsh`,
+   `arch.zsh`, `alpine.zsh`, `gentoo.zsh`, `opensuse.zsh`) include this check — the
+   env var is silently ignored on Linux. Fix: add `&& -z "${DOTFILES_NO_AUTOTMUX:-}"`
+   to each Linux tmux auto-start block.
+
+7. **Shell completion hooks not cached via `_cache_eval` on Fedora, openSUSE, Kali,
+   Alpine, Gentoo** *(found 2026-06-29)*: `os/macos.zsh` and `os/arch.zsh` wrap
+   `gh`/`uv`/`ty` completion initialization in Core's `_cache_eval`, which generates
+   the completion script once and sources a cached file on subsequent shells
+   (regenerating only when the binary is newer). `os/fedora.zsh`, `os/opensuse.zsh`,
+   `os/kali.zsh`, `os/alpine.zsh`, and `os/gentoo.zsh` use raw
+   `eval "$(tool completion ...)"`, spawning a subprocess on every interactive shell
+   start. Fix: wrap those calls in `_cache_eval` (with the bare fallback kept for boxes
+   where `tools.zsh` wasn't sourced).
+
+8. **Alpine and Kali missing `uv`/`ty` completion hooks** *(found 2026-06-29)*:
+   `os/alpine.zsh` and `os/kali.zsh` only hook `gh` completions. Every other OS layer
+   (`fedora.zsh`, `arch.zsh`, `opensuse.zsh`, `macos.zsh`) also hooks `uv
+   generate-shell-completion zsh` and `ty generate-shell-completion zsh`. Alpine and
+   Kali users who install `uv` or `ty` get no tab-completion without a manual addition.
+
 ---
 
-Generated 2026-06-28 by `claude/alias-sync`.
+Generated 2026-06-29 by `claude/alias-sync`.
