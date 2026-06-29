@@ -13,6 +13,16 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+### Changed
+
+- **`fleet-drift.sh` labels the Windows row by release tag too.** `_check_repo`
+  gained a fourth `tag-key` argument (default `core_tag`); the Windows row passes
+  `tag`, so once `dotfiles-Windows`'s `nvim-sync.ps1` stamps a `tag = <release>`
+  field into `nvim/.core-ref` (its companion change), the dashboard shows `v2.0.0`
+  for Windows instead of the bare SHA — all nine rows now speak in release names.
+  Backward compatible: with no tag recorded it still falls back to the short SHA,
+  and the drift verdict stays SHA-based. Verified both paths against a fixture.
+
 ## [v2.0.0] - 2026-06-28
 
 > **Breaking — keybindings realigned.** The zsh file-picker moved off `Ctrl+F` to

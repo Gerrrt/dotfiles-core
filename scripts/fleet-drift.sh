@@ -4,9 +4,9 @@
 # FLEET DRIFT CHECK — is every OS repo carrying the latest Core?
 #
 # sync-core.sh fans Core out and stamps each OS repo with its provenance:
-#   • Unix repos: a root-level `core.lock` with `core_sha=<full sha>` (B1)
-#   • dotfiles-Windows: `nvim/.core-ref` with `commit = <sha>` (it vendors only
-#     nvim/ via robocopy, not the whole core/ subtree)
+#   • Unix repos: a root-level `core.lock` with `core_sha=<full sha>` (+ `core_tag`) (B1)
+#   • dotfiles-Windows: `nvim/.core-ref` with `commit = <sha>` (+ `tag = <release>`)
+#     (it vendors only nvim/ via robocopy, not the whole core/ subtree)
 # Those markers answer "which Core do I carry?" offline — but NOTHING compared them
 # against each other or against Core's tip, so a repo could silently sit on a stale
 # Core for weeks (exactly how dotfiles-MacBook's nvim lockfile drifted). This is that
@@ -131,8 +131,8 @@ hdr "Fleet drift vs Core ${REF:0:12} ($(git -C "$HERE" rev-parse --abbrev-ref HE
 printf '%-22s %-14s %s\n' "REPO" "RECORDED" "STATUS"
 printf '%-22s %-14s %s\n' "----" "--------" "------"
 
-_check_repo() { # _check_repo <repo-dir-name> <marker-relative-path> <key>
-  local name="$1" marker="$2" key="$3" dir="$ROOT/$1" file rec status tag shown
+_check_repo() { # _check_repo <repo-dir-name> <marker-relative-path> <sha-key> [tag-key]
+  local name="$1" marker="$2" key="$3" tagkey="${4:-core_tag}" dir="$ROOT/$1" file rec status tag shown
   if [[ ! -d "$dir" ]]; then
     if ((STRICT)); then fail "$(printf '%-22s %-14s %s' "$name" "-" "NOT CHECKED OUT")"
     else skip "$(printf '%-22s %-14s %s' "$name" "-" "not checked out")"; fi
@@ -144,10 +144,11 @@ _check_repo() { # _check_repo <repo-dir-name> <marker-relative-path> <key>
   fi
   rec="$(_read_kv "$file" "$key")"
   # Prefer the human-readable release tag in the RECORDED column when the marker
-  # carries one (core.lock's core_tag, RELEASE-STRATEGY.md gap 1); fall back to the
-  # short sha otherwise (always, for Windows' tag-less nvim/.core-ref). The drift
-  # VERDICT stays sha-based via _classify — the tag is display only.
-  tag="$(_read_kv "$file" core_tag)"
+  # carries one — core.lock's `core_tag` for the Unix repos, nvim/.core-ref's `tag`
+  # for Windows (the tag-key arg differs per marker). Fall back to the short sha when
+  # there's no tag (e.g. Core carries none yet). The drift VERDICT stays sha-based via
+  # _classify — the tag is display only.
+  tag="$(_read_kv "$file" "$tagkey")"
   shown="${tag:-${rec:0:12}}"
   status="$(_classify "$rec")"
   if [[ "$status" == "current" ]]; then
@@ -162,8 +163,9 @@ for _r in "${OS_REPOS[@]}"; do
   _check_repo "$_r" "core.lock" "core_sha"
 done
 # Windows is the outlier: no core/ subtree, only nvim/ mirrored — its provenance
-# lives in nvim/.core-ref. Include it so the dashboard covers the whole fleet.
-_check_repo "dotfiles-Windows" "nvim/.core-ref" "commit"
+# lives in nvim/.core-ref (sha under `commit`, release name under `tag`). Include it
+# so the dashboard covers the whole fleet, labelled by tag like the Unix repos.
+_check_repo "dotfiles-Windows" "nvim/.core-ref" "commit" "tag"
 
 echo
 if ((DRIFT)); then
