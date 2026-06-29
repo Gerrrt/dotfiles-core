@@ -665,8 +665,8 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 | Function | Expands to |
 | ---------- | ------------ |
 | `..` | `Set-Location ..` |
-| `...` | `Set-Location ..\..` |
-| `....` | `Set-Location ..\..\..` |
+| `...` | `Set-Location ..\..'` |
+| `....` | `Set-Location ..\..\..'` |
 | `~` | `Set-Location $HOME` |
 | `mkcd <path>` | `New-Item -ItemType Directory -Force` then `Set-Location` |
 
@@ -701,7 +701,7 @@ Source: `dotfiles-Windows/powershell/core/00-aliases.ps1`
 
 ## Issues & Notes
 
-The following inconsistencies were identified during audit:
+The following inconsistencies were identified during audits:
 
 1. **All Linux OS layers use `attach || new-session` (no `exec`) in tmux auto-start**
    (`os/kali.zsh`, `os/fedora.zsh`, `os/arch.zsh`, `os/alpine.zsh`, `os/gentoo.zsh`,
@@ -736,14 +736,15 @@ The following inconsistencies were identified during audit:
    env var is silently ignored on Linux. Fix: add `&& -z "${DOTFILES_NO_AUTOTMUX:-}"`
    to each Linux tmux auto-start block.
 
-7. **Shell completion hooks not cached via `_cache_eval` on Fedora, Kali, Alpine,
-   Gentoo** *(found 2026-06-29)*: `os/macos.zsh` and `os/arch.zsh` wrap `gh`/`uv`/`ty`
-   completion initialization in Core's `_cache_eval`, which generates the completion
-   script once and sources a cached file on subsequent shells (regenerating only when
-   the binary is newer). `os/fedora.zsh`, `os/kali.zsh`, `os/alpine.zsh`, and
-   `os/gentoo.zsh` use raw `eval "$(tool completion ...)"`, spawning a subprocess on
-   every interactive shell start. Fix: wrap those calls in `_cache_eval` (with the bare
-   fallback kept for boxes where `tools.zsh` wasn't sourced).
+7. **Shell completion hooks not cached via `_cache_eval` on Fedora, openSUSE, Kali,
+   Alpine, Gentoo** *(found 2026-06-29)*: `os/macos.zsh` and `os/arch.zsh` wrap
+   `gh`/`uv`/`ty` completion initialization in Core's `_cache_eval`, which generates
+   the completion script once and sources a cached file on subsequent shells
+   (regenerating only when the binary is newer). `os/fedora.zsh`, `os/opensuse.zsh`,
+   `os/kali.zsh`, `os/alpine.zsh`, and `os/gentoo.zsh` use raw
+   `eval "$(tool completion ...)"`, spawning a subprocess on every interactive shell
+   start. Fix: wrap those calls in `_cache_eval` (with the bare fallback kept for boxes
+   where `tools.zsh` wasn't sourced).
 
 8. **Alpine and Kali missing `uv`/`ty` completion hooks** *(found 2026-06-29)*:
    `os/alpine.zsh` and `os/kali.zsh` only hook `gh` completions. Every other OS layer
