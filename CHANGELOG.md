@@ -13,6 +13,8 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+## [v2.4.1] - 2026-06-29
+
 ### Changed
 
 - **`tag-release.sh` recipe spells out the land-then-tag order.** The printed next-steps
