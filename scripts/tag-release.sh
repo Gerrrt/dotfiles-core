@@ -156,28 +156,33 @@ else
   exit 1
 fi
 
-BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
-
 if ((PUSH)); then
-  hdr "push $BRANCH + $TAG → origin"
-  # Force-push the major tag too (-f: it moves every release). Branch + exact tag are
-  # plain pushes; the exact vX.Y.Z tag is immutable, the vN tag is the moving alias.
-  if git push origin "$BRANCH" && git push origin "$TAG" && git push -f origin "$MAJOR"; then
-    pass "pushed $BRANCH, $TAG, and moved $MAJOR"
+  hdr "push tags $TAG + $MAJOR → origin"
+  # TAGS ONLY — never `git push origin main`. main is a PROTECTED branch (required
+  # status checks), so a direct branch push is rejected and the release COMMIT must
+  # land via a PR (as v2.0.0 did, #95). Tags are not branch-protected, so we push the
+  # immutable vX.Y.Z and force-move the vN alias here; the commit goes up with the PR.
+  if git push origin "$TAG" && git push -f origin "$MAJOR"; then
+    pass "pushed $TAG and moved $MAJOR → $TAG"
   else
-    fail "tag-release.sh: push failed — the local commit+tag stand; re-push manually"
+    fail "tag-release.sh: tag push failed — re-push manually: git push origin $TAG && git push -f origin $MAJOR"
     exit 1
   fi
-  printf '\n%s──────── %s released ────────%s\n' "$c_blu" "$TAG" "$c_rst"
+  printf '\n%s──────── %s released (tags pushed) ────────%s\n' "$c_blu" "$TAG" "$c_rst"
   cat <<EOF
-  fan out: ./scripts/sync-core.sh        # vendor $TAG into the OS repos
+  land the release commit on main via PR (main is protected — no direct push):
+    git push origin HEAD:release/$TAG
+    gh pr create --base main --head release/$TAG --title "release $TAG"
+    # merge with a MERGE commit (not squash) so $TAG / $MAJOR stay in main's history
+  fan out: ./scripts/sync-core.sh        # after the release PR merges
 EOF
 else
   printf '\n%s──────── %s tagged locally ────────%s\n' "$c_blu" "$TAG" "$c_rst"
   cat <<EOF
   review:  git show $TAG
-  push:    git push origin $BRANCH && git push origin $TAG && git push -f origin $MAJOR
+  push:    git push origin $TAG && git push -f origin $MAJOR     # tags only — main is protected
+  land:    git push origin HEAD:release/$TAG   # then open a PR → main (merge commit, not squash)
            (or re-run: make tag PUSH=1)
-  fan out: ./scripts/sync-core.sh        # vendor $TAG into the OS repos
+  fan out: ./scripts/sync-core.sh        # after the release PR merges
 EOF
 fi
