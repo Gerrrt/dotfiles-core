@@ -558,6 +558,69 @@ if have git; then
   fi
 fi
 
+# ── F2. auto-tag version math (scripts/auto-tag.sh) ───────────────────────────
+# auto-tag.sh cuts an OS repo's next vX.Y.Z when a Core fan-out lands. Drive its
+# (dry-run) computation hermetically: it must patch-bump the latest STRICT SemVer tag
+# while IGNORING a prerelease/suffixed tag (v1.2.0-rc1) and the moving major alias (v1),
+# stay octal-safe on a zero-padded component (v1.08.0), seed an untagged repo, no-op when
+# HEAD is already a release, and usage-error a bad --bump — the exact glob/parse
+# regressions a loose `git tag --list` glob would let through. Pure bash + git.
+if have git; then
+  hdr "auto-tag version math (scripts/auto-tag.sh)"
+  AT="$HERE/scripts/auto-tag.sh"
+  ATR="$SANDBOX/atrepo"
+  _at_fresh() {
+    rm -rf "$ATR"
+    mkdir -p "$ATR"
+    git -C "$ATR" init -q
+    git -C "$ATR" config user.email t@example.com
+    git -C "$ATR" config user.name tester
+    git -C "$ATR" commit -q --allow-empty -m c1
+  }
+  _at_would() { # [bump] → echoes the tag it WOULD cut (dry-run), or noop / err
+    local out
+    out="$("$AT" "$ATR" ${1:+--bump "$1"} --color never 2>&1)" || {
+      echo err
+      return 0
+    }
+    if grep -q 'already tagged' <<<"$out"; then
+      echo noop
+    else
+      sed -n 's/.*would tag \(v[0-9][0-9.]*\).*/\1/p' <<<"$out"
+    fi
+  }
+
+  _at_assert() { # _at_assert <label> <want> [bump]
+    local got
+    got="$(_at_would "${3:-}")"
+    if [[ "$got" == "$2" ]]; then pass "$1"; else fail "$1 (got $got, want $2)"; fi
+  }
+
+  _at_fresh
+  git -C "$ATR" tag -a v1.2.0 -m v1.2.0
+  git -C "$ATR" tag -a v1.2.0-rc1 -m rc      # prerelease — must be ignored
+  git -C "$ATR" tag v1                       # moving major alias — must be ignored
+  git -C "$ATR" commit -q --allow-empty -m c2 # HEAD now past the tags
+  _at_assert "auto-tag: patch-bumps latest strict tag, ignoring rc + vN alias" v1.2.1
+  _at_assert "auto-tag: minor bump" v1.3.0 minor
+
+  _at_fresh
+  git -C "$ATR" tag -a v1.08.0 -m x          # zero-padded component — must not octal-error
+  git -C "$ATR" commit -q --allow-empty -m c2
+  _at_assert "auto-tag: octal-safe on a zero-padded component" v1.9.0 minor
+
+  _at_fresh # no tags at all → seed the initial
+  _at_assert "auto-tag: seeds v0.1.0 when the repo has no tag" v0.1.0
+
+  _at_fresh
+  git -C "$ATR" tag -a v2.0.0 -m x           # HEAD itself tagged → idempotent no-op
+  _at_assert "auto-tag: no-op when HEAD already carries a release" noop
+
+  _at_assert "auto-tag: rejects an invalid --bump" err bogus
+else
+  skip "auto-tag version math (git unavailable)"
+fi
+
 # ── G. module selection (lib/bootstrap-lib.sh blib_select / blib_want) ─────────
 # Track B's --only/--skip gate. blib_select VALIDATES a comma-separated selector and
 # records BLIB_ONLY/BLIB_SKIP; blib_want is the allowlist/skiplist predicate the link

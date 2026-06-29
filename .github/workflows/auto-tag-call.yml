@@ -45,19 +45,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      # The calling OS repo. Full history + tags so the latest vX.Y.Z resolves and the
-      # new tag is reachable; persisted credentials (checkout default) let the script push.
+      # The calling OS repo. fetch-depth 0 brings full history AND all tags (so the
+      # latest vX.Y.Z resolves and the new tag is reachable); persisted credentials
+      # (checkout default) let the script push the tag.
       - name: Check out the calling repo
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           path: osrepo
           fetch-depth: 0
-          fetch-tags: true
-      # dotfiles-core carries the script; depth 1 is enough (no history needed).
-      - name: Check out dotfiles-core (reference)
+      # dotfiles-core carries the script; depth 1 is enough (no history needed). Pin the
+      # checkout to the SAME major line callers pin this workflow to (@v2) so the script
+      # version can't drift from the pinned workflow definition — deterministic between
+      # releases, advancing only when v2 moves (the @vN policy; RELEASE-STRATEGY.md).
+      - name: Check out dotfiles-core (reference, pinned to v2)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: ${{ github.repository_owner }}/dotfiles-core
+          ref: v2
           path: dotfiles-core
           fetch-depth: 1
       - name: Cut the next release tag (idempotent)

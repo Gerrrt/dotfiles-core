@@ -13,12 +13,27 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`auto-tag.sh` hardened against irregular tags + arg edge cases.** Tag discovery now
+  filters to a strict `^vX.Y.Z$` regex instead of git's loose `--list` glob, so a
+  prerelease/suffixed tag (`v1.2.3-rc1`) or a moving major alias (`v2`) can no longer be
+  mistaken for the latest release (which would have double-tagged or fed a non-numeric
+  component into the bump). Version components are coerced base-10 (`10#`) so a zero-padded
+  tag (`v1.08.0`) doesn't trip octal arithmetic. `--bump`/`--initial`/`--color` now error
+  cleanly on a missing value instead of mis-consuming the next flag. `usage()` documents
+  every flag + default, and the re-push hint quotes `$REPO`/`$NEXT`.
+- **`auto-tag-call.yml` pins its `dotfiles-core` checkout to `@v2`.** The script is now
+  fetched from the same major line callers pin the workflow to, so the tag-cutter's
+  behavior can't drift from the pinned `@v2` definition between releases (matching the
+  `@vN` policy). Dropped the redundant `fetch-tags` (fetch-depth 0 already brings tags).
+
 ## [v2.2.0] - 2026-06-29
 
 ### Added
 
-- **Automatic OS-repo release tagging on Core fan-out (`auto-tag-call.yml` +
-  `scripts/auto-tag.sh`).** An OS repo carries two version lines — the Core it vendors
+- **Automatic OS-repo release tagging on Core fan-out
+  (`.github/workflows/auto-tag-call.yml` + `scripts/auto-tag.sh`).** An OS repo carries two version lines — the Core it vendors
   (`core.lock`, advanced by `sync-core.sh` on every sync) and its OWN `vX.Y.Z` tag, which
   used to move only by hand and so drifted (most repos froze at an old tag; the newest had
   none). A new reusable `workflow_call` lets each OS repo cut its next tag automatically
