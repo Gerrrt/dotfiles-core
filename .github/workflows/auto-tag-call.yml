@@ -1,0 +1,64 @@
+name: auto-tag (reusable)
+
+# Cut an OS repo's OWN next release tag after a Core fan-out lands new core/ on its main.
+# An OS repo carries two version lines — the Core it vendors (core.lock) and its own
+# vX.Y.Z tag. core.lock advances automatically on every sync; this closes the gap for the
+# second line so it stops drifting. PATCH-bumps by default (a new Core is a maintenance
+# bump of the consumer); a caller can pass bump: minor/major for a deliberate release.
+# Idempotent: a no-op when HEAD already carries a vX.Y.Z tag (see scripts/auto-tag.sh).
+#
+# Each OS repo adds a tiny caller, triggered only when a fan-out actually touched core/:
+#
+#   # .github/workflows/auto-tag.yml in an OS repo
+#   name: auto-tag
+#   on:
+#     push:
+#       branches: [main]
+#       paths: ['core/**']
+#   permissions: { contents: write }      # the tag push needs write
+#   concurrency: { group: auto-tag-${{ github.ref }}, cancel-in-progress: false }
+#   jobs:
+#     tag:
+#       uses: Gerrrt/dotfiles-core/.github/workflows/auto-tag-call.yml@v2
+#
+# Runs the SAME scripts/auto-tag.sh the audit shellchecks/tests, so there is one
+# definition of the version math. First-party only; tags in CI (no operator round-trip).
+
+on:
+  workflow_call:
+    inputs:
+      bump:
+        description: "Which SemVer component to advance (patch|minor|major)."
+        type: string
+        required: false
+        default: patch
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-tag-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # The calling OS repo. Full history + tags so the latest vX.Y.Z resolves and the
+      # new tag is reachable; persisted credentials (checkout default) let the script push.
+      - name: Check out the calling repo
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: osrepo
+          fetch-depth: 0
+          fetch-tags: true
+      # dotfiles-core carries the script; depth 1 is enough (no history needed).
+      - name: Check out dotfiles-core (reference)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: ${{ github.repository_owner }}/dotfiles-core
+          path: dotfiles-core
+          fetch-depth: 1
+      - name: Cut the next release tag (idempotent)
+        run: ./dotfiles-core/scripts/auto-tag.sh "$GITHUB_WORKSPACE/osrepo" --push --bump "${{ inputs.bump }}" --color never
