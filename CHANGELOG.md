@@ -13,6 +13,25 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`bootstrap.sh --links-only` no longer aborts when zsh isn't installed.**
+  `blib_set_login_shell` did `zsh_path="$(command -v zsh)"`; with zsh absent that
+  substitution exits non-zero, and under the bootstrap's `set -e` it aborted the run
+  _before_ the `[[ -n "$zsh_path" ]] || return 0` guard that was meant to handle the
+  missing-zsh case — surfacing as a links-only CI failure in the one base image
+  without zsh preinstalled (`gentoo/stage3`). Now `command -v zsh || true`, so the
+  guard decides, not errexit. No behavior change where zsh is present.
+- **`tag-release.sh --push` no longer pushes the protected `main` branch.** `main`
+  enforces required status checks (GH013), so the old step — `git push origin "$BRANCH"
+  && git push origin "$TAG" && git push -f origin "$MAJOR"`, branch FIRST — had its
+  branch push rejected, which short-circuited the `&&` chain so the tags never pushed
+  either: `--push` failed outright and could never complete a release through the push
+  path. The step now pushes the immutable `vX.Y.Z` tag and force-moves the `vN` major
+  alias ONLY (tags aren't branch-protected), then prints the PR recipe to land the
+  release commit on `main` (`HEAD:release/vX.Y.Z` → PR → merge commit), matching how
+  releases actually ship (e.g. #95). The non-push recipe block was corrected the same way.
+
 ## [v2.1.0] - 2026-06-29
 
 ### Fixed
