@@ -13,6 +13,15 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`starship.toml` VPN segment no longer spams on Windows.** The `[custom.vpn]`
+  probe (`ifconfig …`) is Unix-only; once the canonical file synced to the Windows
+  host verbatim, starship ran it every prompt and hit `command_timeout` with a noisy
+  `custom command … timed out` WARN. Split it into OS-gated `[custom.vpn_macos]` /
+  `[custom.vpn_linux]` modules (a custom module's `os` takes one value — no "unix"),
+  so Windows matches neither and never runs the probe. Unchanged on macOS/Linux.
+
 ### Added
 
 - **Core-integrity CI guard (`make core-integrity` + `core-integrity.yml`).** A
