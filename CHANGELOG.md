@@ -13,6 +13,8 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+## [v2.3.0] - 2026-06-29
+
 ### Fixed
 
 - **`auto-tag.sh` hardened against irregular tags + arg edge cases.** Tag discovery now
