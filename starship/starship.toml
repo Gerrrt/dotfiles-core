@@ -129,7 +129,7 @@ Pop = " "
 show_always = true
 style_user = "bg:color_srf1 fg:color_purple"
 style_root = "bg:color_srf1 fg:color_red"    # root stands out (kept readable, not a fill)
-format = '[ $user ]($style)'
+format = '[$user ]($style)'
 
 [directory]
 style = "fg:color_yellow bg:color_srf2"
@@ -157,7 +157,7 @@ repo_root_format = "[$before_root_path]($before_repo_root_style)[$repo_root]($re
 [git_branch]
 symbol = "󰘬 "
 style = "fg:color_green bg:color_srf2"
-format = '[ $symbol $branch ]($style)'
+format = '[ $symbol$branch ]($style)'
 
 [git_status]
 style = "fg:color_orange bg:color_srf2"
@@ -177,10 +177,10 @@ format = '([ +$added ]($added_style))([ -$deleted ]($deleted_style))'
 # Green text to read as a sibling of the branch, on the same srf1 surface.
 [git_commit]
 only_detached = true
-tag_disabled = false                                             # also surface an exact tag (e.g. v1.2.0) when on one
+tag_disabled = false                                              # also surface an exact tag (e.g. v1.2.0) when on one
 tag_symbol = "󰓹 "
 style = "bg:color_srf2"
-format = '[[ $hash$tag ](fg:color_green bg:color_srf1)]($style)'
+format = '[[ $hash $tag ](fg:color_green bg:color_srf1)]($style)'
 
 # Mid-operation state (REBASING 2/8, MERGING, CHERRY-PICKING…). Red text so an
 # in-progress rebase/merge is impossible to miss; sits in the same srf1 git band
