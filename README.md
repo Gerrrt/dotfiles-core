@@ -1,4 +1,20 @@
-# dotfiles-core
+<div align="center">
+
+# 🧬 dotfiles-core
+
+### One Core. Every machine. Zero drift.
+
+The shared heart of a cross-platform dotfiles system — authored once,
+vendored into every OS layer via `git subtree`.
+
+`zsh` · `nvim` · `tmux` · `starship`
+
+[![showcase](https://img.shields.io/badge/showcase-live-7aa2f7?style=flat-square)](https://gerrrt.github.io/dotfiles-web/)
+[![audit](https://img.shields.io/badge/audit-passing-9ece6a?style=flat-square)]()
+
+</div>
+
+---
 
 **Single source of truth for the Core layer** shared across every machine repo.
 This is the keystone of a ten-repo dotfiles system. It holds the config that is
