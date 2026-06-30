@@ -90,14 +90,17 @@ _resolve_ref() {
 
 # Latest RELEASE tag — the default reference. `git describe` walks back from a starting
 # point to the nearest reachable strict-SemVer tag (vX.Y.Z, no prerelease/suffix), which
-# is exactly "the Core release the fleet should be carrying". Try origin/main's history
-# first (CI shallow-clones it), then HEAD's. Empty (no tags yet, or a clone too shallow to
-# reach one) → the caller falls back to origin/main/main/HEAD, preserving old behaviour.
+# is exactly "the Core release the fleet should be carrying". The --match glob is a glob,
+# not a regex, so its trailing `*` would also match a prerelease like v1.2.3-rc1; --exclude
+# '*-*' drops anything with a suffix (same gotcha auto-tag.sh:177-179 documents). Try
+# origin/main's history first (CI shallow-clones it), then HEAD's. Empty (no tags yet, or a
+# clone too shallow to reach one) → the caller falls back to origin/main/main/HEAD,
+# preserving old behaviour.
 _latest_release_tag() {
   local start t
   for start in origin/main HEAD; do
     t="$(git -C "$HERE" describe --tags --abbrev=0 \
-      --match 'v[0-9]*.[0-9]*.[0-9]*' "$start" 2>/dev/null)" || t=""
+      --match 'v[0-9]*.[0-9]*.[0-9]*' --exclude '*-*' "$start" 2>/dev/null)" || t=""
     [[ -n "$t" ]] && { printf '%s\n' "$t"; return 0; }
   done
   return 1

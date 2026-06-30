@@ -566,8 +566,10 @@ fi
 # HEAD is already a release, and usage-error a bad --bump — the exact glob/parse
 # regressions a loose `git tag --list` glob would let through. THEN the exit-code contract
 # the script's fix(release) history is all about: success → 0, no-op → 0, validation error
-# → 2, and a REAL create failure → non-zero (never a silent green). All hermetic — no
-# network, no gh (the failure leg trips Guard 2 before any push). Pure bash + git.
+# → 2, and a REAL push failure → non-zero (never a silent green). The first three legs are
+# hermetic (no network, no gh); the push-failure leg deliberately drives the real `git push`
+# error branch — there is no `origin` in the sandbox, so the push fails and the script goes
+# non-zero, which is exactly the contract under test. Pure bash + git.
 if have git; then
   hdr "auto-tag version math + exit-code contract (scripts/auto-tag.sh)"
   AT="$HERE/scripts/auto-tag.sh"
@@ -649,16 +651,19 @@ if have git; then
   _at_fresh   # untagged repo, so --initial is the seed path that validates it
   if [[ "$(_at_rc --initial 1.2)" == 2 ]]; then pass "auto-tag: malformed --initial exits 2"; else fail "auto-tag: bad --initial should exit 2"; fi
 
-  # 4) REAL FAILURE leg — --push where the computed tag ALREADY exists (Guard 2) fails
-  #    non-zero BEFORE any network/push, so this is hermetic. This is the "real create
-  #    failure must go red, not green" contract the fix(release) history is about. We
-  #    pre-create the tag the bump WOULD produce (v1.0.0 → v1.0.1) on an earlier commit.
+  # 4) REAL PUSH-FAILURE leg — exercise auto-tag.sh's push error branch (the one that
+  #    `fail`s + exits 1 when `git push origin <tag>` fails). On a freshly-tagged repo the
+  #    bump is computable and unique, so the script creates the tag and then tries to push
+  #    it; the sandbox has NO `origin` remote, so the push genuinely fails and the script
+  #    goes non-zero. This is the "a real push failure must go red, not green" contract the
+  #    fix(release) history is about. (Not hermetic — it intentionally hits the push path;
+  #    if an `origin` were ever added to the sandbox this leg would need a guaranteed-to-fail
+  #    remote instead.)
   _at_fresh
-  git -C "$ATR" tag -a v1.0.0 -m v1.0.0    # latest release on c1
-  git -C "$ATR" tag -a v1.0.1 -m collision # the name a patch-bump will compute — already taken
-  git -C "$ATR" commit -q --allow-empty -m c2  # HEAD past both tags (not a no-op)
+  git -C "$ATR" tag -a v1.0.0 -m v1.0.0         # latest release on c1
+  git -C "$ATR" commit -q --allow-empty -m c2   # HEAD past the tag → a real bump (v1.0.1) to push
   _rc_push="$(_at_rc --push)"
-  if [[ "$_rc_push" != 0 ]]; then pass "auto-tag: --push onto an existing tag name fails non-zero (rc=$_rc_push)"; else fail "auto-tag: colliding --push should fail non-zero, got 0"; fi
+  if [[ "$_rc_push" != 0 ]]; then pass "auto-tag: --push with no reachable origin fails non-zero (rc=$_rc_push)"; else fail "auto-tag: failed push should exit non-zero, got 0"; fi
 else
   skip "auto-tag version math + exit-code contract (git unavailable)"
 fi

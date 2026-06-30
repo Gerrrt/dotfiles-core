@@ -18,7 +18,9 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 - **jujutsu (`jj`) as an OPT-IN, colocated git companion.** Additive — it never replaces
   git. New `jujutsu/config.toml` (symlinked to `~/.config/jj/config.toml`, in
   `core.manifest`) sets a sensible colocated-friendly default (`ui.default-command = "log"`,
-  `auto-local-bookmark`, identity left to git's config). `tools.zsh` gains `HAVE_JJ`
+  `auto-local-bookmark`; identity intentionally unset — jj does NOT inherit git's
+  `user.name`/`user.email`, so an opt-in author sets it once with `jj config set --user
+  user.name/user.email`). `tools.zsh` gains `HAVE_JJ`
   detection and `aliases.zsh` a few `HAVE_JJ`-guarded verbs (`jjs`/`jjl`/`jjd`); nothing
   is aliased over `git`. On a box without `jj` everything is inert. `PORTING-MATRIX.md`
   documents per-distro packaging (packaged on Arch/openSUSE/Gentoo/Fedora/Homebrew/nix;
