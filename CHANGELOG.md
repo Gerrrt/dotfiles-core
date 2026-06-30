@@ -13,6 +13,21 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+### Added
+
+- **`RELEASE-RUNBOOK.md`** — the step-by-step, copy-paste recipe for cutting a release
+  (Core, the OS-repo fan-out rollout, and htpx), plus a "dry-run a new cross-repo
+  workflow before relying on it" habit and a troubleshooting table. Complements
+  `RELEASE-STRATEGY.md` (the policy); cross-linked from it and `CLAUDE.md`.
+
+### Changed
+
+- **`bootstrap-test.yml` retries the per-distro `prep` step (up to 5x with backoff).**
+  The reusable links-only job ran the dep install once; a transient distro-mirror
+  timeout (notably openSUSE Tumbleweed's OSS CDN) then reded the job — and every Core
+  fan-out PR — on a network blip. The retry is fleet-wide (one place, every caller);
+  a genuinely broken prep still fails loud after the attempts are exhausted.
+
 ## [v2.5.0] - 2026-06-29
 
 ### Added

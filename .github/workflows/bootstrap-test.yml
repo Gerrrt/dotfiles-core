@@ -75,7 +75,19 @@ jobs:
           # (Alpine/Gentoo bootstraps already export their own BLIB_SU; this is a no-op
           # there and the correct default for the rest.)
           docker run --rm -e PREP -e OFFENSIVE -e BLIB_SU= -v "$PWD:/repo" -w /repo "$IMAGE" sh -euc '
-            eval "$PREP"
+            # Install bootstrap deps, WITH RETRY: some distro mirrors (notably openSUSE
+            # Tumbleweed OSS) intermittently time out in CI (curl error 28), and a single
+            # prep failure should not red every fan-out PR fleet-wide. The until-condition
+            # is exempt from set -e so a failed attempt loops instead of aborting; an `if`
+            # (not `&&`) guards the cap for the same reason. After 5 tries we exit 1 so a
+            # genuinely broken prep still fails LOUD (no false green).
+            n=0
+            until eval "$PREP"; do
+              n=$((n+1))
+              if [ "$n" -ge 5 ]; then echo "prep failed after $n attempts" >&2; exit 1; fi
+              echo "prep attempt $n failed (mirror timeout?), retrying in $((n*10))s..." >&2
+              sleep $((n*10))
+            done
             # Pre-seed the tpm dir so blib_link_core skips its network git clone — the
             # same "seed the plugin dir to skip the first-run clone" trick test-core.sh
             # uses to stay offline + deterministic.
