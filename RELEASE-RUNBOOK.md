@@ -5,7 +5,8 @@ hands-on companion to `RELEASE-STRATEGY.md` — that doc is the *policy* (what i
 versioned, when, why); this is the *recipe* (what to type). When they disagree,
 `RELEASE-STRATEGY.md` wins; fix this.
 
-Three independent release flows live here:
+Four flows live here — three are independently versioned (Core, dotfiles-Windows, htpx);
+the OS-repo rollout is the consumer side of the Core line, not its own version:
 
 | Flow | Versioned thing | Trigger | Fans out to | Section |
 | --- | --- | --- | --- | --- |
