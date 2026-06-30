@@ -58,6 +58,7 @@ _Repo status_ at the bottom).
 | shfmt⁷           | `shfmt`                | `shfmt`      | `shfmt`      | `dev-go/shfmt`             | `shfmt`⁷        |
 | ouch             | `ouch`                 | cargo³       | `ouch`       | cargo³                     | cargo³          |
 | jujutsu (jj)⁸    | `jujutsu`              | `jujutsu`    | cargo³       | `dev-vcs/jujutsu`          | cargo³          |
+| sesh⁹            | AUR⁹                   | go⁹          | go⁹          | go⁹                        | go⁹             |
 
 ¹ openSUSE: may be in `devel` repos; if absent, `cargo install tealdeer`.
 ² Alpine default shell is `ash`; you must `apk add zsh` explicitly.
@@ -85,6 +86,18 @@ openSUSE (`jujutsu`), Gentoo (`dev-vcs/jujutsu`), Fedora (`jujutsu`), Homebrew
 (`jj`) and nixpkgs (`jujutsu`); not in Alpine (musl — `cargo install jujutsu`)
 or stable Debian/Kali apt (`cargo install jujutsu`) — same cargo pattern as
 yazi/ouch. The config (`jujutsu/config.toml`) is inert without the binary.
+⁹ sesh: smart tmux session manager that Core already drives from the `Ctrl-G`
+shell widget (`fzf.zsh`) and the `prefix + f` tmux popup (`tmux-sesh.sh`); both
+degrade to a `find`+`fzf` sessionizer when it's absent. `core-doctor` already
+reports `sesh` via its own `command -v` probe (it does not read `HAVE_SESH`);
+`tools.zsh` now also sets `HAVE_SESH` for parity with the other detected tools.
+Packaged in the AUR (`sesh`), Homebrew
+(`sesh`), and nixpkgs (`sesh`); **not** in Arch-official, openSUSE, Alpine,
+Gentoo, Fedora, or Debian/Kali apt — so most of the fleet uses
+`go install github.com/joshmedeski/sesh/v2@latest` (note the **v2** module path),
+the same build path as starship/yazi/atuin where unpackaged. `go` is already a
+pinned mise runtime, so the install works everywhere; `mise use -g go` first on a
+bare box. The seeded `sesh/sesh.toml.example` config is inert without the binary.
 
 ## Clipboard backend (swap in `os/<distro>.zsh`)
 
