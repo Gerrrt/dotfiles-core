@@ -22,6 +22,11 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Changed
 
+- **nvim: disable `<LeftDrag>` and `<LeftRelease>` in all modes unconditionally.**
+  Previously these were suppressed only when inside a `$TMUX` session, in Normal and
+  Visual modes. They are now `<Nop>` in Normal, Insert, and Visual modes regardless of
+  environment, eliminating accidental mouse-drag selections during terminal use.
+
 - **`bootstrap-test.yml` retries the per-distro `prep` step (up to 5x with backoff).**
   The reusable links-only job ran the dep install once; a transient distro-mirror
   timeout (notably openSUSE Tumbleweed's OSS CDN) then redded the job — and every Core

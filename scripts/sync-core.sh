@@ -165,7 +165,7 @@ echo
 # ── Pre-fan-out gate: Core must be audit-green, and what you audited must be what
 # fans out. Skipped for --dry-run (nothing is written) and via SYNC_SKIP_AUDIT=1. ──
 if ((!DRY)) && [[ "${SYNC_SKIP_AUDIT:-0}" != 1 ]]; then
-  # 1. The code must pass its own gate before it lands in 9 repos. We run the same
+  # 1. The code must pass its own gate before it lands in 8 repos. We run the same
   #    audit CI and pre-commit run — one definition of "Core is healthy".
   echo ":: pre-fan-out audit (scripts/audit-core.sh --quiet)"
   # Clear DOTFILES_ALLOW_CORE_EDIT (exported above for THIS script's own subtree
@@ -193,7 +193,7 @@ fi
 
 # ── B6: parallel prefetch — warm each repo's object store with the Core commit in the
 # background so the (sequential, reviewable) subtree pulls below are mostly local. The
-# MERGE deliberately stays SERIAL: fanning a squash-merge into 9 working trees is the
+# MERGE deliberately stays SERIAL: fanning a squash-merge into 8 working trees is the
 # high-stakes step an operator should watch one repo at a time — but the network
 # round-trips, the slow part, overlap here. Best-effort: a prefetch failure just means
 # that repo's pull fetches normally. Bounded by SYNC_JOBS (default 4; set 1 to disable),
@@ -280,7 +280,7 @@ done
 
 # Scannable tally of the fan-out — sync sources common.sh (which counts every
 # ok/skip/err via PASS/SKIP/FAIL) but used to end on a bare "done", forcing you to
-# scroll a 9-repo run to learn what actually landed. Print the same summary footer the
+# scroll an 8-repo run to learn what actually landed. Print the same summary footer the
 # audit/test gates use so the single highest-stakes operation reports at a glance.
 printf '\n%s──────── sync summary ────────%s\n' "$c_blu" "$c_rst"
 printf '  %supdated %d%s   %sskipped %d%s   %sfailed %d%s\n' \
