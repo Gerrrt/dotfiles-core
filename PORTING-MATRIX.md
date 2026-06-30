@@ -88,8 +88,10 @@ or stable Debian/Kali apt (`cargo install jujutsu`) — same cargo pattern as
 yazi/ouch. The config (`jujutsu/config.toml`) is inert without the binary.
 ⁹ sesh: smart tmux session manager that Core already drives from the `Ctrl-G`
 shell widget (`fzf.zsh`) and the `prefix + f` tmux popup (`tmux-sesh.sh`); both
-degrade to a `find`+`fzf` sessionizer when it's absent, and `tools.zsh` sets
-`HAVE_SESH` so `core-doctor` reports it. Packaged in the AUR (`sesh`), Homebrew
+degrade to a `find`+`fzf` sessionizer when it's absent. `core-doctor` already
+reports `sesh` via its own `command -v` probe (it does not read `HAVE_SESH`);
+`tools.zsh` now also sets `HAVE_SESH` for parity with the other detected tools.
+Packaged in the AUR (`sesh`), Homebrew
 (`sesh`), and nixpkgs (`sesh`); **not** in Arch-official, openSUSE, Alpine,
 Gentoo, Fedora, or Debian/Kali apt — so most of the fleet uses
 `go install github.com/joshmedeski/sesh/v2@latest` (note the **v2** module path),
