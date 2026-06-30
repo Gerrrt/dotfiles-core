@@ -13,6 +13,8 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+## [v2.6.0] - 2026-06-30
+
 ### Added
 
 - **`sesh` detection (`HAVE_SESH`) — finishing wiring Core already half-shipped.**
