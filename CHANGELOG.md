@@ -19,8 +19,10 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   `sesh` (joshmedeski's smart tmux session manager) was already driven by the
   `Ctrl-G` shell widget (`fzf.zsh`), the `prefix + f` tmux popup (`tmux-sesh.sh`),
   a seeded `sesh/sesh.toml.example`, and listed in `core-doctor`'s integrations —
-  but `tools.zsh` never actually probed for it, so a bare box silently dropped to
-  the `find`+`fzf` fallback with no signal as to why. `tools.zsh` now sets
+  but `tools.zsh` never set a `HAVE_SESH` flag for it the way it does for the
+  other detected tools. (Detection itself still worked — the `Ctrl-G`/`prefix + f`
+  fallback keys off `command -v sesh`, and `core-doctor` already probes `sesh`
+  the same way.) `tools.zsh` now sets
   `HAVE_SESH` (like `HAVE_GUM`, no `_core_wired` arm — sesh registers no persistent
   shell hook, so presence ≈ wired), and `PORTING-MATRIX.md` gains a `sesh` row +
   footnote documenting the `go install github.com/joshmedeski/sesh/v2@latest` build
