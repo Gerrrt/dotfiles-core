@@ -13,6 +13,8 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+## [v2.5.0] - 2026-06-29
+
 ### Added
 
 - **jujutsu (`jj`) as an OPT-IN, colocated git companion.** Additive — it never replaces
