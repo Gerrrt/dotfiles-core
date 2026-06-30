@@ -1,6 +1,7 @@
 # Core Aliases Cheat Sheet
 
-All aliases sourced from `zsh/aliases.zsh` and `zsh/git.zsh`. Tool aliases are guarded
+Most aliases sourced from `zsh/aliases.zsh` and `zsh/git.zsh`; exception: `cheat` is
+defined in `zsh/functions.zsh` (alias for `core-help`). Tool aliases are guarded
 by detection flags — if the tool is not installed, the classic command is used instead.
 Load order: `tools.zsh` sets `HAVE_*` flags first, then `aliases.zsh` reads them.
 
@@ -62,7 +63,10 @@ Load order: `tools.zsh` sets `HAVE_*` flags first, then `aliases.zsh` reads them
 | `myip` | `curl -fsS https://ifconfig.me` |
 | `ports` | `ss -tulpn` (falls back to `netstat -tulpn`) |
 
-## Jujutsu (opt-in — set `DOTFILES_JJ=1`)
+## Jujutsu
+
+Active when `jj` is installed — `tools.zsh` detects the binary and sets `HAVE_JJ`
+automatically. No manual config required; install `jj` and these aliases appear.
 
 | Alias | Expands To |
 |-------|------------|
