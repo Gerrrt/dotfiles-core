@@ -24,7 +24,7 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 - **`bootstrap-test.yml` retries the per-distro `prep` step (up to 5x with backoff).**
   The reusable links-only job ran the dep install once; a transient distro-mirror
-  timeout (notably openSUSE Tumbleweed's OSS CDN) then reded the job — and every Core
+  timeout (notably openSUSE Tumbleweed's OSS CDN) then redded the job — and every Core
   fan-out PR — on a network blip. The retry is fleet-wide (one place, every caller);
   a genuinely broken prep still fails loud after the attempts are exhausted.
 
