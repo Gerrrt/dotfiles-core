@@ -148,7 +148,7 @@ _seed_plugin_dirs() { # _seed_plugin_dirs <parent-dir>
   local parent="$1" p
   mkdir -p "$parent"
   for p in zsh-defer zsh-vi-mode zsh-history-substring-search \
-    zsh-autosuggestions fast-syntax-highlighting fzf-tab zsh-you-should-use; do
+    zsh-autosuggestions zsh-syntax-highlighting fzf-tab zsh-you-should-use; do
     mkdir -p "$parent/$p"
   done
 }

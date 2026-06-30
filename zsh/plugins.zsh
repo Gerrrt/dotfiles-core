@@ -8,9 +8,17 @@
 #
 # 2026 refresh:
 #   • zsh-defer (romkatv) async-loads the two heaviest plugins (autosuggestions +
-#     fast-syntax-highlighting) AFTER the first prompt paints — the shell is
+#     zsh-syntax-highlighting) AFTER the first prompt paints — the shell is
 #     interactive instantly and they "catch up" a few ms later.
 #   • carapace (multi-shell completion, 500+ commands) feeds INTO fzf-tab.
+#
+# zsh-syntax-highlighting (z-sy-h) ORDER RULE: per its README it must be sourced as
+# LATE as possible (it wraps ZLE widgets, so anything that defines/redefines widgets
+# must already be loaded), and zsh-history-substring-search MUST be sourced AFTER it
+# (z-sy-h re-wraps history-substring-search's widgets when it sees them). We honour
+# both: the highlighter is the LAST of the deferred trio, and history-substring-search
+# is deferred right after it so its widgets are wrapped. Both run on the same deferred
+# queue (FIFO), so the queued order == the source order.
 #
 # FORMATTER WARNING: the `(( $+functions[zsh-defer] ))` / `[fzf-tab-complete]`
 # guards below MUST keep their hyphens un-spaced. A shell formatter (shfmt) that
@@ -36,7 +44,7 @@ typeset -gA ZPLUGIN_PINS=(
   jeffreytse/zsh-vi-mode                      08bd1c04520418faee2b9d1afbc410ee1a59a8f1
   zsh-users/zsh-history-substring-search      14c8d2e0ffaee98f2df9850b19944f32546fdea5
   zsh-users/zsh-autosuggestions               85919cd1ffa7d2d5412f6d3fe437ebdbeeec4fc5
-  zdharma-continuum/fast-syntax-highlighting  3d574ccf48804b10dca52625df13da5edae7f553
+  zsh-users/zsh-syntax-highlighting           1d85c692615a25fe2293bdd44b34c217d5d2bf04
   Aloxaf/fzf-tab                              24105b15714bfec37989ed5c5b6e60f572253019
   MichaelAquilina/zsh-you-should-use          5f3d129864ee4505043d88c3486224f1d75b692e
 )
@@ -105,8 +113,6 @@ _zplugin_load() {
     source "${plugin_path}/${name}.zsh"
   elif [[ -f "${plugin_path}/${name}.sh" ]]; then
     source "${plugin_path}/${name}.sh"
-  elif [[ -f "${plugin_path}/fsh.plugin.zsh" ]]; then
-    source "${plugin_path}/fsh.plugin.zsh"
   fi
 }
 
@@ -163,9 +169,33 @@ _zplugin_load jeffreytse zsh-vi-mode
 # NOTE: autosuggest-toggle (bound to Ctrl-\ in bindings.zsh) is bound
 # UNCONDITIONALLY there for the same reason — a widget-exists guard at vi-mode
 # init time would always be false and silently drop the bind.
-_defer_or_now zsh-users zsh-history-substring-search
+#
+# ORDER (load-bearing — see the z-sy-h note in the header): autosuggestions, THEN
+# zsh-syntax-highlighting as the LAST widget-wrapping plugin, THEN
+# zsh-history-substring-search so z-sy-h has already wrapped ZLE before hss adds its
+# widgets (z-sy-h's README requires hss to be sourced after it). zsh-defer's queue is
+# FIFO, so this queue order is the eventual source order.
 _defer_or_now zsh-users zsh-autosuggestions
-_defer_or_now zdharma-continuum fast-syntax-highlighting
+_defer_or_now zsh-users zsh-syntax-highlighting
+_defer_or_now zsh-users zsh-history-substring-search
+
+# zsh-syntax-highlighting theming — minimal: the `main` highlighter (default) plus
+# `brackets` (match/mismatch), recoloured to the Tokyo Night Storm palette already
+# used by starship.toml. ZSH_HIGHLIGHT_STYLES is read live by the highlighter as it
+# repaints, so setting it here (before or after the deferred source) takes effect on
+# the first repaint. (Replaces the old fast-syntax-highlighting FAST_THEME/FAST_HIGHLIGHT
+# theming — z-sy-h uses ZSH_HIGHLIGHT_HIGHLIGHTERS + ZSH_HIGHLIGHT_STYLES instead.)
+typeset -ga ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets)
+typeset -gA ZSH_HIGHLIGHT_STYLES
+ZSH_HIGHLIGHT_STYLES[command]='fg=#9ece6a'              # green  — valid command
+ZSH_HIGHLIGHT_STYLES[builtin]='fg=#9ece6a'              # green
+ZSH_HIGHLIGHT_STYLES[function]='fg=#9ece6a'             # green
+ZSH_HIGHLIGHT_STYLES[alias]='fg=#9ece6a'                # green
+ZSH_HIGHLIGHT_STYLES[unknown-token]='fg=#f7768e'        # red    — bad command/syntax
+ZSH_HIGHLIGHT_STYLES[path]='fg=#7aa2f7'                 # blue   — existing path
+ZSH_HIGHLIGHT_STYLES[single-quoted-argument]='fg=#e0af68' # yellow
+ZSH_HIGHLIGHT_STYLES[double-quoted-argument]='fg=#e0af68' # yellow
+ZSH_HIGHLIGHT_STYLES[comment]='fg=#565f89'              # muted comment
 
 # ── carapace: multi-shell completion engine (feeds fzf-tab). After compinit. ──
 if [[ -n ${HAVE_CARAPACE:-} ]]; then
