@@ -1,0 +1,40 @@
+# core/jujutsu/config.toml — jujutsu (jj) config, symlinked to ~/.config/jj/config.toml.
+# ──────────────────────────────────────────────────────────────────────────────
+# OPT-IN, ADDITIVE companion to git — jj NEVER replaces it. jj runs colocated on top
+# of a normal `.git` repo (`jj git init --colocate`), so the same working tree is
+# usable by both: git keeps doing everything it does (Core's git.zsh aliases, lazygit,
+# the gsync/sync tooling), and jj is just a nicer front-end for the operator who wants
+# one. Nothing in Core depends on jj being installed; the HAVE_JJ-guarded aliases in
+# zsh/aliases.zsh and this file simply do nothing on a box without jj.
+#
+# Identity is intentionally NOT set here: jj reads user.name / user.email from git's
+# config when its own are unset, so the Core/OS/local git identity split (git/gitconfig
+# + git/local.gitconfig) remains the single source of truth. Uncomment below ONLY if you
+# want a jj-specific identity that differs from git's.
+
+[user]
+# name  = "Your Name"
+# email = "you@example.com"
+
+[ui]
+# Bare `jj` runs `jj log` — the most-reached-for view (mirrors lazygit/starship's
+# log-first ergonomics). Explicit subcommands are unaffected.
+default-command = "log"
+# Let jj page/colour like the rest of the modern stack; honour the terminal palette
+# (Tokyo Night via the terminal/ghostty theme) rather than hard-coding colours here.
+color = "auto"
+pager = "less -FRX"
+# Use the diff/merge editor the rest of Core uses.
+diff-editor = ":builtin"
+merge-editor = ":builtin"
+
+[git]
+# Colocated repos: keep jj's view and git's HEAD in step. auto-local-bookmark imports
+# git branches as jj bookmarks on the way in, so an existing git repo's branches show up
+# in `jj log` without a manual import.
+auto-local-bookmark = true
+
+[aliases]
+# A couple of conveniences that read naturally next to the zsh `jj*` aliases.
+l  = ["log"]
+st = ["status"]

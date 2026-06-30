@@ -272,6 +272,9 @@ blib_link_core() {
     # `prefix + g` tmux popup). In core.manifest, so it wires like starship above.
     [[ -f "$dotfiles/core/lazygit/config.yml" ]] && blib_link "$dotfiles/core/lazygit/config.yml" "$config/lazygit/config.yml"
     [[ -f "$dotfiles/core/mise/config.toml" ]] && blib_link "$dotfiles/core/mise/config.toml" "$config/mise/config.toml"
+    # jujutsu (jj) — OPT-IN colocated git companion. Linked unconditionally (like lazygit
+    # above); the config is inert without the jj binary, and the zsh aliases are HAVE_JJ-gated.
+    [[ -f "$dotfiles/core/jujutsu/config.toml" ]] && blib_link "$dotfiles/core/jujutsu/config.toml" "$config/jj/config.toml"
     # portable sesh config, seeded ONCE (edited locally, never tracked back).
     blib_seed "$dotfiles/core/sesh/sesh.toml.example" "$config/sesh/sesh.toml" \
       "edit freely; not tracked from here"
