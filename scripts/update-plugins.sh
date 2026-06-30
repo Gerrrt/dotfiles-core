@@ -46,7 +46,8 @@ _verify_pin() {
     # pinned plugin whose entry doesn't match ${name}.* is zsh-you-should-use, loaded as
     # you-should-use.plugin.zsh (plugins.zsh) — i.e. the name with the leading `zsh-` dropped.
     # Cover that with ${name#zsh-}.plugin.zsh so rolling its pin doesn't falsely fail (rc=4).
-    for f in "$name.plugin.zsh" "$name.zsh" "$name.sh" "fsh.plugin.zsh" "${name#zsh-}.plugin.zsh"; do
+    # (zsh-syntax-highlighting's entry is zsh-syntax-highlighting.zsh — matched by $name.zsh.)
+    for f in "$name.plugin.zsh" "$name.zsh" "$name.sh" "${name#zsh-}.plugin.zsh"; do
       [[ -f "$d/$f" ]] && {
         src="$d/$f"
         break

@@ -84,6 +84,10 @@ lib/ux.sh
 #    .zshrc-loader/login-shell helpers; SOURCED by each OS repo's bootstrap.sh so
 #    the shared half of the bootstrap stops being hand-forked across the fleet ───
 lib/bootstrap-lib.sh
+# ── jujutsu (jj) — OPT-IN colocated git companion; symlinked to ~/.config/jj/config.toml.
+#    Additive — never replaces git. Inert without the jj binary; zsh aliases are HAVE_JJ-gated.
+#    Not a .zsh module, so bootstrap links it explicitly (like starship/lazygit above). ──
+jujutsu/config.toml
 # ── mise — polyglot runtime manager; global tool versions (portable) ──────────
 mise/config.toml
 # ── sesh — portable session-manager config (SEEDED to ~/.config/sesh/sesh.toml;

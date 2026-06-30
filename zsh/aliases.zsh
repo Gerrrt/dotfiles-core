@@ -84,6 +84,17 @@ fi
 # right after this file). Only the non-git lazygit launcher lives here.
 alias lg='lazygit'
 
+# ── jujutsu (jj) — OPT-IN, colocated git companion (NEVER shadows git) ─────────
+# Guarded by HAVE_JJ (tools.zsh): on a box without jj these simply don't exist, so
+# nothing breaks. jj is additive — it runs on top of the same `.git` repo and never
+# replaces git, so we deliberately do NOT alias `git`. Just a few short verbs for the
+# operator who's opted in (config: core/jujutsu/config.toml → ~/.config/jj/config.toml).
+[[ -n ${HAVE_JJ:-} ]] && {
+  alias jjs='jj status'
+  alias jjl='jj log'
+  alias jjd='jj diff'
+}
+
 # ── upstream sync (gsync) ─────────────────────────────────────────────────────
 # `gsync` pushes an OS repo's vendored core/ subtree back upstream to dotfiles-core.
 # Resolve the runner relative to THIS file (survives the core/ subtree living

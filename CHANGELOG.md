@@ -13,7 +13,44 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+### Added
+
+- **jujutsu (`jj`) as an OPT-IN, colocated git companion.** Additive — it never replaces
+  git. New `jujutsu/config.toml` (symlinked to `~/.config/jj/config.toml`, in
+  `core.manifest`) sets a sensible colocated-friendly default (`ui.default-command = "log"`,
+  `auto-local-bookmark`; identity intentionally unset — jj does NOT inherit git's
+  `user.name`/`user.email`, so an opt-in author sets it once with `jj config set --user
+  user.name/user.email`). `tools.zsh` gains `HAVE_JJ`
+  detection and `aliases.zsh` a few `HAVE_JJ`-guarded verbs (`jjs`/`jjl`/`jjd`); nothing
+  is aliased over `git`. On a box without `jj` everything is inert. `PORTING-MATRIX.md`
+  documents per-distro packaging (packaged on Arch/openSUSE/Gentoo/Fedora/Homebrew/nix;
+  `cargo install jujutsu` on Alpine(musl)/Debian-Kali — same pattern as yazi/ouch).
+
+### Changed
+
+- **zsh syntax highlighter swapped: `fast-syntax-highlighting` →
+  `zsh-users/zsh-syntax-highlighting` (z-sy-h).** The pin moves to z-sy-h (a maintained,
+  first-party `zsh-users` plugin) and the load order is corrected per its README: the
+  highlighter is now the LAST widget-wrapping plugin sourced, with
+  `zsh-history-substring-search` deferred immediately after it so its widgets get wrapped.
+  The `FAST_THEME`/`FAST_HIGHLIGHT` theming is replaced by minimal `ZSH_HIGHLIGHT_HIGHLIGHTERS`
+  (`main` + `brackets`) and `ZSH_HIGHLIGHT_STYLES` recoloured to the Tokyo Night Storm palette.
+- **`fleet-drift.sh` anchors to the latest released Core tag by default, not the working
+  tip.** Fan-out stamps each OS repo with the Core _tag_ it carries, so the dashboard now
+  measures against the newest `vX.Y.Z` (via `git describe`), falling back to
+  `origin/main`/`main`/`HEAD`. An explicit `--ref`/`$CORE_REF_SHA` still wins. This stops
+  the false "BEHIND by N" the report showed for every unreleased commit on `main`
+  (CHANGELOG/auto-tag churn between releases); the `fleet-drift.yml` workflow drops its
+  `--ref HEAD` accordingly.
+
 ### Fixed
+
+- **`auto-tag.sh` exit-code contract hardened + tested.** Added a defence-in-depth guard so
+  `_next_version` fails loudly (non-zero) on a non-`X.Y.Z` input instead of producing a
+  garbage component, and the call site now propagates that failure rather than tagging a
+  bogus `v`. The behavioral suite (`test-core.sh`) now asserts the full exit-code contract
+  hermetically (no network/gh): success → 0, no-op → 0, validation error → 2, and a real
+  create failure (a `--push` onto an already-taken tag name, tripping Guard 2) → non-zero.
 
 - **`auto-tag.sh --release` fails CI when an opted-in Release create actually fails.** The
   `gh release create` error branch called `fail` but the script still exited 0, so a real

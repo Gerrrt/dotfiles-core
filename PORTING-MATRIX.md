@@ -57,6 +57,7 @@ _Repo status_ at the bottom).
 | shellcheck       | `shellcheck`           | `ShellCheck` | `shellcheck` | `dev-util/shellcheck`      | `shellcheck`    |
 | shfmt⁷           | `shfmt`                | `shfmt`      | `shfmt`      | `dev-go/shfmt`             | `shfmt`⁷        |
 | ouch             | `ouch`                 | cargo³       | `ouch`       | cargo³                     | cargo³          |
+| jujutsu (jj)⁸    | `jujutsu`              | `jujutsu`    | cargo³       | `dev-vcs/jujutsu`          | cargo³          |
 
 ¹ openSUSE: may be in `devel` repos; if absent, `cargo install tealdeer`.
 ² Alpine default shell is `ash`; you must `apk add zsh` explicitly.
@@ -78,6 +79,12 @@ one, install the Go build via `mise use -g yq` or the upstream release binary.
 `dev-go/shfmt`. If the package is missing, `mise use -g shfmt` or
 `go install mvdan.cc/sh/v3/cmd/shfmt@latest`. (These mid-2026 rows are
 best-effort — verify the exact package on first stamp of each distro.)
+⁸ jujutsu (jj): OPT-IN, additive git companion — never replaces git, so a box
+without it just skips the HAVE_JJ-gated aliases. Packaged on Arch (`jujutsu`),
+openSUSE (`jujutsu`), Gentoo (`dev-vcs/jujutsu`), Fedora (`jujutsu`), Homebrew
+(`jj`) and nixpkgs (`jujutsu`); not in Alpine (musl — `cargo install jujutsu`)
+or stable Debian/Kali apt (`cargo install jujutsu`) — same cargo pattern as
+yazi/ouch. The config (`jujutsu/config.toml`) is inert without the binary.
 
 ## Clipboard backend (swap in `os/<distro>.zsh`)
 

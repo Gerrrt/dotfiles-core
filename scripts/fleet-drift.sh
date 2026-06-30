@@ -19,12 +19,18 @@
 # isn't checked out is SKIPPED with a notice (not a failure) unless --strict.
 #
 # Reference commit (what "current" means), first hit wins:
-#   --ref <sha|ref>  →  $CORE_REF_SHA  →  origin/main  →  main  →  HEAD
+#   --ref <sha|ref>  →  $CORE_REF_SHA  →  the latest released Core tag  →  origin/main
+#                    →  main  →  HEAD
+# DEFAULT = the latest released Core tag (newest `vX.Y.Z`), NOT the working tip. Fan-out
+# stamps each OS repo with the Core tag it carries (sync-core.sh), so measuring against
+# the tag is the apples-to-apples comparison; measuring against tip reported a false
+# "BEHIND by N" for every unreleased commit on main (CHANGELOG/auto-tag churn between
+# releases). An explicit --ref or $CORE_REF_SHA still wins for ad-hoc comparisons.
 #
 # Usage:
-#   ./scripts/fleet-drift.sh                 # check siblings of this repo
+#   ./scripts/fleet-drift.sh                 # check siblings against the latest Core tag
 #   ./scripts/fleet-drift.sh --root ~/src    # fleet lives elsewhere
-#   ./scripts/fleet-drift.sh --ref v1.2.0    # compare against a tag, not main
+#   ./scripts/fleet-drift.sh --ref v1.2.0    # compare against a specific tag/commit
 #   ./scripts/fleet-drift.sh --strict        # a not-checked-out repo FAILS, not skips
 #   ./scripts/fleet-drift.sh --quiet         # suppress the ✓ rows; show only drift + summary
 #
@@ -81,8 +87,30 @@ _resolve_ref() {
   done
   return 1
 }
-REF="$(_resolve_ref "$REF_ARG" origin/main main HEAD)" ||
-  { fail "could not resolve a reference Core commit (tried: ${REF_ARG:-} origin/main main HEAD)"; exit 2; }
+
+# Latest RELEASE tag — the default reference. `git describe` walks back from a starting
+# point to the nearest reachable strict-SemVer tag (vX.Y.Z, no prerelease/suffix), which
+# is exactly "the Core release the fleet should be carrying". The --match glob is a glob,
+# not a regex, so its trailing `*` would also match a prerelease like v1.2.3-rc1; --exclude
+# '*-*' drops anything with a suffix (same gotcha auto-tag.sh:177-179 documents). Try
+# origin/main's history first (CI shallow-clones it), then HEAD's. Empty (no tags yet, or a
+# clone too shallow to reach one) → the caller falls back to origin/main/main/HEAD,
+# preserving old behaviour.
+_latest_release_tag() {
+  local start t
+  for start in origin/main HEAD; do
+    t="$(git -C "$HERE" describe --tags --abbrev=0 \
+      --match 'v[0-9]*.[0-9]*.[0-9]*' --exclude '*-*' "$start" 2>/dev/null)" || t=""
+    [[ -n "$t" ]] && { printf '%s\n' "$t"; return 0; }
+  done
+  return 1
+}
+
+# DEFAULT reference = the latest released Core tag (when no --ref / $CORE_REF_SHA given),
+# then origin/main → main → HEAD. An explicit ref still wins because it is tried first.
+_REL_TAG="$([[ -n "$REF_ARG" ]] || _latest_release_tag)"
+REF="$(_resolve_ref "$REF_ARG" "$_REL_TAG" origin/main main HEAD)" ||
+  { fail "could not resolve a reference Core commit (tried: ${REF_ARG:-} ${_REL_TAG:-} origin/main main HEAD)"; exit 2; }
 
 # The fleet that vendors the full core/ subtree. SINGLE SOURCE: scripts/os-repos.txt
 # (same data file sync-core.sh reads), with the inline list as a hard fallback so a

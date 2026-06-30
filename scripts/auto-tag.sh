@@ -142,6 +142,14 @@ git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || {
 # Kept side-effect-free so the audit's behavioral suite can assert the math directly.
 _next_version() {
   local cur="$1" level="$2" major minor patch
+  # Defence-in-depth: every caller passes a regex-validated strict X.Y.Z (the --initial
+  # validation, or _first_strict_semver's output with the leading `v` stripped), but assert
+  # it here too so a future caller feeding a malformed value FAILS LOUDLY (non-zero) instead
+  # of producing an empty/garbage component that would then hit the 10# arithmetic below.
+  [[ "$cur" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+    fail "auto-tag.sh: _next_version got a non-X.Y.Z version '$cur'"
+    return 2
+  }
   IFS=. read -r major minor patch <<<"$cur"
   # Force base-10: a zero-padded component (e.g. 08) is read as octal by $(( )) and
   # `08`/`09` would error. Callers only pass strict X.Y.Z (digits), so 10# is safe.
@@ -199,7 +207,10 @@ if [[ -z "$latest" ]]; then
   NEXT="$INITIAL"
   pass "no existing tag — seeding $NEXT"
 else
-  NEXT="v$(_next_version "${latest#v}" "$BUMP")"
+  # Capture separately so _next_version's non-zero exit (malformed input) is not swallowed
+  # by the command substitution under `set +e` — bail loudly rather than tag a bogus "v".
+  _bumped="$(_next_version "${latest#v}" "$BUMP")" || exit 2
+  NEXT="v$_bumped"
   pass "latest $latest → $NEXT ($BUMP)"
 fi
 

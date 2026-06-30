@@ -558,15 +558,20 @@ if have git; then
   fi
 fi
 
-# ── F2. auto-tag version math (scripts/auto-tag.sh) ───────────────────────────
+# ── F2. auto-tag version math + exit-code contract (scripts/auto-tag.sh) ──────
 # auto-tag.sh cuts an OS repo's next vX.Y.Z when a Core fan-out lands. Drive its
 # (dry-run) computation hermetically: it must patch-bump the latest STRICT SemVer tag
 # while IGNORING a prerelease/suffixed tag (v1.2.0-rc1) and the moving major alias (v1),
 # stay octal-safe on a zero-padded component (v1.08.0), seed an untagged repo, no-op when
 # HEAD is already a release, and usage-error a bad --bump — the exact glob/parse
-# regressions a loose `git tag --list` glob would let through. Pure bash + git.
+# regressions a loose `git tag --list` glob would let through. THEN the exit-code contract
+# the script's fix(release) history is all about: success → 0, no-op → 0, validation error
+# → 2, and a REAL push failure → non-zero (never a silent green). The first three legs are
+# hermetic (no network, no gh); the push-failure leg deliberately drives the real `git push`
+# error branch — there is no `origin` in the sandbox, so the push fails and the script goes
+# non-zero, which is exactly the contract under test. Pure bash + git.
 if have git; then
-  hdr "auto-tag version math (scripts/auto-tag.sh)"
+  hdr "auto-tag version math + exit-code contract (scripts/auto-tag.sh)"
   AT="$HERE/scripts/auto-tag.sh"
   ATR="$SANDBOX/atrepo"
   _at_fresh() {
@@ -624,8 +629,43 @@ if have git; then
   else
     pass "auto-tag: --release requires --push"
   fi
+
+  # ── exit-code contract (the band-aids' history is exactly about exit codes) ──
+  # auto-tag.sh has had repeated fix(release) commits over its exit codes: a no-op must
+  # be 0, a usage/validation error 2, and a REAL create failure non-zero (not a silent
+  # green). Assert all three legs HERMETICALLY — no network, no gh. Helper: run + echo rc.
+  _at_rc() { "$AT" "$ATR" "$@" --color never >/dev/null 2>&1; echo $?; }
+
+  # 1) SUCCESS leg — a plain dry-run on a tagged repo computes a bump and exits 0.
+  _at_fresh
+  git -C "$ATR" tag -a v1.0.0 -m v1.0.0
+  git -C "$ATR" commit -q --allow-empty -m c2
+  if [[ "$(_at_rc)" == 0 ]]; then pass "auto-tag: success (dry-run computes a bump) exits 0"; else fail "auto-tag: dry-run should exit 0"; fi
+
+  # 2) NO-OP leg — HEAD already carries a release → idempotent, exits 0 (not an error).
+  _at_fresh
+  git -C "$ATR" tag -a v1.0.0 -m v1.0.0   # tags HEAD
+  if [[ "$(_at_rc)" == 0 ]]; then pass "auto-tag: no-op (HEAD already tagged) exits 0"; else fail "auto-tag: no-op should exit 0"; fi
+
+  # 3) USAGE/VALIDATION error — a malformed --initial is rejected with exit 2 (not 1).
+  _at_fresh   # untagged repo, so --initial is the seed path that validates it
+  if [[ "$(_at_rc --initial 1.2)" == 2 ]]; then pass "auto-tag: malformed --initial exits 2"; else fail "auto-tag: bad --initial should exit 2"; fi
+
+  # 4) REAL PUSH-FAILURE leg — exercise auto-tag.sh's push error branch (the one that
+  #    `fail`s + exits 1 when `git push origin <tag>` fails). On a freshly-tagged repo the
+  #    bump is computable and unique, so the script creates the tag and then tries to push
+  #    it; the sandbox has NO `origin` remote, so the push genuinely fails and the script
+  #    goes non-zero. This is the "a real push failure must go red, not green" contract the
+  #    fix(release) history is about. (Not hermetic — it intentionally hits the push path;
+  #    if an `origin` were ever added to the sandbox this leg would need a guaranteed-to-fail
+  #    remote instead.)
+  _at_fresh
+  git -C "$ATR" tag -a v1.0.0 -m v1.0.0         # latest release on c1
+  git -C "$ATR" commit -q --allow-empty -m c2   # HEAD past the tag → a real bump (v1.0.1) to push
+  _rc_push="$(_at_rc --push)"
+  if [[ "$_rc_push" != 0 ]]; then pass "auto-tag: --push with no reachable origin fails non-zero (rc=$_rc_push)"; else fail "auto-tag: failed push should exit non-zero, got 0"; fi
 else
-  skip "auto-tag version math (git unavailable)"
+  skip "auto-tag version math + exit-code contract (git unavailable)"
 fi
 
 # ── G. module selection (lib/bootstrap-lib.sh blib_select / blib_want) ─────────
