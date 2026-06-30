@@ -36,7 +36,7 @@ source "${BASH_SOURCE[0]%/*}/lib/common.sh"
 
 usage() {
   cat <<'EOF'
-usage: auto-tag.sh <repo-path> [--bump patch|minor|major] [--push]
+usage: auto-tag.sh <repo-path> [--bump patch|minor|major] [--push] [--release]
                    [--initial vX.Y.Z] [--color auto|always|never]
 
 Compute (and with --push, cut) the next vX.Y.Z release tag for an OS repo whose
@@ -45,7 +45,8 @@ if HEAD is already tagged vX.Y.Z. Without --push it only prints the tag it would
 
   --bump <patch|minor|major>   component to advance              (default: patch)
   --push                       create + push the tag to origin   (default: print only)
-  --release                    also create a GitHub Release for the tag (needs --push + gh)
+  --release                    also publish a GitHub Release for the tag (needs --push;
+                               skipped when gh is absent, fatal only if a create fails)
   --initial <vX.Y.Z>           tag when the repo has none         (default: v0.1.0)
   --color <auto|always|never>  palette control                    (default: auto)
   -h, --help                   show this help and exit
@@ -233,8 +234,10 @@ fi
 # Optional GitHub Release for the freshly-pushed tag. Auto-generated notes (the repo has
 # no per-tag CHANGELOG section of its own — that's the Core-side release.yml's job). Runs
 # `gh` from inside $REPO so it infers the right repo from origin; GH_TOKEN comes from the
-# workflow env. Best-effort + idempotent: a missing gh just leaves the tag (not fatal —
-# the push already succeeded), and an existing Release is a no-op, never an error.
+# workflow env. Idempotent: an existing Release is a no-op. The two non-failure exits are
+# deliberate (gh absent / Release exists); but once you've OPTED INTO --release and gh is
+# present, an actual `create` failure is a real problem — exit non-zero so CI goes red
+# rather than green-with-no-Release (the push above already succeeded, so the tag stands).
 if ((RELEASE)); then
   if ! have gh; then
     skip "GitHub Release for $NEXT (gh not found — tag is pushed)"
@@ -244,6 +247,7 @@ if ((RELEASE)); then
     pass "created GitHub Release $NEXT"
   else
     fail "auto-tag.sh: 'gh release create $NEXT' failed (tag is pushed; create the Release manually)"
+    exit 1
   fi
 fi
 printf '\n%s──────── %s released ────────%s\n' "$c_blu" "$NEXT" "$c_rst"

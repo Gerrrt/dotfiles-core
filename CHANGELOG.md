@@ -13,6 +13,16 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`auto-tag.sh --release` fails CI when an opted-in Release create actually fails.** The
+  `gh release create` error branch called `fail` but the script still exited 0, so a real
+  failure (gh present, API error) went green with no Release. It now `exit 1`s there — the
+  tag still stands (pushed above), but CI goes red so you create the Release manually. The
+  two non-failure exits stay deliberate: gh absent → skip, Release already exists → no-op.
+  Also added `--release` to the `usage()` synopsis line (it was only in the flag list) and
+  clarified its gh/skip semantics.
+
 ## [v2.4.1] - 2026-06-29
 
 ### Changed
