@@ -15,6 +15,18 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
 
 ### Added
 
+- **`sesh` detection (`HAVE_SESH`) — finishing wiring Core already half-shipped.**
+  `sesh` (joshmedeski's smart tmux session manager) was already driven by the
+  `Ctrl-G` shell widget (`fzf.zsh`), the `prefix + f` tmux popup (`tmux-sesh.sh`),
+  a seeded `sesh/sesh.toml.example`, and listed in `core-doctor`'s integrations —
+  but `tools.zsh` never actually probed for it, so a bare box silently dropped to
+  the `find`+`fzf` fallback with no signal as to why. `tools.zsh` now sets
+  `HAVE_SESH` (like `HAVE_GUM`, no `_core_wired` arm — sesh registers no persistent
+  shell hook, so presence ≈ wired), and `PORTING-MATRIX.md` gains a `sesh` row +
+  footnote documenting the `go install github.com/joshmedeski/sesh/v2@latest` build
+  path (the **v2** module path; `go` is already a pinned mise runtime) for the
+  distros that don't package it. No `core.manifest` change — the `.example` is
+  already listed.
 - **`RELEASE-RUNBOOK.md`** — the step-by-step, copy-paste recipe for cutting a release
   (Core, the OS-repo fan-out rollout, and htpx), plus a "dry-run a new cross-repo
   workflow before relying on it" habit and a troubleshooting table. Complements
