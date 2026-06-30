@@ -59,6 +59,9 @@ make sync           # fan Core out to every OS repo (after a green audit)
 
 Run `make` with no target for the discoverable list of entry points.
 
+To cut a release, follow `RELEASE-RUNBOOK.md` (exact commands for Core, the OS-repo
+rollout, and htpx); `RELEASE-STRATEGY.md` is the policy behind it.
+
 ## Maintenance routines (`.claude/`)
 
 On-demand routines that automate the judgment-heavy chores `audit-core.sh` can't:

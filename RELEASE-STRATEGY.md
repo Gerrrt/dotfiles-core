@@ -7,6 +7,10 @@ layer** that ties together the machinery already in the tree — `core.version`,
 discipline, and one safe-rollout path. When a rule here drifts from `README.md`
 or `CONTRIBUTING.md`, those win; fix this.
 
+> Looking for the **exact commands** to cut a release (Core, the OS-repo rollout, or
+> htpx)? See **`RELEASE-RUNBOOK.md`** — the step-by-step recipe. This doc is the *why*
+> and *when*; the runbook is the *what to type*.
+
 The short version: **Core is the only thing that is versioned and released. The
 OS and Role repos are consumers that pull a named Core version when they choose
 to.** Releases are cut on a predictable monthly rhythm (plus out-of-band for
