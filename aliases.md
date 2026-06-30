@@ -8,7 +8,7 @@ Load order: `tools.zsh` sets `HAVE_*` flags first, then `aliases.zsh` reads them
 ## Modern CLI Replacements
 
 | Alias | Expands To | Requires |
-|-------|-----------|----------|
+| ------- | ----------- | ---------- |
 | `ls` | `eza --group-directories-first --icons=auto` | eza |
 | `ll` | `eza -lah --group-directories-first --icons=auto --git` | eza |
 | `la` | `eza -a --group-directories-first --icons=auto` | eza |
@@ -39,7 +39,7 @@ Load order: `tools.zsh` sets `HAVE_*` flags first, then `aliases.zsh` reads them
 ## Editors & Launchers
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `vim` | `nvim` |
 | `lg` | `lazygit` |
 | `notes` | `cd "$NOTES_DIR" && nvim .` |
@@ -48,7 +48,7 @@ Load order: `tools.zsh` sets `HAVE_*` flags first, then `aliases.zsh` reads them
 ## Navigation & Safety
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `-` | `cd -` (previous directory) |
 | `diff` | `diff --color=auto` |
 | `rm` | `rm -i` (interactive) |
@@ -59,7 +59,7 @@ Load order: `tools.zsh` sets `HAVE_*` flags first, then `aliases.zsh` reads them
 ## Network
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `myip` | `curl -fsS https://ifconfig.me` |
 | `ports` | `ss -tulpn` (falls back to `netstat -tulpn`) |
 
@@ -69,7 +69,7 @@ Active when `jj` is installed — `tools.zsh` detects the binary and sets `HAVE_
 automatically. No manual config required; install `jj` and these aliases appear.
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `jjs` | `jj status` |
 | `jjl` | `jj log` |
 | `jjd` | `jj diff` |
@@ -84,13 +84,13 @@ Sourced from `zsh/git.zsh` (OMZ-compatible). Three interactive fuzzy helpers
 ### Core
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `g` | `git` |
 
 ### Status
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `gst` | `git status` |
 | `gss` | `git status --short` |
 | `gsb` | `git status --short --branch` |
@@ -98,7 +98,7 @@ Sourced from `zsh/git.zsh` (OMZ-compatible). Three interactive fuzzy helpers
 ### Staging
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `ga` | `git add` |
 | `gaa` | `git add --all` |
 | `gap` | `git add --patch` |
@@ -106,7 +106,7 @@ Sourced from `zsh/git.zsh` (OMZ-compatible). Three interactive fuzzy helpers
 ### Commit
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `gc` | `git commit --verbose` |
 | `gcm` | `git commit --message` |
 | `gca` | `git commit --verbose --all` |
@@ -117,7 +117,7 @@ Sourced from `zsh/git.zsh` (OMZ-compatible). Three interactive fuzzy helpers
 ### Branch
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `gb` | `git branch` |
 | `gba` | `git branch --all` |
 | `gbd` | `git branch --delete` |
@@ -127,7 +127,7 @@ Sourced from `zsh/git.zsh` (OMZ-compatible). Three interactive fuzzy helpers
 ### Checkout / Switch
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `gco` | `git checkout` |
 | `gcb` | `git checkout -b` |
 | `gcom` | `git checkout <main branch>` |
@@ -138,7 +138,7 @@ Sourced from `zsh/git.zsh` (OMZ-compatible). Three interactive fuzzy helpers
 ### Diff
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `gd` | `git diff` |
 | `gds` | `git diff --staged` |
 | `gdw` | `git diff --word-diff` |
@@ -146,7 +146,7 @@ Sourced from `zsh/git.zsh` (OMZ-compatible). Three interactive fuzzy helpers
 ### Log
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `glog` | `git log --oneline --decorate --graph` |
 | `gloga` | `git log --oneline --decorate --graph --all` |
 | `glol` | Compact pretty log (abbreviated hash + relative time) |
@@ -155,7 +155,7 @@ Sourced from `zsh/git.zsh` (OMZ-compatible). Three interactive fuzzy helpers
 ### Fetch / Pull / Push
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `gf` | `git fetch` |
 | `gfa` | `git fetch --all --prune --tags` |
 | `gl` | `git pull` |
@@ -168,7 +168,7 @@ Sourced from `zsh/git.zsh` (OMZ-compatible). Three interactive fuzzy helpers
 ### Stash
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `gsta` | `git stash push` |
 | `gstaa` | `git stash push --include-untracked` |
 | `gstp` | `git stash pop` |
@@ -178,7 +178,7 @@ Sourced from `zsh/git.zsh` (OMZ-compatible). Three interactive fuzzy helpers
 ### Rebase
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `grb` | `git rebase` |
 | `grbi` | `git rebase --interactive` |
 | `grbm` | `git rebase <main branch>` |
@@ -188,7 +188,7 @@ Sourced from `zsh/git.zsh` (OMZ-compatible). Three interactive fuzzy helpers
 ### Reset / Restore
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `grh` | `git reset` |
 | `grhh` | `git reset --hard` |
 | `grs` | `git restore` |
@@ -197,7 +197,7 @@ Sourced from `zsh/git.zsh` (OMZ-compatible). Three interactive fuzzy helpers
 ### Remote / Merge
 
 | Alias | Expands To |
-|-------|------------|
+| ------- | ------------ |
 | `gr` | `git remote` |
 | `grv` | `git remote --verbose` |
 | `gm` | `git merge` |
