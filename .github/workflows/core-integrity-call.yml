@@ -12,7 +12,7 @@ name: core-integrity (reusable)
 #   permissions: { contents: read }
 #   jobs:
 #     guard:
-#       uses: Gerrrt/dotfiles-core/.github/workflows/core-integrity-call.yml@main
+#       uses: dotgibson/dotfiles-core/.github/workflows/core-integrity-call.yml@main
 #
 # It checks out the calling repo + this repo (the reference, full history), then runs
 # scripts/core-integrity.sh --self against the caller — the SAME content-addressed

@@ -28,6 +28,14 @@ commit (`git tag -a vX.Y.Z -m vX.Y.Z`).
   scoop/winget can't then replace the in-use git binary to update it). Pairs with a
   Windows-side pwsh change that makes shell-spawned git fail fast rather than block
   on an auth prompt.
+- **Repo-location references migrated from the `Gerrrt` personal account to the
+  `dotgibson` org.** Vendored-out URLs (`.bin/sync-upstream.sh`, `ARCHITECTURE.md`),
+  the reusable-workflow `uses:` refs, the showcase Pages badge (`gerrrt.github.io` →
+  `dotgibson.github.io`), and the `github.repository_owner == 'dotgibson'` guards in
+  `release`/`sync-fanout`/`notify-web` (which silently no-op under any other owner)
+  now point at the new org. The nvim `lua/gerrrt/**` module namespace and the
+  `@gerrrt` code-owner are deliberately unchanged — those are the personal handle,
+  not repo locations.
 
 ## [v2.6.0] - 2026-06-30
 

@@ -90,7 +90,7 @@ Core flows in one direction — authored here, copied out:
 Each machine repo vendors Core under `core/` once:
 
 ```bash
-git subtree add --prefix=core https://github.com/Gerrrt/dotfiles-core main --squash
+git subtree add --prefix=core https://github.com/dotgibson/dotfiles-core main --squash
 ```
 
 After a Core change, one helper fans it out to the whole fleet:

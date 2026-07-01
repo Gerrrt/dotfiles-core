@@ -19,7 +19,7 @@ name: auto-tag (reusable)
 #   concurrency: { group: auto-tag-${{ github.ref }}, cancel-in-progress: false }
 #   jobs:
 #     tag:
-#       uses: Gerrrt/dotfiles-core/.github/workflows/auto-tag-call.yml@v2
+#       uses: dotgibson/dotfiles-core/.github/workflows/auto-tag-call.yml@v2
 #
 # Runs the SAME scripts/auto-tag.sh the audit shellchecks/tests, so there is one
 # definition of the version math. First-party only; tags in CI (no operator round-trip).
