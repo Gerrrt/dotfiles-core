@@ -33,7 +33,7 @@ concurrency:
 
 jobs:
   publish:
-    if: github.repository_owner == 'Gerrrt'
+    if: github.repository_owner == 'dotgibson'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

@@ -67,7 +67,7 @@ jobs:
     # First-party only, and on the workflow_run path only when the release actually
     # succeeded (a failed/cancelled release must not fan a half-baked tag out).
     if: >-
-      github.repository_owner == 'Gerrrt' &&
+      github.repository_owner == 'dotgibson' &&
       (github.event_name == 'workflow_dispatch' ||
        github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest

@@ -18,7 +18,7 @@
 # A caller stub (in an OS repo) looks like:
 #   jobs:
 #     test:
-#       uses: Gerrrt/dotfiles-core/.github/workflows/bootstrap-test.yml@main
+#       uses: dotgibson/dotfiles-core/.github/workflows/bootstrap-test.yml@main
 #       with:
 #         image: alpine:3.20
 #         prep:  apk add --no-cache bash zsh

@@ -5,7 +5,7 @@ dotfiles system — authored once, vendored into every OS layer via `git subtree
 
 `zsh` · `nvim` · `tmux` · `starship`
 
-[![showcase](https://img.shields.io/badge/showcase-live-7aa2f7?style=flat-square)](https://gerrrt.github.io/dotfiles-web/) ![audit](https://img.shields.io/badge/audit-passing-9ece6a?style=flat-square)
+[![showcase](https://img.shields.io/badge/showcase-live-7aa2f7?style=flat-square)](https://dotgibson.github.io/dotfiles-web/) ![audit](https://img.shields.io/badge/audit-passing-9ece6a?style=flat-square)
 
 ---
 

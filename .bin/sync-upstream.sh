@@ -14,7 +14,7 @@ set -euo pipefail
 
 # --- Configuration ------------------------------------------------------------
 # The upstream source of truth that core/ is vendored from.
-CORE_REPO_URL="https://github.com/Gerrrt/dotfiles-core"
+CORE_REPO_URL="https://github.com/dotgibson/dotfiles-core"
 # The target branch in the upstream repository.
 TARGET_BRANCH="main"
 # The vendored Core subtree, relative to the OS repo root.
