@@ -24,6 +24,7 @@ M.sections = {
 	{
 		"Essentials",
 		{ "<leader>?", "Open this cheatsheet" },
+		{ "<leader>wk", "Buffer-local keys" },
 		{ "<leader>rc", "Edit init.lua" },
 		{ "<Esc>", "Clear search highlight" },
 		{ "<leader>pa", "Copy full file path" },
@@ -374,8 +375,11 @@ function M.open()
 	vim.bo[buf].filetype = "cheatsheet"
 	vim.bo[buf].bufhidden = "wipe"
 
-	local width = math.min(content_w, vim.o.columns - 2)
-	local height = math.min(#lines, math.floor(vim.o.lines * 0.9))
+	-- The rounded border adds a cell on every side, so the *outer* window is width+2 × height+2.
+	-- Clamp the inner size to columns-4 / lines-4 (border + a 1-cell margin) so nvim_open_win can
+	-- never be asked for a float larger than the grid — which would error on a very small terminal.
+	local width = math.max(1, math.min(content_w, vim.o.columns - 4))
+	local height = math.max(1, math.min(#lines, math.floor(vim.o.lines * 0.9), vim.o.lines - 4))
 	local win = vim.api.nvim_open_win(buf, true, {
 		relative = "editor",
 		width = width,
